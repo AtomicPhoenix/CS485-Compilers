@@ -57,6 +57,18 @@ get_ident() =
      let line = read() in
         let str = read() in
         ( line, str )
+
 let ast = List.init (int_of_string (read())) (fun _ -> get_class())
 let class_list = List.map (fun ((_, name), _) -> name) (ast)
-let () = Printf.printf "%d \t Number of Classes\n" (List.length (class_list))
+let () = Printf.printf "%d\tNumber of Classes\n" (List.length (class_list))
+
+let print_ident((a,b)) : unit = 
+        let () = Printf.printf "%s\tIdentifier String\n" b in 
+        let () = Printf.printf "%s\tIdentifier Num\n" a in ()
+
+let print_class ((iden, featureList)) : unit = 
+         let () = print_ident(iden) in
+         let () = Printf.printf "%d\tNumber of Features\n" (List.length (featureList)) in ()
+
+let () = List.iter print_class ast
+
