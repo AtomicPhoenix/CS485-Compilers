@@ -1,0 +1,29 @@
+		BEGIN AST
+1  			One Element in Class List
+		BEGIN CLASS 1
+1			Identifier Line Num (Class)
+Main			Identifier String (Class)
+inherits		Inherits from smth
+1			Identifier Line Num (Superclass)
+IO			Identifier String (Superclass)
+		BEGIN FEATURE LIST
+1			One Element in Feature List
+method			Feature Name
+2			Identifier Line Num (Method)
+main			Identifier Line String (Method)
+		BEGIN FORMALS LIST
+0			Zero Elements in Formal List
+		BEGIN TYPE IDENTIFIER
+2			Type Line Num 
+Object			Type String
+		BEGIN EXPRESSIOn
+3			Expression Line Num
+self_dispatch		Expression Name
+		BEGIN EXPRESSION: self_dispatch
+3			Identifier Line Num (Method)
+out_string		Identifier Line String (Method)
+		BEGIN EXP-LIST
+1			One Element in Exp-List
+3			Identifier Line Num (Exp)
+string			Identifier String (exp)
+Hello, world.\n		the_string_constant
