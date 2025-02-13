@@ -1,1 +1,4 @@
 PA1/
+*.cm?
+out
+main
