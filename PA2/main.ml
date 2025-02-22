@@ -101,7 +101,7 @@ let default_classes =
       features = [];
     };
     {
-      typename = { line_num = 0; name = "Integer" };
+      typename = { line_num = 0; name = "Int" };
       inherits = Some { line_num = 0; name = "Object" };
       features = [];
     };
@@ -406,7 +406,7 @@ and print_expression (exp : expr) =
 and print_init_expression ((exp : expr), (typename : string)) =
   match exp with
   | Expression (id, sub) ->
-      printf "%d\n%s\n%s\n" id.line_num typename id.name;
+      printf "%d\n%s\n" id.line_num id.name;
       print_sub_expr sub
 
 and print_identifier (id : identifier) = printf "%d\n%s\n" id.line_num id.name

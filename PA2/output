@@ -6,14 +6,13 @@ initializer
 a
 Int
 9
-Int
 integer
 5
 Bool
 0
 IO
 0
-Integer
+Int
 0
 Main
 1
@@ -21,7 +20,6 @@ initializer
 my_attribute
 Int
 2
-Int
 integer
 5
 Object
