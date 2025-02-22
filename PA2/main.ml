@@ -9,11 +9,12 @@ and cool_class = {
   inherits : identifier option;
   features : feature list;
 }
-(** cool class is an identifier of the typename, an identifier of the inherit,
+
+(* cool class is an identifier of the typename, an identifier of the inherit,
     and a feature list *)
 (*and expr = identifier*)
-and expression = int * expr
-(** A COOL expression *)
+
+(* A COOL expression *)
 and expr = Expression of identifier * sub_expr
 
 and sub_expr =
@@ -43,9 +44,11 @@ and let_expr =
   | Let_Binding_Init of identifier * identifier * expr
       (** line number & "let" (identifier), variable (identifier), type
           (identifier), and value (exp)*)
+
 and feature =
-  | Attribute of identifier * identifier * expr option
-      (** name (identifier), type (identifier), and assignment (expr option, to cover no init) *)
+  | Attribute of (identifier * identifier * expr option)
+      (** name (identifier), type (identifier), and assignment (expr option, to
+          cover no init) *)
   | Method of identifier * formal list * identifier * expr
       (** name (identifier), formal list (formal list), type (identifier), and
           body (expression) *)
@@ -65,9 +68,7 @@ and case_el = { variable : identifier; typename : identifier; elem_body : expr }
 (** variable (identifier), type (identifier), and case-element-body (exp) *)
 
 and arith_operator = Plus | Minus | Times | Divide
-
 and comparison_operator = LessThan | LessEqual | Equal
-
 and bool_val = True | False
 
 let file = open_in Sys.argv.(1)
@@ -75,150 +76,242 @@ let file = open_in Sys.argv.(1)
 (** Read line returns one line from the AST*)
 let read () = input_line file
 
-(*-----------------EVERYTHING BELOW IS PROBABLY BROKEN-----------------------------------*)
-let rec get_class () =
-  {
-    typename = get_ident ();
-    inherits = get_inherits ();
-    features = get_feature_list ();
-  }
-
-and get_inherits () =
-  let does_inherit = read () in
-  if does_inherit = "no_inherit" then None else Some (get_ident ())
+let rec get_class () : cool_class =
+  let ident = get_identifier () in
+  let inh = get_inherits () in
+  let feats = get_feature_list () in
+  { typename = ident; inherits = inh; features = feats }
 
 and get_feature_list () =
-  List.init (int_of_string (read ())) (fun _ -> get_feature ())
+  try List.init (int_of_string (read ())) (fun _ -> get_feature ())
+  with _ -> raise (Invalid_argument "Get Feature List: Not a num")
 
 and get_expression_list () =
-  List.init (int_of_string (read ())) (fun _ -> get_expression ())
+  try List.init (int_of_string (read ())) (fun _ -> get_expression ())
+  with _ -> raise (Invalid_argument "Not a num")
 
+and get_formal_list () =
+  try List.init (int_of_string (read ())) (fun _ -> get_formal ())
+  with _ -> raise (Invalid_argument "Not a num")
 
-and get_ident () : identifier =
-  let line = read () in
-  let str = read () in
-  { line_num = int_of_string line; name = str }
-
-(* TODO: Make this get non-attribute features *)
-and get_feature () : feature =
-  (*let name = read () in*)
-  let attr_name = get_ident () in
-  let attr_type = get_ident () in
-  (*(name, attr_name, attr_type)*)
-  Attribute (attr_name, attr_type, get_expression ())
+and get_class_list () =
+  try List.init (int_of_string (read ())) (fun _ -> get_class ())
+  with _ -> raise (Invalid_argument "Not a num")
 
 and get_expression () : expr =
-  let base_expr = get_ident () in
+  let base_expr = get_identifier () in
   Expression (base_expr, get_sub_expr base_expr.name)
 
 and get_sub_expr = function
-  | "assign" -> Assignment (get_ident (), get_expression ())
+  | "assign" ->
+      let i = get_identifier () in
+      let e = get_expression () in
+      Assignment (i, e)
   | "dyanmic_dispatch" ->
-      Dynamic_Dispatch (get_expression (), get_ident (), get_expression_list ())
+      let e = get_expression () in
+      let i = get_identifier () in
+      let el = get_expression_list () in
+      Dynamic_Dispatch (e, i, el)
   | "static_dispatch" ->
-      Static_Dispatch
-        (get_expression (), get_ident (), get_ident (), get_expression_list ())
-  | "self_dispatch" -> Self_Dispatch (get_ident (), get_expression_list ())
-  | "if" -> If (get_expression (), get_expression (), get_expression ())
-  | "while" -> While (get_expression (), get_expression ())
+      let e = get_expression () in
+      let i1 = get_identifier () in
+      let i2 = get_identifier () in
+      let el = get_expression_list () in
+      Static_Dispatch (e, i1, i2, el)
+  | "self_dispatch" ->
+      let i = get_identifier () in
+      let el = get_expression_list () in
+      Self_Dispatch (i, el)
+  | "if" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      let e3 = get_expression () in
+      If (e1, e2, e3)
+  | "while" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      While (e1, e2)
   | "block" -> Block (get_expression_list ())
-  | "new" -> New (get_ident ())
+  | "new" -> New (get_identifier ())
   | "isvoid" -> Isvoid (get_expression ())
-  | "plus" -> Arith_Operation (Plus, get_expression (), get_expression ())
-  | "minus" -> Arith_Operation (Minus, get_expression (), get_expression ())
-  | "times" -> Arith_Operation (Times, get_expression (), get_expression ())
-  | "divide" -> Arith_Operation (Divide, get_expression (), get_expression ())
-  | "lt" -> Comparison_Operation (LessThan, get_expression (), get_expression ())
+  | "plus" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      Arith_Operation (Plus, e1, e2)
+  | "minus" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      Arith_Operation (Minus, e1, e2)
+  | "times" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      Arith_Operation (Times, e1, e2)
+  | "divide" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      Arith_Operation (Divide, e1, e2)
+  | "lt" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      Comparison_Operation (LessThan, e1, e2)
   | "le" ->
-      Comparison_Operation (LessEqual, get_expression (), get_expression ())
-  | "eq" -> Comparison_Operation (Equal, get_expression (), get_expression ())
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      Comparison_Operation (LessEqual, e1, e2)
+  | "eq" ->
+      let e1 = get_expression () in
+      let e2 = get_expression () in
+      Comparison_Operation (Equal, e1, e2)
   | "not" -> Not (get_expression ())
   | "negate" -> Negate (get_expression ())
   | "integer" -> Int_Constant (int_of_string (read ()))
   | "string" -> String_Constant (read ())
-  | "_identifier_" -> Ident_Expr (get_ident ())
+  | "_identifier_" -> Ident_Expr (get_identifier ())
   | "true" -> Boolean_Constant True
   | "false" -> Boolean_Constant False
   | _ -> raise Not_found
 
-
-
-
-let ast = List.init (int_of_string (read ())) (fun _ -> get_class ())
-let class_list = List.map (fun c_class -> c_class.typename) ast
-let () = Printf.printf "%d\tNumber of Classes\n" (List.length class_list)
-
-let rec print_ident ident : unit =
-  Printf.printf "%s\tIdentifier String\n" ident.name;
-  Printf.printf "%d\tIdentifier Num\n" ident.line_num
-
-and print_class c_class : unit =
-  print_ident c_class.typename;
-  Printf.printf "%d\tNumber of Features\n" (List.length c_class.features)
-
-let () = List.iter print_class ast *)
-
-let get_identifier () : identifier =
-  let linenum = int_of_string (read ()) in
+and get_identifier () : identifier =
+  let r = read () in
+  let linenum = int_of_string r in
   let name = read () in
-  {line_num=linenum; name=name;}
-let get_inherits () : identifier option =
+  { line_num = linenum; name }
+
+and get_inherits () : identifier option =
   let does_inherit = read () in
-  if does_inherit = "no_inherit" then
-    None
-  else
-    Some (get_identifier ())
-let rec make_elem_list lst num fn = match num with
+  if does_inherit = "no_inherit" then None else Some (get_identifier ())
+(*
+and make_elem_list lst num fn = match num with
   | 0 -> lst
   | _ -> make_elem_list (lst@[fn ()]) (num-1) fn
+*)
 
-
-let get_no_init_attribute () =
+and get_no_init_attribute () =
   let name = get_identifier () in
   let typename = get_identifier () in
-  Attribute (name,typename,None)
-let get_init_attribute () =
+  Attribute (name, typename, None)
+
+and get_init_attribute () =
   let name = get_identifier () in
   let typename = get_identifier () in
   let exp = get_expression () in
-  Attribute (name,typename,exp)
+  Attribute (name, typename, Some exp)
 
-let get_formal () =
+and get_formal () =
   let name = get_identifier () in
   let typename = get_identifier () in
-  {name=name; typename=typename}
+  { name; typename }
 
-let get_formals () =
-  let formal_num = int_of_string (read ()) in
-  make_elem_list [] formal_num get_formal
-let get_method () =
+and get_method () =
   let name = get_identifier () in
-  let formals = get_formals () in
+  let formals = get_formal_list () in
   let typename = get_identifier () in
   let body = get_expression () in
   Method (name, formals, typename, body)
-let get_feature () =
+
+and get_feature () =
   let feat_type = read () in
   match feat_type with
   | "attribute_no_init" -> get_no_init_attribute ()
   | "attribute_init" -> get_init_attribute ()
   | "method" -> get_method ()
   | _ -> assert false
-  
-let get_feature_list () =
-  let feat_num = int_of_string (read ()) in
-  make_elem_list [] feat_num get_feature
-  
-let get_class () : cool_class =
-  let name = get_identifier () in
-  let inherits = get_inherits () in
-  let feats = get_feature_list () in
-  {typename=name; inherits=inherits; features=feats;}
 
+let ast = List.init (int_of_string (read ())) (fun _ -> get_class ())
+let printf = Printf.printf
 
-let get_program () = begin
-  let class_num = int_of_string (read ()) in
-  let ast = make_elem_list [] class_num get_class in
-  ast
+let print_class_map =
+  printf "class_map\n";
+  printf "%d\n" (List.length ast)
 
-end
+let rec get_attribute_count (c_class : cool_class) : int = 5
+
+and print_features (feat : feature) =
+  match feat with
+  | Attribute (name, typ, assign) -> (
+      match assign with
+      | None -> printf "no_initializer\n%s\n%s\n" name.name typ.name
+      | Some exp ->
+          printf "initializer\n%s\n%s\n" name.name typ.name;
+          print_expression exp)
+  | _ -> ()
+
+and print_attributes (c_class : cool_class) =
+  let feats = c_class.features in
+  let atrs =
+    List.filter
+      (function
+        | el -> ( match el with Attribute (e1, e2, _) -> true | _ -> false))
+      feats
+  in
+  List.iter print_features atrs
+
+and print_expression (exp : expr) =
+  match exp with
+  | Expression (id, sub) ->
+      print_identifier id;
+      print_sub_expr sub
+
+and print_identifier (id : identifier) = printf "%d\n%s\n" id.line_num id.name
+
+and print_sub_expr (sub_exp : sub_expr) =
+  match sub_exp with
+  | Assignment (id, exp) ->
+      print_identifier id;
+      print_expression exp
+  | Dynamic_Dispatch (exp, id, el) ->
+      print_expression exp;
+      print_identifier id;
+      List.iter print_expression el
+  | Static_Dispatch (exp, id1, id2, el) ->
+      print_expression exp;
+      print_identifier id1;
+      print_identifier id2;
+      List.iter print_expression el
+  | Self_Dispatch (id, el) ->
+      print_identifier id;
+      List.iter print_expression el
+  | If (exp1, exp2, exp3) ->
+      print_expression exp1;
+      print_expression exp2;
+      print_expression exp3
+  | While (exp1, exp2) ->
+      print_expression exp1;
+      print_expression exp2
+  | Block el -> List.iter print_expression el
+  | New id -> print_identifier id
+  | Isvoid exp -> print_expression exp
+  | Arith_Operation (typename, exp, exp2) ->
+      (match typename with
+      | Plus -> ()
+      | Minus -> ()
+      | Divide -> ()
+      | Times -> ());
+      print_expression exp;
+      print_expression exp2
+  | Comparison_Operation (typename, exp, exp2) ->
+      (match typename with Equal -> () | LessThan -> () | LessEqual -> ());
+      print_expression exp;
+      print_expression exp2
+  | Not exp -> print_expression exp
+  | Negate exp -> print_expression exp
+  | Int_Constant i -> printf "%d\n" i
+  | String_Constant s -> printf "%s\n" s
+  | Ident_Expr s -> print_identifier s
+  | Boolean_Constant v -> (
+      match v with
+      | True -> print_endline "true"
+      | False -> print_endline "false")
+  | Let_Expr (let_exp1, exp2) ->
+      (match let_exp1 with
+      | Let_Binding_Init _ -> print_endline "let_binding_no_init"
+      | Let_Binding_No_Init _ -> print_endline "let_binding_no_init");
+      print_expression exp2
+
+(*
+  let print_class (c_class : cool_class) =
+    printf "%s" c_class.typename.name;
+    printf "%d" (get_attribute_count c_class);
+    print_attributes c_class
+  in
+  List.iter print_class ast *)
