@@ -12,7 +12,7 @@ and cool_class = {
 (** cool class is an identifier of the typename, an identifier of the inherit,
     and a feature list *)
 (*and expr = identifier*)
-
+and expression = int * expr
 (** A COOL expression *)
 and expr = Expression of identifier * sub_expr
 
@@ -43,30 +43,12 @@ and let_expr =
   | Let_Binding_Init of identifier * identifier * expr
       (** line number & "let" (identifier), variable (identifier), type
           (identifier), and value (exp)*)
-
-(* maybe dead code? *)
-(*and attribute =*)
-(*{*)
-(*name : identifier;*)
-(*typename : identifier;*)
-(*expression : expr;*)
-(*}*)
-
-(*and feat_method =*)
-(*{*)
-(*methodname : identifier;*)
-(*arguments : formal list;*)
-(*typename : identifier;*)
-(*body : expr;*)
-(*}*)
 and feature =
-  | Attribute of identifier * identifier * expr
-      (** name (identifier), type (identifier), and assignment (expr) *)
-  (*| Attribute of attribute*)
+  | Attribute of identifier * identifier * expr option
+      (** name (identifier), type (identifier), and assignment (expr option, to cover no init) *)
   | Method of identifier * formal list * identifier * expr
       (** name (identifier), formal list (formal list), type (identifier), and
           body (expression) *)
-(*| Method of feat_method*)
 
 and formal = { name : identifier; typename : identifier }
 (** name (identifier) and type (identifier) *)
@@ -82,90 +64,9 @@ and case = { lnum : identifier; case_exp : expr; elements : case_el list }
 and case_el = { variable : identifier; typename : identifier; elem_body : expr }
 (** variable (identifier), type (identifier), and case-element-body (exp) *)
 
-(* expr types *)
-(*
-and assign =
-  {
-    var : identifier;
-    rhs : expr;
-  }
-and dynamic_dispatch =
-  {
-    e : expr;
-    typename : identifier;
-    methodname : identifier;
-    args : expr list;
-  }
-and static_dispatch =
-  {
-    e : expr;
-    typename : identifier;
-    methodname : identifier;
-    args : expr list;
-  }
-and self_dispatch =
-  {
-    methodname : identifier;
-    args : expr list;
-  }
-and if_stmt =
-  {
-    predicate : expr;
-    body : expr;
-    else_body : expr;
-  }
-and while_stmt =
-  {
-    predicate : expr;
-    body : expr;
-  }
-and block =
-  {
-    body : expr list;
-  }
-and new_stmt =
-  {
-    classname : identifier;
-  }
-and isvoid_expr =
-  {
-    e : expr;
-  }
-*)
 and arith_operator = Plus | Minus | Times | Divide
 
-(*
-and arith_oper =
-  {
-    operator : arith_operator;
-    x : expr;
-    y : expr;
-  }
-*)
 and comparison_operator = LessThan | LessEqual | Equal
-(*
-and comparison_oper =
-  {
-    operator : comparison_operator;
-    x : expr;
-    y : expr;
-  }
-
-and not_expr =
-  {
-    x : expr;
-  }
-
-and negate_expr =
-  {
-    x : expr;
-  }
-  
-and underscore_ident =
-  {
-    variable : identifier;
-  }
-*)
 
 and bool_val = True | False
 
@@ -191,10 +92,7 @@ and get_feature_list () =
 
 and get_expression_list () =
   List.init (int_of_string (read ())) (fun _ -> get_expression ())
-(* let rec get_list_inner len =
-    if (len<=0) then []
-    else func()k :: get_list_inner (len-1)
-  in get_list_inner (int_of_string (read())) *)
+
 
 and get_ident () : identifier =
   let line = read () in
@@ -243,6 +141,9 @@ and get_sub_expr = function
   | "false" -> Boolean_Constant False
   | _ -> raise Not_found
 
+
+
+
 let ast = List.init (int_of_string (read ())) (fun _ -> get_class ())
 let class_list = List.map (fun c_class -> c_class.typename) ast
 let () = Printf.printf "%d\tNumber of Classes\n" (List.length class_list)
@@ -255,4 +156,69 @@ and print_class c_class : unit =
   print_ident c_class.typename;
   Printf.printf "%d\tNumber of Features\n" (List.length c_class.features)
 
-let () = List.iter print_class ast
+let () = List.iter print_class ast *)
+
+let get_identifier () : identifier =
+  let linenum = int_of_string (read ()) in
+  let name = read () in
+  {line_num=linenum; name=name;}
+let get_inherits () : identifier option =
+  let does_inherit = read () in
+  if does_inherit = "no_inherit" then
+    None
+  else
+    Some (get_identifier ())
+let rec make_elem_list lst num fn = match num with
+  | 0 -> lst
+  | _ -> make_elem_list (lst@[fn ()]) (num-1) fn
+
+
+let get_no_init_attribute () =
+  let name = get_identifier () in
+  let typename = get_identifier () in
+  Attribute (name,typename,None)
+let get_init_attribute () =
+  let name = get_identifier () in
+  let typename = get_identifier () in
+  let exp = get_expression () in
+  Attribute (name,typename,exp)
+
+let get_formal () =
+  let name = get_identifier () in
+  let typename = get_identifier () in
+  {name=name; typename=typename}
+
+let get_formals () =
+  let formal_num = int_of_string (read ()) in
+  make_elem_list [] formal_num get_formal
+let get_method () =
+  let name = get_identifier () in
+  let formals = get_formals () in
+  let typename = get_identifier () in
+  let body = get_expression () in
+  Method (name, formals, typename, body)
+let get_feature () =
+  let feat_type = read () in
+  match feat_type with
+  | "attribute_no_init" -> get_no_init_attribute ()
+  | "attribute_init" -> get_init_attribute ()
+  | "method" -> get_method ()
+  | _ -> assert false
+  
+let get_feature_list () =
+  let feat_num = int_of_string (read ()) in
+  make_elem_list [] feat_num get_feature
+  
+let get_class () : cool_class =
+  let name = get_identifier () in
+  let inherits = get_inherits () in
+  let feats = get_feature_list () in
+  {typename=name; inherits=inherits; features=feats;}
+
+
+let get_program () = begin
+  let class_num = int_of_string (read ()) in
+  let ast = make_elem_list [] class_num get_class in
+  ast
+
+end
