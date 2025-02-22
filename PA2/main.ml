@@ -14,7 +14,9 @@ and cool_class = {
 (*and expr = identifier*)
 
 (** A COOL expression *)
-and expr =
+and expr = Expression of identifier * sub_expr
+
+and sub_expr =
   | Assignment of identifier * expr
   | Dynamic_Dispatch of expr * identifier * expr list
   | Static_Dispatch of expr * identifier * identifier * expr list
@@ -57,7 +59,6 @@ and let_expr =
 (*typename : identifier;*)
 (*body : expr;*)
 (*}*)
-
 and feature =
   | Attribute of identifier * identifier * expr
       (** name (identifier), type (identifier), and assignment (expr) *)
@@ -174,13 +175,31 @@ let file = open_in Sys.argv.(1)
 let read () = input_line file
 
 (*-----------------EVERYTHING BELOW IS PROBABLY BROKEN-----------------------------------*)
-let rec get_class () = (get_ident (), get_feature_list ())
-and get_feature_list () = get_list get_feature
-and get_list func = List.init (int_of_string (read ())) (fun _ -> func ())
+let rec get_class () =
+  {
+    typename = get_ident ();
+    inherits = get_inherits ();
+    features = get_feature_list ();
+  }
+
+and get_inherits () =
+  let does_inherit = read () in
+  if does_inherit = "no_inherit" then None else Some (get_ident ())
+
+and get_feature_list () =
+  List.init (int_of_string (read ())) (fun _ -> get_feature ())
+
+and get_expression_list () =
+  List.init (int_of_string (read ())) (fun _ -> get_expression ())
 (* let rec get_list_inner len =
     if (len<=0) then []
     else func()k :: get_list_inner (len-1)
   in get_list_inner (int_of_string (read())) *)
+
+and get_ident () : identifier =
+  let line = read () in
+  let str = read () in
+  { line_num = int_of_string line; name = str }
 
 (* TODO: Make this get non-attribute features *)
 and get_feature () : feature =
@@ -188,26 +207,52 @@ and get_feature () : feature =
   let attr_name = get_ident () in
   let attr_type = get_ident () in
   (*(name, attr_name, attr_type)*)
-  Attribute (attr_name, attr_type)
+  Attribute (attr_name, attr_type, get_expression ())
 
-and get_ident () : identifier =
-  let line = read () in
-  Printf.printf "line: %s\n" line;
-  let lnum = int_of_string_opt line in
-  let str = read () in
-  Printf.printf "str: %s\n" str;
-  (Option.get lnum, str)
+and get_expression () : expr =
+  let base_expr = get_ident () in
+  Expression (base_expr, get_sub_expr base_expr.name)
+
+and get_sub_expr = function
+  | "assign" -> Assignment (get_ident (), get_expression ())
+  | "dyanmic_dispatch" ->
+      Dynamic_Dispatch (get_expression (), get_ident (), get_expression_list ())
+  | "static_dispatch" ->
+      Static_Dispatch
+        (get_expression (), get_ident (), get_ident (), get_expression_list ())
+  | "self_dispatch" -> Self_Dispatch (get_ident (), get_expression_list ())
+  | "if" -> If (get_expression (), get_expression (), get_expression ())
+  | "while" -> While (get_expression (), get_expression ())
+  | "block" -> Block (get_expression_list ())
+  | "new" -> New (get_ident ())
+  | "isvoid" -> Isvoid (get_expression ())
+  | "plus" -> Arith_Operation (Plus, get_expression (), get_expression ())
+  | "minus" -> Arith_Operation (Minus, get_expression (), get_expression ())
+  | "times" -> Arith_Operation (Times, get_expression (), get_expression ())
+  | "divide" -> Arith_Operation (Divide, get_expression (), get_expression ())
+  | "lt" -> Comparison_Operation (LessThan, get_expression (), get_expression ())
+  | "le" ->
+      Comparison_Operation (LessEqual, get_expression (), get_expression ())
+  | "eq" -> Comparison_Operation (Equal, get_expression (), get_expression ())
+  | "not" -> Not (get_expression ())
+  | "negate" -> Negate (get_expression ())
+  | "integer" -> Int_Constant (int_of_string (read ()))
+  | "string" -> String_Constant (read ())
+  | "_identifier_" -> Ident_Expr (get_ident ())
+  | "true" -> Boolean_Constant True
+  | "false" -> Boolean_Constant False
+  | _ -> raise Not_found
 
 let ast = List.init (int_of_string (read ())) (fun _ -> get_class ())
-let class_list = List.map (fun ((_, name), _) -> name) ast
+let class_list = List.map (fun c_class -> c_class.typename) ast
 let () = Printf.printf "%d\tNumber of Classes\n" (List.length class_list)
 
-let print_ident (a, b) : unit =
-  Printf.printf "%s\tIdentifier String\n" b;
-  Printf.printf "%d\tIdentifier Num\n" a
+let rec print_ident ident : unit =
+  Printf.printf "%s\tIdentifier String\n" ident.name;
+  Printf.printf "%d\tIdentifier Num\n" ident.line_num
 
-let print_class (iden, featureList) : unit =
-  print_ident iden;
-  Printf.printf "%d\tNumber of Features\n" (List.length featureList)
+and print_class c_class : unit =
+  print_ident c_class.typename;
+  Printf.printf "%d\tNumber of Features\n" (List.length c_class.features)
 
 let () = List.iter print_class ast
