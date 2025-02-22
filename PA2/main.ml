@@ -36,6 +36,7 @@ and sub_expr =
   | Ident_Expr of identifier
   | Boolean_Constant of bool_val
   | Let_Expr of let_expr * expr
+  | Internal of string * string
 
 and let_expr =
   | Let_Binding_No_Init of identifier * identifier
@@ -50,8 +51,9 @@ and feature =
       (** name (identifier), type (identifier), and assignment (expr option, to
           cover no init) *)
   | Method of identifier * formal list * identifier * expr
-      (** name (identifier), formal list (formal list), type (identifier), and
-          body (expression) *)
+
+(** name (identifier), formal list (formal list), type (identifier), and body
+    (expression) *)
 
 and formal = { name : identifier; typename : identifier }
 (** name (identifier) and type (identifier) *)
@@ -217,39 +219,88 @@ and get_feature () =
   | "method" -> get_method ()
   | _ -> assert false
 
-let ast = List.init (int_of_string (read ())) (fun _ -> get_class ())
 let printf = Printf.printf
 
-let print_class_map =
+let rec print_class_map ast =
   printf "class_map\n";
-  printf "%d\n" (List.length ast)
+  printf "%d\n" (List.length ast);
+  List.iter
+    (fun c_class ->
+      printf "%s\n" c_class.typename.name;
+      print_attributes c_class)
+    ast
 
-let rec get_attribute_count (c_class : cool_class) : int = 5
+and print_implementation_map ast =
+  printf "implementation_map\n";
+  printf "%d\n" (List.length ast);
+  List.iter
+    (fun c_class ->
+      printf "%s\n" c_class.typename.name;
+      print_methods c_class)
+    ast
 
-and print_features (feat : feature) =
-  match feat with
-  | Attribute (name, typ, assign) -> (
-      match assign with
-      | None -> printf "no_initializer\n%s\n%s\n" name.name typ.name
-      | Some exp ->
-          printf "initializer\n%s\n%s\n" name.name typ.name;
-          print_expression exp)
-  | _ -> ()
+and print_parent_map ast =
+  printf "parent_map\n";
+  printf "%d\n" (List.length ast - 1);
+  let no_object_ast =
+    List.filter (fun c_class -> not (c_class.typename.name = "Object")) ast
+  in
+  List.iter
+    (fun c_class ->
+      print_endline c_class.typename.name;
+      match c_class.inherits with
+      | Some inhrt -> print_endline inhrt.name
+      | None -> print_endline "Object")
+    no_object_ast
+
+and print_annotated_ast ast =
+  printf "%d\n" (List.length ast);
+  List.iter print_class ast
+
+and print_class c_class =
+  print_identifier c_class.typename;
+  (match c_class.inherits with
+  | Some inhrt -> printf "inherits\n%s\n" inhrt.name
+  | None -> print_endline "no_inherits");
+  print_features c_class (fun _ -> true)
+
+and print_features (c_class : cool_class) (predicate : feature -> bool) =
+  let selected = List.filter predicate c_class.features in
+  printf "%d\n" (List.length selected);
+  let print =
+   fun feat ->
+    match feat with
+    | Attribute (name, typ, assign) -> (
+        match assign with
+        | None -> printf "no_initializer\n%s\n%s\n" name.name typ.name
+        | Some exp ->
+            printf "initializer\n%s\n%s\n" name.name typ.name;
+            print_init_expression (exp, typ.name))
+    | Method (id, fl, id2, exp) ->
+        print_endline id.name;
+        printf "%d\n" (List.length fl);
+        List.iter (fun (f : formal) -> print_endline f.name.name) fl;
+        print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+        print_expression exp
+  in
+  List.iter print selected
+
+and print_methods (c_class : cool_class) =
+  print_features c_class (function Method _ -> true | _ -> false)
 
 and print_attributes (c_class : cool_class) =
-  let feats = c_class.features in
-  let atrs =
-    List.filter
-      (function
-        | el -> ( match el with Attribute (e1, e2, _) -> true | _ -> false))
-      feats
-  in
-  List.iter print_features atrs
+  print_features c_class (function Attribute _ -> true | _ -> false)
 
 and print_expression (exp : expr) =
   match exp with
   | Expression (id, sub) ->
       print_identifier id;
+      print_sub_expr sub
+
+and print_init_expression ((exp : expr), (typename : string)) =
+  match exp with
+  | Expression (id, sub) ->
+      printf "%d\n%s\n%s\n" id.line_num typename id.name;
       print_sub_expr sub
 
 and print_identifier (id : identifier) = printf "%d\n%s\n" id.line_num id.name
@@ -307,11 +358,44 @@ and print_sub_expr (sub_exp : sub_expr) =
       | Let_Binding_Init _ -> print_endline "let_binding_no_init"
       | Let_Binding_No_Init _ -> print_endline "let_binding_no_init");
       print_expression exp2
+;;
 
-(*
-  let print_class (c_class : cool_class) =
-    printf "%s" c_class.typename.name;
-    printf "%d" (get_attribute_count c_class);
-    print_attributes c_class
-  in
-  List.iter print_class ast *)
+let user_classes =
+  List.init (int_of_string (read ())) (fun _ -> get_class ())
+in
+let default_class : cool_class list =
+  [
+    {
+      typename = { line_num = 0; name = "Bool" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "String" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "Integer" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "IO" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "Object" };
+      inherits = None;
+      features = [];
+    };
+  ]
+in
+let ast =
+  List.sort
+    (fun c_class1 c_class2 ->
+      String.compare c_class1.typename.name c_class2.typename.name)
+    (user_classes @ default_class)
+in
+print_annotated_ast ast
