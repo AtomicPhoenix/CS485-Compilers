@@ -125,8 +125,7 @@ let rec get_class () : cool_class =
   { typename = ident; inherits = inh; features = feats }
 
 and get_feature_list () =
-  try List.init (int_of_string (read ())) (fun _ -> get_feature ())
-  with _ -> raise (Invalid_argument "Get Feature List: Not a num")
+  List.init (int_of_string (read ())) (fun _ -> get_feature ())
 
 and get_expression_list () =
   try List.init (int_of_string (read ())) (fun _ -> get_expression ())
@@ -206,7 +205,9 @@ and get_sub_expr = function
       Comparison_Operation (Equal, e1, e2)
   | "not" -> Not (get_expression ())
   | "negate" -> Negate (get_expression ())
-  | "integer" -> Int_Constant (int_of_string (read ()))
+  | "integer" -> (
+      try Int_Constant (int_of_string (read ()))
+      with _ -> raise Division_by_zero)
   | "string" -> String_Constant (read ())
   | "_identifier_" -> Ident_Expr (get_identifier ())
   | "true" -> Boolean_Constant True
@@ -214,14 +215,16 @@ and get_sub_expr = function
   | _ -> raise Not_found
 
 and get_identifier () : identifier =
-  let r = read () in
-  let linenum = int_of_string r in
-  let name = read () in
-  { line_num = linenum; name }
+  try
+    let r = read () in
+    let linenum = int_of_string r in
+    let name = read () in
+    { line_num = linenum; name }
+  with _ -> raise Division_by_zero
 
 and get_inherits () : identifier option =
   let does_inherit = read () in
-  if does_inherit = "no_inherit" then None else Some (get_identifier ())
+  if does_inherit = "no_inherits" then None else Some (get_identifier ())
 
 and get_no_init_attribute () =
   let name = get_identifier () in
@@ -252,7 +255,9 @@ and get_feature () =
   | "attribute_no_init" -> get_no_init_attribute ()
   | "attribute_init" -> get_init_attribute ()
   | "method" -> get_method ()
-  | _ -> assert false
+  | c ->
+      print_endline c;
+      assert false
 
 let printf = Printf.printf
 
@@ -265,14 +270,51 @@ let rec print_class_map ast =
       print_attributes c_class)
     ast
 
+and get_all_attributes (c_class : cool_class) =
+  let rec get_tree (parent : identifier option) =
+    let rec ancestors acc =
+      match parent with Some c -> c :: acc | None -> []
+    in
+    ancestors []
+  in
+  let parent_tree = c_class.typename :: get_tree c_class.inherits in
+  let get_attributes id =
+    List.filter
+      (function Attribute _ -> true | _ -> false)
+      (Hashtbl.find class_map id.name).features
+  in
+  List.flatten (List.map get_attributes parent_tree)
+
+(* let rec get_attrs(c_class) = List.filter (function Method _ -> true | _ -> false) c_class in *)
+
+and get_features (c_class : cool_class) (predicate : feature -> bool) =
+  let selected = List.filter predicate c_class.features in
+  printf "%d\n" (List.length selected);
+  if List.length selected > 0 then
+    let print =
+     fun feat ->
+      match feat with
+      | Attribute (name, typ, assign) -> (
+          match assign with
+          | None -> printf "no_initializer\n%s\n%s\n" name.name typ.name
+          | Some exp ->
+              printf "initializer\n%s\n%s\n" name.name typ.name;
+              print_init_expression (exp, typ.name))
+      | Method (id, fl, id2, exp) ->
+          print_endline id.name;
+          printf "%d\n" (List.length fl);
+          List.iter (fun (f : formal) -> print_endline f.name.name) fl;
+          print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          print_expression exp
+    in
+    List.iter print selected
+
 and print_parent_attributes c_class =
   let parent_name =
-    match c_class.inherits with Some c -> c.name | None -> "Object"
+    match c_class.inherits with Some c -> c.name | None -> "i"
   in
   match Hashtbl.find_opt class_map parent_name with
-  | Some c ->
-      print_parent_attributes c;
-      print_attributes c
+  | Some c -> print_attributes c
   | None -> print_attributes (Hashtbl.find class_map "Object")
 
 and print_implementation_map ast =
@@ -312,6 +354,31 @@ and print_class c_class =
 and print_features (c_class : cool_class) (predicate : feature -> bool) =
   let selected = List.filter predicate c_class.features in
   printf "%d\n" (List.length selected);
+  if List.length selected > 0 then
+    let print =
+     fun feat ->
+      match feat with
+      | Attribute (name, typ, assign) -> (
+          match assign with
+          | None -> printf "no_initializer\n%s\n%s\n" name.name typ.name
+          | Some exp ->
+              printf "initializer\n%s\n%s\n" name.name typ.name;
+              print_init_expression (exp, typ.name))
+      | Method (id, fl, id2, exp) ->
+          print_endline id.name;
+          printf "%d\n" (List.length fl);
+          List.iter (fun (f : formal) -> print_endline f.name.name) fl;
+          print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          print_expression exp
+    in
+    List.iter print selected
+
+and print_methods (c_class : cool_class) =
+  print_features c_class (function Method _ -> true | _ -> false)
+
+and print_attributes (c_class : cool_class) =
+  let attrs = get_all_attributes c_class in
+  printf "%d\n" (List.length attrs);
   let print =
    fun feat ->
     match feat with
@@ -328,13 +395,7 @@ and print_features (c_class : cool_class) (predicate : feature -> bool) =
         print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
         print_expression exp
   in
-  List.iter print selected
-
-and print_methods (c_class : cool_class) =
-  print_features c_class (function Method _ -> true | _ -> false)
-
-and print_attributes (c_class : cool_class) =
-  print_features c_class (function Attribute _ -> true | _ -> false)
+  List.iter print attrs
 
 and print_expression (exp : expr) =
   match exp with
@@ -408,11 +469,11 @@ and print_sub_expr (sub_exp : sub_expr) =
 let user_classes =
   List.init (int_of_string (read ())) (fun _ -> get_class ())
 in
+let () = List.iter add_class user_classes in
 let ast =
   List.sort
     (fun c_class1 c_class2 ->
       String.compare c_class1.typename.name c_class2.typename.name)
-    user_classes
+    (user_classes @ default_classes)
 in
-let () = List.iter add_class ast in
 print_class_map ast

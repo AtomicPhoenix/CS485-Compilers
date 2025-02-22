@@ -4,3 +4,7 @@ class Main inherits IO {
     out_string("Hello, world.\n")
   } ;
 } ;
+
+class A {
+  a: Int <- 5;
+};
