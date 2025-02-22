@@ -36,7 +36,6 @@ and sub_expr =
   | Ident_Expr of identifier
   | Boolean_Constant of bool_val
   | Let_Expr of let_expr * expr
-  | Internal of string * string
 
 and let_expr =
   | Let_Binding_No_Init of identifier * identifier
@@ -73,6 +72,47 @@ and arith_operator = Plus | Minus | Times | Divide
 and comparison_operator = LessThan | LessEqual | Equal
 and bool_val = True | False
 
+let class_map = Hashtbl.create 5
+
+let add_class (c_class : cool_class) =
+  let name = c_class.typename.name in
+  match Hashtbl.find_opt class_map name with
+  | None -> Hashtbl.add class_map name c_class
+  | Some _ ->
+      Printf.printf "ERROR: %d: Type-Check: class %s redefined"
+        c_class.typename.line_num c_class.typename.name;
+      exit 1
+
+let default_classes =
+  [
+    {
+      typename = { line_num = 0; name = "Object" };
+      inherits = None;
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "Bool" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "String" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "Integer" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      typename = { line_num = 0; name = "IO" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+  ]
+
+let () = List.iter add_class default_classes
 let file = open_in Sys.argv.(1)
 
 (** Read line returns one line from the AST*)
@@ -182,11 +222,6 @@ and get_identifier () : identifier =
 and get_inherits () : identifier option =
   let does_inherit = read () in
   if does_inherit = "no_inherit" then None else Some (get_identifier ())
-(*
-and make_elem_list lst num fn = match num with
-  | 0 -> lst
-  | _ -> make_elem_list (lst@[fn ()]) (num-1) fn
-*)
 
 and get_no_init_attribute () =
   let name = get_identifier () in
@@ -229,6 +264,16 @@ let rec print_class_map ast =
       printf "%s\n" c_class.typename.name;
       print_attributes c_class)
     ast
+
+and print_parent_attributes c_class =
+  let parent_name =
+    match c_class.inherits with Some c -> c.name | None -> "Object"
+  in
+  match Hashtbl.find_opt class_map parent_name with
+  | Some c ->
+      print_parent_attributes c;
+      print_attributes c
+  | None -> print_attributes (Hashtbl.find class_map "Object")
 
 and print_implementation_map ast =
   printf "implementation_map\n";
@@ -363,39 +408,11 @@ and print_sub_expr (sub_exp : sub_expr) =
 let user_classes =
   List.init (int_of_string (read ())) (fun _ -> get_class ())
 in
-let default_class : cool_class list =
-  [
-    {
-      typename = { line_num = 0; name = "Bool" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-    {
-      typename = { line_num = 0; name = "String" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-    {
-      typename = { line_num = 0; name = "Integer" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-    {
-      typename = { line_num = 0; name = "IO" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-    {
-      typename = { line_num = 0; name = "Object" };
-      inherits = None;
-      features = [];
-    };
-  ]
-in
 let ast =
   List.sort
     (fun c_class1 c_class2 ->
       String.compare c_class1.typename.name c_class2.typename.name)
-    (user_classes @ default_class)
+    user_classes
 in
-print_annotated_ast ast
+let () = List.iter add_class ast in
+print_class_map ast
