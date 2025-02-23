@@ -73,10 +73,10 @@ and bool_val = True | False
 
 let class_map = Hashtbl.create 5
 let method_map = Hashtbl.create 50
-
 let printf = Printf.printf
 let sprintf = Printf.sprintf
 let list_is_empty l = List.compare_length_with l 0 = 0
+
 let print_typecheck_error line error =
   Printf.printf "ERROR: %d: Type-Check: %s\n" line error
 
@@ -95,20 +95,26 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
       let p_name, p_formals, p_type, p_exp = unpack_method meth in
       if p_type.name != c_type.name then (
         (*Printf.printf*)
-          (*"Type Error: Method %s overriden and method type redefined from %s \*)
+        (*"Type Error: Method %s overriden and method type redefined from %s \*)
            (*to %s\n"*)
-          (*method_name p_type.name c_type.name;*)
-        print_typecheck_error c_name.line_num (sprintf "class %s redefines method %s and changes return type (from %s to %s)" class_name method_name p_type.name c_type.name);
+        (*method_name p_type.name c_type.name;*)
+        print_typecheck_error c_name.line_num
+          (sprintf
+             "class %s redefines method %s and changes return type (from %s to \
+              %s)"
+             class_name method_name p_type.name c_type.name);
 
         exit 1);
       (* Check if amount of formals is the same *)
-      if List.length p_formals != List.length c_formals then
+      if List.length p_formals != List.length c_formals then (
         (*Printf.printf*)
-          (*"Type Error: Method %s in class %s overrides method from parent %s \*)
+        (*"Type Error: Method %s in class %s overrides method from parent %s \*)
            (*and had incorrect amount of formals"*)
-          (*method_name c_name.name p_name.name;*)
-        (print_typecheck_error c_name.line_num (sprintf "class %s redefines method %s and changes number of formals)" class_name method_name ); exit 1);
-
+        (*method_name c_name.name p_name.name;*)
+        print_typecheck_error c_name.line_num
+          (sprintf "class %s redefines method %s and changes number of formals)"
+             class_name method_name);
+        exit 1);
 
       (* Checks if type of formals is the same *)
       let p_formal_types =
@@ -149,8 +155,9 @@ let rec add_method (class_name : string) (method_signature : feature) =
       | Some _ ->
           (* ERROR: Method has already been defined within this class *)
           let id1, formal_list, id2, exp = unpack_method method_signature in
-          print_typecheck_error id1.line_num (sprintf "Type-Check: Method %s redefined in Class %s"
-            method_name class_name);
+          print_typecheck_error id1.line_num
+            (sprintf "Type-Check: Method %s redefined in Class %s" method_name
+               class_name);
           exit 1)
   | _ -> ()
 
@@ -171,7 +178,8 @@ and check_all_methods () =
     let ancestry_tree = get_ancestors class_name [] in
     List.iter
       (fun ancestor ->
-        check_redefined (method_signature, ancestor.typename.name, method_name, class_name))
+        check_redefined
+          (method_signature, ancestor.typename.name, method_name, class_name))
       ancestry_tree
   in
   let methods =
@@ -184,8 +192,8 @@ and add_class (c_class : cool_class) =
   match Hashtbl.find_opt class_map name with
   | None -> Hashtbl.add class_map name c_class
   | Some _ ->
-      print_typecheck_error c_class.typename.line_num (sprintf "class %s redefined"
-        c_class.typename.name);
+      print_typecheck_error c_class.typename.line_num
+        (sprintf "class %s redefined" c_class.typename.name);
       exit 1
 
 and check_class_cycle () =
@@ -629,6 +637,7 @@ and print_sub_expr (sub_exp : sub_expr) =
         print_expression case_elem.elem_body
       in
       List.iter print_case_element elems
+
 let check_main_existence () =
   (* Check that there's a class called Main *)
   if not (Hashtbl.mem class_map "Main") then (
@@ -636,12 +645,13 @@ let check_main_existence () =
     exit 1);
   (* Check that there's a method named main *)
   if
-    not (let main_class = Hashtbl.find class_map "Main" in
-    main_class.features
-    |> List.exists (fun feat ->
-           match feat with
-           | Method (nm, fm, tp, bd) -> nm.name = "main"
-           | Attribute _ -> false))
+    not
+      (let main_class = Hashtbl.find class_map "Main" in
+       main_class.features
+       |> List.exists (fun feat ->
+              match feat with
+              | Method (nm, fm, tp, bd) -> nm.name = "main"
+              | Attribute _ -> false))
   then (
     print_typecheck_error 0 "class Main method main not found";
     exit 1);
@@ -668,25 +678,32 @@ let check_unknown_class_inherit () =
          match v.inherits with
          | None -> ()
          | Some w ->
-             if not (Hashtbl.mem class_map w.name) then
-               (print_typecheck_error v.typename.line_num
+             if not (Hashtbl.mem class_map w.name) then (
+               print_typecheck_error v.typename.line_num
                  (sprintf "class %s inherits from unknown class %s"
-                    v.typename.name w.name)); exit 1)
+                    v.typename.name w.name);
+               exit 1))
 
 (** [check_redefined_attributes class_name attributes] checks if any attributes
     in [class_name] are redefined *)
 let check_redefined_attributes class_name (attributes : feature list) =
-  (*List.iter (fun d -> match d with | Method _ -> () | Attribute (a, _, _) -> (printf "%s\n" a.name)) attributes;*)
+  (*List.iter*)
+    (*(fun d ->*)
+      (*match d with*)
+      (*| Method _ -> ()*)
+      (*| Attribute (a, _, _) -> printf "%d %s\n" a.line_num a.name)*)
+    (*attributes;*)
   (*printf "\n";*)
   let attrs = Hashtbl.create 10 in
   List.iter
     (function
       | Method _ -> ()
-      | Attribute (n, _, _) -> printf "%s" n.name;
-          if Hashtbl.mem attrs n.name then
-            (print_typecheck_error n.line_num
-              (sprintf "class %s redefines attribute %s" class_name n.name);)
-          else Hashtbl.add attrs n.name n)
+      | Attribute (n, _, _) ->
+          (*printf "%s" n.name;*)
+          if match Hashtbl.find_opt attrs n.name with | None -> false | Some a -> a > 1 then (
+            print_typecheck_error n.line_num
+              (sprintf "class %s redefines attribute %s" class_name n.name); exit 1)
+          else Hashtbl.add attrs n.name (match Hashtbl.find_opt attrs n.name with | None -> 1 | Some a -> a+1))
     attributes
 ;;
 
@@ -699,9 +716,12 @@ let ast =
     (user_classes @ default_classes)
 in
 check_class_cycle ();
-add_all_methods ();
-check_all_methods ();
 check_main_existence ();
 check_unknown_class_inherit ();
-(*List.iter (fun cls -> check_redefined_attributes cls.typename.name (get_all_attributes cls)) ast;*)
+List.iter
+  (fun cls ->
+    check_redefined_attributes cls.typename.name (get_all_attributes cls))
+  ast;
+add_all_methods ();
+check_all_methods ();
 print_class_map ast
