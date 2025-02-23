@@ -107,11 +107,17 @@ let rec get_ancestors (name : string) acc =
   let c = Hashtbl.find_opt class_map name in
   match c with
   | Some c_class -> (
+      let acc = c_class :: acc in
       match c_class.inherits with
-      | Some parent -> get_ancestors parent.name (c_class :: acc)
+      | Some parent ->
+          List.iter
+            (fun c_class ->
+              if c_class.typename.name = parent.name then assert false)
+            acc;
+          get_ancestors parent.name acc
       | None ->
           if c_class.typename.name <> "Object" then
-            c_class :: get_ancestors "Object" (c_class :: acc)
+            c_class :: get_ancestors "Object" acc
           else c_class :: acc)
   | None -> []
 
@@ -157,7 +163,7 @@ and check_all_methods () =
   in
   List.iter (fun ((k1, k2), v) -> check ((k1, k2), v)) methods
 
-let add_class (c_class : cool_class) =
+and add_class (c_class : cool_class) =
   let name = c_class.typename.name in
   match Hashtbl.find_opt class_map name with
   | None -> Hashtbl.add class_map name c_class
@@ -165,6 +171,14 @@ let add_class (c_class : cool_class) =
       Printf.printf "ERROR: %d: Type-Check: class %s redefined"
         c_class.typename.line_num c_class.typename.name;
       exit 1
+
+and check_class_cycle () =
+  let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in
+  List.iter
+    (fun c ->
+      let _ = get_ancestors c.typename.name [] in
+      ())
+    classes
 
 let default_classes =
   [
@@ -608,7 +622,7 @@ let ast =
       String.compare c_class1.typename.name c_class2.typename.name)
     (user_classes @ default_classes)
 in
-
+check_class_cycle ();
 add_all_methods ();
 check_all_methods ();
 print_class_map ast
