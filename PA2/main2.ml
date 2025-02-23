@@ -73,10 +73,6 @@ and bool_val = True | False
 
 let class_map = Hashtbl.create 5
 let method_map = Hashtbl.create 50
-let list_is_empty l = List.compare_length_with l 0 = 0
-
-let print_typecheck_error line error =
-  Printf.printf "ERROR: %d: Type-Check: %s\n" line error
 
 let unpack_method (feat : feature) =
   match feat with
@@ -84,7 +80,7 @@ let unpack_method (feat : feature) =
   | _ -> assert false
 
 (* Check if method has already been defined by parents & if so check if it is a valid override *)
-let check_redefined (method_signature, parent_name, method_name, class_name) =
+let check_redefined (method_signature, parent_name, method_name) =
   let c_name, c_formals, c_type, c_exp = unpack_method method_signature in
   match Hashtbl.find_opt method_map (parent_name, method_name) with
   (* No Parent with same method name found *)
@@ -92,28 +88,17 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
   | Some meth ->
       let p_name, p_formals, p_type, p_exp = unpack_method meth in
       if p_type.name != c_type.name then (
-        (*Printf.printf*)
-        (*"Type Error: Method %s overriden and method type redefined from %s \*)
-           (*to %s\n"*)
-        (*method_name p_type.name c_type.name;*)
-        print_typecheck_error c_name.line_num
-          (Printf.sprintf
-             "class %s redefines method %s and changes return type (from %s to \
-              %s)"
-             class_name method_name p_type.name c_type.name);
-
+        Printf.printf
+          "Type Error: Method %s overriden and method type redefined from %s \
+           to %s\n"
+          method_name p_type.name c_type.name;
         exit 1);
       (* Check if amount of formals is the same *)
-      if List.length p_formals != List.length c_formals then (
-        (*Printf.printf*)
-        (*"Type Error: Method %s in class %s overrides method from parent %s \*)
-           (*and had incorrect amount of formals"*)
-        (*method_name c_name.name p_name.name;*)
-        print_typecheck_error c_name.line_num
-          (Printf.sprintf
-             "class %s redefines method %s and changes number of formals)"
-             class_name method_name);
-        exit 1);
+      if List.length p_formals != List.length c_formals then
+        Printf.printf
+          "Type Error: Method %s in class %s overrides method from parent %s \
+           and had incorrect amount of formals"
+          method_name c_name.name p_name.name;
 
       (* Checks if type of formals is the same *)
       let p_formal_types =
@@ -133,20 +118,7 @@ let rec get_ancestors (name : string) acc =
       | Some parent ->
           List.iter
             (fun c_class ->
-              if c_class.typename.name = parent.name then (
-                print_typecheck_error c_class.typename.line_num
-                  (Printf.sprintf "Inheritence cycle for %s"
-                     c_class.typename.name);
-                exit 1);
-              if
-                parent.name = "Bool" || parent.name = "String"
-                || parent.name = "Int"
-              then (
-                print_typecheck_error c_class.typename.line_num
-                  (Printf.sprintf "Class %s inherits uninheritable class "
-                     c_class.typename.name);
-                exit 1);
-              if parent.name = "String" then assert false)
+              if c_class.typename.name = parent.name then assert false)
             acc;
           get_ancestors parent.name acc
       | None ->
@@ -154,12 +126,6 @@ let rec get_ancestors (name : string) acc =
             c_class :: get_ancestors "Object" acc
           else c_class :: acc)
   | None -> []
-
-and lub (child, parent) =
-  let ancestors = get_ancestors child [] in
-  match List.find_opt (fun f -> f.typename.name = parent) ancestors with
-  | Some _ -> true
-  | None -> false
 
 let rec add_method (class_name : string) (method_signature : feature) =
   match method_signature with
@@ -173,9 +139,9 @@ let rec add_method (class_name : string) (method_signature : feature) =
       | Some _ ->
           (* ERROR: Method has already been defined within this class *)
           let id1, formal_list, id2, exp = unpack_method method_signature in
-          print_typecheck_error id1.line_num
-            (Printf.sprintf "Type-Check: Method %s redefined in Class %s"
-               method_name class_name);
+          Printf.fprintf out_file
+            "ERROR: %d: Type-Check: Method %s redefined in Class %s"
+            id1.line_num method_name class_name;
           exit 1)
   | _ -> ()
 
@@ -196,8 +162,7 @@ and check_all_methods () =
     let ancestry_tree = get_ancestors class_name [] in
     List.iter
       (fun ancestor ->
-        check_redefined
-          (method_signature, ancestor.typename.name, method_name, class_name))
+        check_redefined (method_signature, ancestor.typename.name, method_name))
       ancestry_tree
   in
   let methods =
@@ -210,8 +175,8 @@ and add_class (c_class : cool_class) =
   match Hashtbl.find_opt class_map name with
   | None -> Hashtbl.add class_map name c_class
   | Some _ ->
-      print_typecheck_error c_class.typename.line_num
-        (Printf.sprintf "class %s redefined" c_class.typename.name);
+      Printf.fprintf out_file "ERROR: %d: Type-Check: class %s redefined"
+        c_class.typename.line_num c_class.typename.name;
       exit 1
 
 and check_class_cycle () =
@@ -227,8 +192,7 @@ let default_classes =
     {
       typename = { line_num = 0; name = "Object" };
       inherits = None;
-      features =
-        [ (* Method({line_num =0; name="abort"},  [], {line_num =0; name="SELF_TYPE"}, sub)*) ];
+      features = [];
     };
     {
       typename = { line_num = 0; name = "Bool" };
@@ -264,7 +228,7 @@ and read_int () : int =
   let r = read () in
   try int_of_string r
   with c ->
-    Printf.fprintf out_file "%s\n" r;
+    print_endline r;
     raise c
 
 and get_feature_list (class_name : string) =
@@ -377,7 +341,7 @@ and get_base_let () =
   | "let_binding_no_init" -> get_no_init_binding ()
   | "let_binding_init" -> get_init_binding ()
   | c ->
-      Printf.fprintf out_file "%s\n" c;
+      print_endline c;
       assert false
 
 and get_no_init_binding () =
@@ -394,9 +358,6 @@ and get_init_binding () =
 and get_identifier () : identifier =
   let linenum = read_int () in
   let name = read () in
-  if name = "SELF_TYPE" then (
-    print_typecheck_error linenum "SELF_TYPE can not be used as an identifier";
-    exit 1);
   { line_num = linenum; name }
 
 and get_inherits () : identifier option =
@@ -434,7 +395,7 @@ and get_feature (class_name : string) =
   | "attribute_init" -> get_init_attribute ()
   | "method" -> get_method class_name
   | c ->
-      Printf.fprintf out_file "%s\n" c;
+      print_endline c;
       assert false
 
 let rec print_class_map ast =
@@ -472,13 +433,10 @@ and get_features (c_class : cool_class) (predicate : feature -> bool) =
               Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
               print_init_expression (exp, typ.name))
       | Method (id, fl, id2, exp) ->
-          Printf.fprintf out_file "%s\n" id.name;
+          print_endline id.name;
           Printf.fprintf out_file "%d\n" (List.length fl);
-          List.iter
-            (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
-            fl;
-          Printf.fprintf out_file
-            "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          List.iter (fun (f : formal) -> print_endline f.name.name) fl;
+          print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
           print_expression exp
     in
     List.iter print selected
@@ -508,10 +466,10 @@ and print_parent_map ast =
   in
   List.iter
     (fun c_class ->
-      Printf.fprintf out_file "%s\n" c_class.typename.name;
+      print_endline c_class.typename.name;
       match c_class.inherits with
-      | Some inhrt -> Printf.fprintf out_file "%s\n" inhrt.name
-      | None -> Printf.fprintf out_file "Object")
+      | Some inhrt -> print_endline inhrt.name
+      | None -> print_endline "Object")
     no_object_ast
 
 and print_annotated_ast ast =
@@ -522,7 +480,7 @@ and print_class c_class =
   print_identifier c_class.typename;
   (match c_class.inherits with
   | Some inhrt -> Printf.fprintf out_file "inherits\n%s\n" inhrt.name
-  | None -> Printf.fprintf out_file "no_inherits");
+  | None -> print_endline "no_inherits");
   print_features c_class (fun _ -> true)
 
 and print_features (c_class : cool_class) (predicate : feature -> bool) =
@@ -541,13 +499,10 @@ and print_features (c_class : cool_class) (predicate : feature -> bool) =
               Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
               print_init_expression (exp, typ.name))
       | Method (id, fl, id2, exp) ->
-          Printf.fprintf out_file "%s\n" id.name;
+          print_endline id.name;
           Printf.fprintf out_file "%d\n" (List.length fl);
-          List.iter
-            (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
-            fl;
-          Printf.fprintf out_file
-            "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          List.iter (fun (f : formal) -> print_endline f.name.name) fl;
+          print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
           print_expression exp
     in
     List.iter print selected
@@ -570,13 +525,10 @@ and print_attributes (c_class : cool_class) =
             Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
             print_init_expression (exp, typ.name))
     | Method (id, fl, id2, exp) ->
-        Printf.fprintf out_file "%s\n" id.name;
+        print_endline id.name;
         Printf.fprintf out_file "%d\n" (List.length fl);
-        List.iter
-          (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
-          fl;
-        Printf.fprintf out_file
-          "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+        List.iter (fun (f : formal) -> print_endline f.name.name) fl;
+        print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
         print_expression exp
   in
   List.iter print attrs
@@ -642,18 +594,18 @@ and print_sub_expr (sub_exp : sub_expr) =
   | Ident_Expr s -> print_identifier s
   | Boolean_Constant v -> (
       match v with
-      | True -> Printf.fprintf out_file "true"
-      | False -> Printf.fprintf out_file "false")
+      | True -> print_endline "true"
+      | False -> print_endline "false")
   | Let_Expr (binding_list, exp2) ->
       let print_binding (id1, id2, exp) =
         match exp with
         | Some ex ->
-            Printf.fprintf out_file "let_binding_init";
+            print_endline "let_binding_init";
             print_identifier id1;
             print_identifier id2;
             print_expression ex
         | None ->
-            Printf.fprintf out_file "let_binding_no_init";
+            print_endline "let_binding_no_init";
             print_identifier id1;
             print_identifier id2
       in
@@ -668,77 +620,6 @@ and print_sub_expr (sub_exp : sub_expr) =
         print_expression case_elem.elem_body
       in
       List.iter print_case_element elems
-
-let check_main_existence () =
-  (* Check that there's a class called Main *)
-  if not (Hashtbl.mem class_map "Main") then (
-    print_typecheck_error 0 "class Main not found";
-    exit 1);
-  (* Check that there's a method named main with zero formal params*)
-  if
-    not
-      (let main_class = Hashtbl.find class_map "Main" in
-       main_class.features
-       |> List.exists (fun feat ->
-              match feat with
-              | Method (nm, fm, tp, bd) ->
-                  nm.name = "main" && List.length fm = 0
-              | Attribute _ -> false))
-  then (
-    print_typecheck_error 0 "class Main method main not found";
-    exit 1);
-  (* check that main has 0 parameters *)
-  if
-    (* TODO: convert to method map *)
-    let main_class = Hashtbl.find class_map "Main" in
-    match
-      main_class.features
-      |> List.find (function
-           | Method (nm, fm, tp, bd) -> nm.name = "main"
-           | Attribute _ -> false)
-    with
-    | Method (nm, fm, tp, bd) -> not (list_is_empty fm)
-    | _ -> false
-  then (
-    print_typecheck_error 0 "class Main method main w/ 0 params not found";
-    exit 1)
-
-(** Check if any classes inherit from an unbound class *)
-let check_unknown_class_inherit () =
-  class_map
-  |> Hashtbl.iter (fun _ v ->
-         match v.inherits with
-         | None -> ()
-         | Some w ->
-             if not (Hashtbl.mem class_map w.name) then (
-               print_typecheck_error v.typename.line_num
-                 (Printf.sprintf "class %s inherits from unknown class %s"
-                    v.typename.name w.name);
-               exit 1))
-
-(** [check_redefined_attributes class_name attributes] checks if any attributes
-    in [class_name] are redefined *)
-let check_redefined_attributes class_name (attributes : feature list) =
-  (*List.iter (fun d -> match d with | Method _ -> () | Attribute (a, _, _) -> (printf "%s\n" a.name)) attributes;*)
-  (*printf "\n";*)
-  let attrs = Hashtbl.create 10 in
-  List.iter
-    (function
-      | Method _ -> ()
-      | Attribute (n, _, _) ->
-          if Hashtbl.mem attrs n.name then (
-            print_typecheck_error n.line_num
-              (Printf.sprintf "class %s redefines attribute %s" class_name
-                 n.name);
-            exit 1)
-          else Hashtbl.add attrs n.name n)
-    attributes
-
-let check_dispatches (ast : cool_class list) = print_string ""
-(* Step 1: Get all function dispatches by parsing ast*)
-(* let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in *)
-
-(* Step 2: Check that each dispatch is defined for the class it is executed in *)
 ;;
 
 let user_classes = List.init (read_int ()) (fun _ -> get_class ()) in
@@ -752,11 +633,4 @@ in
 check_class_cycle ();
 add_all_methods ();
 check_all_methods ();
-check_main_existence ();
-check_unknown_class_inherit ();
-check_dispatches ast;
-List.iter
-  (fun cls ->
-    check_redefined_attributes cls.typename.name (get_all_attributes cls))
-  ast;
 print_class_map ast
