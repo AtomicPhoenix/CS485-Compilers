@@ -70,7 +70,7 @@ let method_map = Hashtbl.create 50
 
 let printf = Printf.printf
 let sprintf = Printf.sprintf
-
+let list_is_empty l = List.compare_length_with l 0 = 0
 let print_typecheck_error line error =
   Printf.printf "ERROR: %d: Type-Check: %s\n" line error
 
@@ -647,7 +647,7 @@ let check_main_existence () =
            | Method (nm, fm, tp, bd) -> nm.name = "main"
            | Attribute _ -> false)
     with
-    | Method (nm, fm, tp, bd) -> not (List.is_empty fm)
+    | Method (nm, fm, tp, bd) -> not (list_is_empty fm)
     | _ -> false
   then (
     print_typecheck_error 0 "class Main method main w/ 0 params not found";
@@ -693,7 +693,7 @@ in
 check_class_cycle ();
 add_all_methods ();
 check_all_methods ();
-(*check_main_existence ();*)
-(*check_unknown_class_inherit ();*)
+check_main_existence ();
+check_unknown_class_inherit ();
 (*List.iter (fun cls -> check_redefined_attributes cls.typename.name (get_all_attributes cls)) ast;*)
 print_class_map ast
