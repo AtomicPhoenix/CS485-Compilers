@@ -35,7 +35,7 @@ and sub_expr =
   | String_Constant of string
   | Ident_Expr of identifier
   | Boolean_Constant of bool_val
-  | Let_Expr of identifier * identifier * expr option * expr
+  | Let_Expr of (identifier * identifier * expr option) list * expr
   | Case of expr * case_el list
 
 and feature =
@@ -121,27 +121,25 @@ and get_feature_list () =
   List.init (int_of_string (read ())) (fun _ -> get_feature ())
 
 and get_expression_list () =
-  try List.init (int_of_string (read ())) (fun _ -> get_expression ())
-  with _ -> raise (Invalid_argument "Not a num")
+  List.init (int_of_string (read ())) (fun _ -> get_expression ())
 
 and get_formal_list () =
-  try List.init (int_of_string (read ())) (fun _ -> get_formal ())
-  with _ -> raise (Invalid_argument "Not a num")
+  List.init (int_of_string (read ())) (fun _ -> get_formal ())
 
 and get_class_list () =
-  try List.init (int_of_string (read ())) (fun _ -> get_class ())
-  with _ -> raise (Invalid_argument "Not a num")
+  List.init (int_of_string (read ())) (fun _ -> get_class ())
 
 and get_expression () : expr =
   let base_expr = get_identifier () in
   Expression (base_expr, get_sub_expr base_expr.name)
 
-and get_sub_expr = function
+and get_sub_expr name =
+  match name with
   | "assign" ->
       let i = get_identifier () in
       let e = get_expression () in
       Assignment (i, e)
-  | "dyanmic_dispatch" ->
+  | "dynamic_dispatch" ->
       let e = get_expression () in
       let i = get_identifier () in
       let el = get_expression_list () in
@@ -202,14 +200,19 @@ and get_sub_expr = function
       try Int_Constant (int_of_string (read ()))
       with _ -> raise Division_by_zero)
   | "string" -> String_Constant (read ())
-  | "_identifier_" -> Ident_Expr (get_identifier ())
+  | "identifier" -> Ident_Expr (get_identifier ())
   | "true" -> Boolean_Constant True
   | "false" -> Boolean_Constant False
-  | "let" -> get_let ()
+  | "let" ->
+      let expl = get_base_let_list () in
+      let exp_body = get_expression () in
+      Let_Expr (expl, exp_body)
   | "case" ->
       let e = get_expression () in
       Case (e, get_case_element_list ())
-  | _ -> raise Not_found
+  | name ->
+      print_string name;
+      raise Not_found
 
 and get_case_element () =
   let var = get_identifier () in
@@ -217,11 +220,15 @@ and get_case_element () =
   let exp = get_expression () in
   { variable = var; typename = typ; elem_body = exp }
 
+and get_base_let_list () =
+  try List.init (int_of_string (read ())) (fun _ -> get_base_let ())
+  with c -> raise c
+
 and get_case_element_list () =
   try List.init (int_of_string (read ())) (fun _ -> get_case_element ())
   with _ -> raise (Invalid_argument "Not a num")
 
-and get_let () =
+and get_base_let () =
   let binding = read () in
   match binding with
   | "let_binding_no_init" -> get_no_init_binding ()
@@ -233,15 +240,13 @@ and get_let () =
 and get_no_init_binding () =
   let name = get_identifier () in
   let typename = get_identifier () in
-  let exp = get_expression () in
-  Let_Expr (name, typename, None, exp)
+  (name, typename, None)
 
 and get_init_binding () =
   let name = get_identifier () in
   let typename = get_identifier () in
   let exp1 = get_expression () in
-  let exp2 = get_expression () in
-  Let_Expr (name, typename, Some exp1, exp2)
+  (name, typename, Some exp1)
 
 and get_identifier () : identifier =
   try
@@ -488,10 +493,20 @@ and print_sub_expr (sub_exp : sub_expr) =
       match v with
       | True -> print_endline "true"
       | False -> print_endline "false")
-  | Let_Expr (id1, id2, exp1, exp2) ->
-      (match exp1 with
-      | Some _ -> print_endline "let_binding_no_init"
-      | None -> print_endline "let_binding_no_init");
+  | Let_Expr (binding_list, exp2) ->
+      let print_binding (id1, id2, exp) =
+        match exp with
+        | Some ex ->
+            print_endline "let_binding_init";
+            print_identifier id1;
+            print_identifier id2;
+            print_expression ex
+        | None ->
+            print_endline "let_binding_no_init";
+            print_identifier id1;
+            print_identifier id2
+      in
+      List.iter print_binding binding_list;
       print_expression exp2
   | Case (exp, elems) ->
       print_expression exp;
