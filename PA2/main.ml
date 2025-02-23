@@ -137,7 +137,20 @@ let rec get_ancestors (name : string) acc =
       | Some parent ->
           List.iter
             (fun c_class ->
-              if c_class.typename.name = parent.name then assert false)
+              if c_class.typename.name = parent.name then (
+                print_typecheck_error c_class.typename.line_num
+                  (Printf.sprintf "Inheritence cycle for %s"
+                     c_class.typename.name);
+                exit 1);
+              if
+                parent.name = "Bool" || parent.name = "String"
+                || parent.name = "Int"
+              then (
+                print_typecheck_error c_class.typename.line_num
+                  (Printf.sprintf "Class %s inherits uninheritable class "
+                     c_class.typename.name);
+                exit 1);
+              if parent.name = "String" then assert false)
             acc;
           get_ancestors parent.name acc
       | None ->
@@ -218,7 +231,8 @@ let default_classes =
     {
       typename = { line_num = 0; name = "Object" };
       inherits = None;
-      features = [];
+      features =
+        [ (* Method({line_num =0; name="abort"},  [], {line_num =0; name="SELF_TYPE"}, sub)*) ];
     };
     {
       typename = { line_num = 0; name = "Bool" };
@@ -254,7 +268,7 @@ and read_int () : int =
   let r = read () in
   try int_of_string r
   with c ->
-    print_endline r;
+    Printf.fprintf out_file "%s\n" r;
     raise c
 
 and get_feature_list (class_name : string) =
@@ -367,7 +381,7 @@ and get_base_let () =
   | "let_binding_no_init" -> get_no_init_binding ()
   | "let_binding_init" -> get_init_binding ()
   | c ->
-      print_endline c;
+      Printf.fprintf out_file "%s\n" c;
       assert false
 
 and get_no_init_binding () =
@@ -384,6 +398,9 @@ and get_init_binding () =
 and get_identifier () : identifier =
   let linenum = read_int () in
   let name = read () in
+  if name = "SELF_TYPE" then (
+    print_typecheck_error linenum "SELF_TYPE can not be used as an identifier";
+    exit 1);
   { line_num = linenum; name }
 
 and get_inherits () : identifier option =
@@ -421,7 +438,7 @@ and get_feature (class_name : string) =
   | "attribute_init" -> get_init_attribute ()
   | "method" -> get_method class_name
   | c ->
-      print_endline c;
+      Printf.fprintf out_file "%s\n" c;
       assert false
 
 let rec print_class_map ast =
@@ -459,10 +476,13 @@ and get_features (c_class : cool_class) (predicate : feature -> bool) =
               Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
               print_init_expression (exp, typ.name))
       | Method (id, fl, id2, exp) ->
-          print_endline id.name;
+          Printf.fprintf out_file "%s\n" id.name;
           Printf.fprintf out_file "%d\n" (List.length fl);
-          List.iter (fun (f : formal) -> print_endline f.name.name) fl;
-          print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          List.iter
+            (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
+            fl;
+          Printf.fprintf out_file
+            "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
           print_expression exp
     in
     List.iter print selected
@@ -492,10 +512,10 @@ and print_parent_map ast =
   in
   List.iter
     (fun c_class ->
-      print_endline c_class.typename.name;
+      Printf.fprintf out_file "%s\n" c_class.typename.name;
       match c_class.inherits with
-      | Some inhrt -> print_endline inhrt.name
-      | None -> print_endline "Object")
+      | Some inhrt -> Printf.fprintf out_file "%s\n" inhrt.name
+      | None -> Printf.fprintf out_file "Object")
     no_object_ast
 
 and print_annotated_ast ast =
@@ -506,7 +526,7 @@ and print_class c_class =
   print_identifier c_class.typename;
   (match c_class.inherits with
   | Some inhrt -> Printf.fprintf out_file "inherits\n%s\n" inhrt.name
-  | None -> print_endline "no_inherits");
+  | None -> Printf.fprintf out_file "no_inherits");
   print_features c_class (fun _ -> true)
 
 and print_features (c_class : cool_class) (predicate : feature -> bool) =
@@ -525,10 +545,13 @@ and print_features (c_class : cool_class) (predicate : feature -> bool) =
               Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
               print_init_expression (exp, typ.name))
       | Method (id, fl, id2, exp) ->
-          print_endline id.name;
+          Printf.fprintf out_file "%s\n" id.name;
           Printf.fprintf out_file "%d\n" (List.length fl);
-          List.iter (fun (f : formal) -> print_endline f.name.name) fl;
-          print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          List.iter
+            (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
+            fl;
+          Printf.fprintf out_file
+            "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
           print_expression exp
     in
     List.iter print selected
@@ -551,10 +574,13 @@ and print_attributes (c_class : cool_class) =
             Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
             print_init_expression (exp, typ.name))
     | Method (id, fl, id2, exp) ->
-        print_endline id.name;
+        Printf.fprintf out_file "%s\n" id.name;
         Printf.fprintf out_file "%d\n" (List.length fl);
-        List.iter (fun (f : formal) -> print_endline f.name.name) fl;
-        print_endline "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+        List.iter
+          (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
+          fl;
+        Printf.fprintf out_file
+          "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
         print_expression exp
   in
   List.iter print attrs
@@ -620,18 +646,18 @@ and print_sub_expr (sub_exp : sub_expr) =
   | Ident_Expr s -> print_identifier s
   | Boolean_Constant v -> (
       match v with
-      | True -> print_endline "true"
-      | False -> print_endline "false")
+      | True -> Printf.fprintf out_file "true"
+      | False -> Printf.fprintf out_file "false")
   | Let_Expr (binding_list, exp2) ->
       let print_binding (id1, id2, exp) =
         match exp with
         | Some ex ->
-            print_endline "let_binding_init";
+            Printf.fprintf out_file "let_binding_init";
             print_identifier id1;
             print_identifier id2;
             print_expression ex
         | None ->
-            print_endline "let_binding_no_init";
+            Printf.fprintf out_file "let_binding_no_init";
             print_identifier id1;
             print_identifier id2
       in
@@ -652,14 +678,15 @@ let check_main_existence () =
   if not (Hashtbl.mem class_map "Main") then (
     print_typecheck_error 0 "class Main not found";
     exit 1);
-  (* Check that there's a method named main *)
+  (* Check that there's a method named main with zero formal params*)
   if
     not
       (let main_class = Hashtbl.find class_map "Main" in
        main_class.features
        |> List.exists (fun feat ->
               match feat with
-              | Method (nm, fm, tp, bd) -> nm.name = "main"
+              | Method (nm, fm, tp, bd) ->
+                  nm.name = "main" && List.length fm = 0
               | Attribute _ -> false))
   then (
     print_typecheck_error 0 "class Main method main not found";
@@ -708,12 +735,21 @@ let check_redefined_attributes class_name (attributes : feature list) =
     (function
       | Method _ -> ()
       | Attribute (n, _, _) ->
+
           (*printf "%s" n.name;*)
           if match Hashtbl.find_opt attrs n.name with | None -> false | Some a -> a > 1 then (
             print_typecheck_error n.line_num
               (sprintf "class %s redefines attribute %s" class_name n.name); exit 1)
           else Hashtbl.add attrs n.name (match Hashtbl.find_opt attrs n.name with | None -> 1 | Some a -> a+1))
+
+
     attributes
+
+let check_dispatches (ast : cool_class list) = print_string ""
+(* Step 1: Get all function dispatches by parsing ast*)
+(* let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in *)
+
+(* Step 2: Check that each dispatch is defined for the class it is executed in *)
 ;;
 
 let user_classes = List.init (read_int ()) (fun _ -> get_class ()) in
@@ -727,10 +763,15 @@ in
 check_class_cycle ();
 check_main_existence ();
 check_unknown_class_inherit ();
+
+check_dispatches ast;
+
 List.iter
   (fun cls ->
     check_redefined_attributes cls.typename.name (get_all_attributes cls))
   ast;
+
 add_all_methods ();
 check_all_methods ();
+
 print_class_map ast
