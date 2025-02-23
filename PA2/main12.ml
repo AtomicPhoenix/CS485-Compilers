@@ -88,14 +88,14 @@ let check_redefined (method_signature, parent_name, method_name) =
   | Some meth ->
       let p_name, p_formals, p_type, p_exp = unpack_method meth in
       if p_type.name != c_type.name then (
-        Printf.printf
+        Printf.fprintf out_file
           "Type Error: Method %s overriden and method type redefined from %s \
            to %s\n"
           method_name p_type.name c_type.name;
         exit 1);
       (* Check if amount of formals is the same *)
       if List.length p_formals != List.length c_formals then
-        Printf.printf
+        Printf.fprintf out_file
           "Type Error: Method %s in class %s overrides method from parent %s \
            and had incorrect amount of formals"
           method_name c_name.name p_name.name;
@@ -139,7 +139,8 @@ let rec add_method (class_name : string) (method_signature : feature) =
       | Some _ ->
           (* ERROR: Method has already been defined within this class *)
           let id1, formal_list, id2, exp = unpack_method method_signature in
-          Printf.printf "ERROR: %d: Type-Check: Method %s redefined in Class %s"
+          Printf.fprintf out_file
+            "ERROR: %d: Type-Check: Method %s redefined in Class %s"
             id1.line_num method_name class_name;
           exit 1)
   | _ -> ()
