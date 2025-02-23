@@ -73,10 +73,6 @@ and bool_val = True | False
 
 let class_map = Hashtbl.create 5
 let method_map = Hashtbl.create 50
-
-let printf = Printf.printf
-let sprintf = Printf.sprintf
-
 let list_is_empty l = List.compare_length_with l 0 = 0
 
 let print_typecheck_error line error =
@@ -101,8 +97,7 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
            (*to %s\n"*)
         (*method_name p_type.name c_type.name;*)
         print_typecheck_error c_name.line_num
-
-          (sprintf
+          (Printf.sprintf
              "class %s redefines method %s and changes return type (from %s to \
               %s)"
              class_name method_name p_type.name c_type.name);
@@ -115,7 +110,8 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
            (*and had incorrect amount of formals"*)
         (*method_name c_name.name p_name.name;*)
         print_typecheck_error c_name.line_num
-          (sprintf "class %s redefines method %s and changes number of formals)"
+          (Printf.sprintf
+             "class %s redefines method %s and changes number of formals)"
              class_name method_name);
         exit 1);
 
@@ -144,7 +140,7 @@ let rec get_ancestors (name : string) acc =
                 exit 1);
               if
                 parent.name = "Bool" || parent.name = "String"
-                || parent.name = "Int"
+                || parent.name = "Int" || parent.name = "SELF_TYPE"
               then (
                 print_typecheck_error c_class.typename.line_num
                   (Printf.sprintf "Class %s inherits uninheritable class "
@@ -178,8 +174,8 @@ let rec add_method (class_name : string) (method_signature : feature) =
           (* ERROR: Method has already been defined within this class *)
           let id1, formal_list, id2, exp = unpack_method method_signature in
           print_typecheck_error id1.line_num
-            (sprintf "Type-Check: Method %s redefined in Class %s" method_name
-               class_name);
+            (Printf.sprintf "Type-Check: Method %s redefined in Class %s"
+               method_name class_name);
           exit 1)
   | _ -> ()
 
@@ -215,7 +211,7 @@ and add_class (c_class : cool_class) =
   | None -> Hashtbl.add class_map name c_class
   | Some _ ->
       print_typecheck_error c_class.typename.line_num
-        (sprintf "class %s redefined" c_class.typename.name);
+        (Printf.sprintf "class %s redefined" c_class.typename.name);
       exit 1
 
 and check_class_cycle () =
@@ -262,6 +258,10 @@ let rec get_class () : cool_class =
   let ident = get_identifier () in
   let inh = get_inherits () in
   let feats = get_feature_list ident.name in
+  if ident.name = "SELF_TYPE" then (
+    print_typecheck_error ident.line_num
+      "SELF_TYPE can not be used as an identifier";
+    exit 1);
   { typename = ident; inherits = inh; features = feats }
 
 and read_int () : int =
@@ -367,6 +367,10 @@ and get_case_element () =
   let var = get_identifier () in
   let typ = get_identifier () in
   let exp = get_expression () in
+  if typ.name = "SELF_TYPE" then (
+    print_typecheck_error typ.line_num
+      "SELF_TYPE can not be used as an identifier";
+    exit 1);
   { variable = var; typename = typ; elem_body = exp }
 
 and get_base_let_list () = List.init (read_int ()) (fun _ -> get_base_let ())
@@ -398,9 +402,6 @@ and get_init_binding () =
 and get_identifier () : identifier =
   let linenum = read_int () in
   let name = read () in
-  if name = "SELF_TYPE" then (
-    print_typecheck_error linenum "SELF_TYPE can not be used as an identifier";
-    exit 1);
   { line_num = linenum; name }
 
 and get_inherits () : identifier option =
@@ -421,6 +422,9 @@ and get_init_attribute () =
 and get_formal () =
   let name = get_identifier () in
   let typename = get_identifier () in
+  if typename.name = "SELF_TYPE" then
+    print_typecheck_error typename.line_num
+      "SELF_TYPE can not be used as an identifier";
   { name; typename }
 
 and get_method (class_name : string) =
@@ -716,33 +720,33 @@ let check_unknown_class_inherit () =
          | Some w ->
              if not (Hashtbl.mem class_map w.name) then (
                print_typecheck_error v.typename.line_num
-                 (sprintf "class %s inherits from unknown class %s"
+                 (Printf.sprintf "class %s inherits from unknown class %s"
                     v.typename.name w.name);
                exit 1))
 
 (** [check_redefined_attributes class_name attributes] checks if any attributes
     in [class_name] are redefined *)
 let check_redefined_attributes class_name (attributes : feature list) =
-  (*List.iter*)
-    (*(fun d ->*)
-      (*match d with*)
-      (*| Method _ -> ()*)
-      (*| Attribute (a, _, _) -> printf "%d %s\n" a.line_num a.name)*)
-    (*attributes;*)
-  (*printf "\n";*)
   let attrs = Hashtbl.create 10 in
   List.iter
     (function
       | Method _ -> ()
       | Attribute (n, _, _) ->
-
           (*printf "%s" n.name;*)
-          if match Hashtbl.find_opt attrs n.name with | None -> false | Some a -> a > 1 then (
+          if
+            match Hashtbl.find_opt attrs n.name with
+            | None -> false
+            | Some a -> a > 1
+          then (
             print_typecheck_error n.line_num
-              (sprintf "class %s redefines attribute %s" class_name n.name); exit 1)
-          else Hashtbl.add attrs n.name (match Hashtbl.find_opt attrs n.name with | None -> 1 | Some a -> a+1))
-
-
+              (Printf.sprintf "class %s redefines attribute %s" class_name
+                 n.name);
+            exit 1)
+          else
+            Hashtbl.add attrs n.name
+              (match Hashtbl.find_opt attrs n.name with
+              | None -> 1
+              | Some a -> a + 1))
     attributes
 
 let check_dispatches (ast : cool_class list) = print_string ""
@@ -761,17 +765,13 @@ let ast =
     (user_classes @ default_classes)
 in
 check_class_cycle ();
+add_all_methods ();
+check_all_methods ();
 check_main_existence ();
 check_unknown_class_inherit ();
-
 check_dispatches ast;
-
 List.iter
   (fun cls ->
     check_redefined_attributes cls.typename.name (get_all_attributes cls))
   ast;
-
-add_all_methods ();
-check_all_methods ();
-
 print_class_map ast
