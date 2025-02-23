@@ -66,8 +66,104 @@ and comparison_operator = LessThan | LessEqual | Equal
 and bool_val = True | False
 
 let class_map = Hashtbl.create 5
+let method_map = Hashtbl.create 50
 
-let add_class (c_class : cool_class) =
+let unpack_method (feat : feature) =
+  match feat with
+  | Method (id1, formal_list, id2, exp) -> (id1, formal_list, id2, exp)
+  | _ -> assert false
+
+(* Check if method has already been defined by parents & if so check if it is a valid override *)
+let check_redefined (method_signature, parent_name, method_name) =
+  let c_name, c_formals, c_type, c_exp = unpack_method method_signature in
+  match Hashtbl.find_opt method_map (parent_name, method_name) with
+  (* No Parent with same method name found *)
+  | None -> () (* Parent found w/ same method name *)
+  | Some meth ->
+      let p_name, p_formals, p_type, p_exp = unpack_method meth in
+      if p_type.name != c_type.name then (
+        Printf.printf
+          "Type Error: Method %s overriden and method type redefined from %s \
+           to %s\n"
+          method_name p_type.name c_type.name;
+        exit 1);
+      (* Check if amount of formals is the same *)
+      if List.length p_formals != List.length c_formals then
+        Printf.printf
+          "Type Error: Method %s in class %s overrides method from parent %s \
+           and had incorrect amount of formals"
+          method_name c_name.name p_name.name;
+
+      (* Checks if type of formals is the same *)
+      let p_formal_types =
+        List.map (fun (form : formal) -> form.typename.name) p_formals
+      in
+      let c_formal_types =
+        List.map (fun (form : formal) -> form.typename.name) c_formals
+      in
+      assert (p_formal_types = c_formal_types)
+
+let rec get_ancestors (name : string) acc =
+  let c = Hashtbl.find_opt class_map name in
+  match c with
+  | Some c_class -> (
+      let acc = c_class :: acc in
+      match c_class.inherits with
+      | Some parent ->
+          List.iter
+            (fun c_class ->
+              if c_class.typename.name = parent.name then assert false)
+            acc;
+          get_ancestors parent.name acc
+      | None ->
+          if c_class.typename.name <> "Object" then
+            c_class :: get_ancestors "Object" acc
+          else c_class :: acc)
+  | None -> []
+
+let rec add_method (class_name : string) (method_signature : feature) =
+  match method_signature with
+  | Method (id, _, _, _) -> (
+      let method_name = id.name in
+      (* Check if method has already been defined within this class *)
+      match Hashtbl.find_opt method_map (class_name, method_name) with
+      | None ->
+          (* Add Method to method_map *)
+          Hashtbl.add method_map (class_name, method_name) method_signature
+      | Some _ ->
+          (* ERROR: Method has already been defined within this class *)
+          let id1, formal_list, id2, exp = unpack_method method_signature in
+          Printf.printf "ERROR: %d: Type-Check: Method %s redefined in Class %s"
+            id1.line_num method_name class_name;
+          exit 1)
+  | _ -> ()
+
+and add_all_methods () =
+  let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in
+  let add_class_methods (c_class : cool_class) =
+    List.iter
+      (fun feat ->
+        add_method c_class.typename.name feat;
+        ())
+      c_class.features
+  in
+  List.iter add_class_methods classes
+
+and check_all_methods () =
+  let rec check ((class_name, method_name), method_signature) =
+    (* Check if method has already been defined by parents & if so check if it is a valid override *)
+    let ancestry_tree = get_ancestors class_name [] in
+    List.iter
+      (fun ancestor ->
+        check_redefined (method_signature, ancestor.typename.name, method_name))
+      ancestry_tree
+  in
+  let methods =
+    Hashtbl.fold (fun (k1, k2) v acc -> ((k1, k2), v) :: acc) method_map []
+  in
+  List.iter (fun ((k1, k2), v) -> check ((k1, k2), v)) methods
+
+and add_class (c_class : cool_class) =
   let name = c_class.typename.name in
   match Hashtbl.find_opt class_map name with
   | None -> Hashtbl.add class_map name c_class
@@ -75,6 +171,14 @@ let add_class (c_class : cool_class) =
       Printf.printf "ERROR: %d: Type-Check: class %s redefined"
         c_class.typename.line_num c_class.typename.name;
       exit 1
+
+and check_class_cycle () =
+  let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in
+  List.iter
+    (fun c ->
+      let _ = get_ancestors c.typename.name [] in
+      ())
+    classes
 
 let default_classes =
   [
@@ -114,20 +218,24 @@ let read () = input_line file
 let rec get_class () : cool_class =
   let ident = get_identifier () in
   let inh = get_inherits () in
-  let feats = get_feature_list () in
+  let feats = get_feature_list ident.name in
   { typename = ident; inherits = inh; features = feats }
 
-and get_feature_list () =
-  List.init (int_of_string (read ())) (fun _ -> get_feature ())
+and read_int () : int =
+  let r = read () in
+  try int_of_string r
+  with c ->
+    print_endline r;
+    raise c
+
+and get_feature_list (class_name : string) =
+  List.init (read_int ()) (fun _ -> get_feature class_name)
 
 and get_expression_list () =
-  List.init (int_of_string (read ())) (fun _ -> get_expression ())
+  List.init (read_int ()) (fun _ -> get_expression ())
 
-and get_formal_list () =
-  List.init (int_of_string (read ())) (fun _ -> get_formal ())
-
-and get_class_list () =
-  List.init (int_of_string (read ())) (fun _ -> get_class ())
+and get_formal_list () = List.init (read_int ()) (fun _ -> get_formal ())
+and get_class_list () = List.init (read_int ()) (fun _ -> get_class ())
 
 and get_expression () : expr =
   let base_expr = get_identifier () in
@@ -196,9 +304,7 @@ and get_sub_expr name =
       Comparison_Operation (Equal, e1, e2)
   | "not" -> Not (get_expression ())
   | "negate" -> Negate (get_expression ())
-  | "integer" -> (
-      try Int_Constant (int_of_string (read ()))
-      with _ -> raise Division_by_zero)
+  | "integer" -> Int_Constant (read_int ())
   | "string" -> String_Constant (read ())
   | "identifier" -> Ident_Expr (get_identifier ())
   | "true" -> Boolean_Constant True
@@ -220,12 +326,10 @@ and get_case_element () =
   let exp = get_expression () in
   { variable = var; typename = typ; elem_body = exp }
 
-and get_base_let_list () =
-  try List.init (int_of_string (read ())) (fun _ -> get_base_let ())
-  with c -> raise c
+and get_base_let_list () = List.init (read_int ()) (fun _ -> get_base_let ())
 
 and get_case_element_list () =
-  try List.init (int_of_string (read ())) (fun _ -> get_case_element ())
+  try List.init (read_int ()) (fun _ -> get_case_element ())
   with _ -> raise (Invalid_argument "Not a num")
 
 and get_base_let () =
@@ -249,12 +353,9 @@ and get_init_binding () =
   (name, typename, Some exp1)
 
 and get_identifier () : identifier =
-  try
-    let r = read () in
-    let linenum = int_of_string r in
-    let name = read () in
-    { line_num = linenum; name }
-  with _ -> raise Division_by_zero
+  let linenum = read_int () in
+  let name = read () in
+  { line_num = linenum; name }
 
 and get_inherits () : identifier option =
   let does_inherit = read () in
@@ -276,19 +377,20 @@ and get_formal () =
   let typename = get_identifier () in
   { name; typename }
 
-and get_method () =
+and get_method (class_name : string) =
   let name = get_identifier () in
   let formals = get_formal_list () in
   let typename = get_identifier () in
   let body = get_expression () in
-  Method (name, formals, typename, body)
+  let new_method = Method (name, formals, typename, body) in
+  new_method
 
-and get_feature () =
+and get_feature (class_name : string) =
   let feat_type = read () in
   match feat_type with
   | "attribute_no_init" -> get_no_init_attribute ()
   | "attribute_init" -> get_init_attribute ()
-  | "method" -> get_method ()
+  | "method" -> get_method class_name
   | c ->
       print_endline c;
       assert false
@@ -305,20 +407,13 @@ let rec print_class_map ast =
     ast
 
 and get_all_attributes (c_class : cool_class) =
-  let rec get_tree (parent : identifier option) =
-    let rec ancestors acc =
-      match parent with Some c -> c :: acc | None -> []
-    in
-    ancestors []
-  in
-  let parent_tree = c_class.typename :: get_tree c_class.inherits in
+  let parent_tree = get_ancestors c_class.typename.name [] in
   let get_attributes id =
     List.filter
       (function Attribute _ -> true | _ -> false)
-      (Hashtbl.find class_map id.name).features
+      (Hashtbl.find class_map id.typename.name).features
   in
   List.flatten (List.map get_attributes parent_tree)
-
 (* let rec get_attrs(c_class) = List.filter (function Method _ -> true | _ -> false) c_class in *)
 
 and get_features (c_class : cool_class) (predicate : feature -> bool) =
@@ -364,7 +459,7 @@ and print_parent_map ast =
   printf "parent_map\n";
   printf "%d\n" (List.length ast - 1);
   let no_object_ast =
-    List.filter (fun c_class -> not (c_class.typename.name = "Object")) ast
+    List.filter (fun c_class -> c_class.typename.name <> "Object") ast
   in
   List.iter
     (fun c_class ->
@@ -519,9 +614,7 @@ and print_sub_expr (sub_exp : sub_expr) =
       List.iter print_case_element elems
 ;;
 
-let user_classes =
-  List.init (int_of_string (read ())) (fun _ -> get_class ())
-in
+let user_classes = List.init (read_int ()) (fun _ -> get_class ()) in
 let () = List.iter add_class user_classes in
 let ast =
   List.sort
@@ -529,4 +622,7 @@ let ast =
       String.compare c_class1.typename.name c_class2.typename.name)
     (user_classes @ default_classes)
 in
+check_class_cycle ();
+add_all_methods ();
+check_all_methods ();
 print_class_map ast
