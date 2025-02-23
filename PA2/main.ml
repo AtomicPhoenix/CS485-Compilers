@@ -668,8 +668,8 @@ let check_unknown_class_inherit () =
 (** [check_redefined_attributes class_name attributes] checks if any attributes
     in [class_name] are redefined *)
 let check_redefined_attributes class_name (attributes : feature list) =
-  List.iter (fun d -> match d with | Method _ -> () | Attribute (a, _, _) -> (printf "%s\n" a.name)) attributes;
-  printf "\n";
+  (*List.iter (fun d -> match d with | Method _ -> () | Attribute (a, _, _) -> (printf "%s\n" a.name)) attributes;*)
+  (*printf "\n";*)
   let attrs = Hashtbl.create 10 in
   List.iter
     (function
@@ -693,7 +693,7 @@ in
 check_class_cycle ();
 add_all_methods ();
 check_all_methods ();
-check_main_existence ();
-check_unknown_class_inherit ();
+(*check_main_existence ();*)
+(*check_unknown_class_inherit ();*)
 (*List.iter (fun cls -> check_redefined_attributes cls.typename.name (get_all_attributes cls)) ast;*)
 print_class_map ast
