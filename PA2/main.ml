@@ -80,7 +80,7 @@ let unpack_method (feat : feature) =
   | _ -> assert false
 
 (* Check if method has already been defined by parents & if so check if it is a valid override *)
-let check_redefined (method_signature, parent_name, method_name) =
+let check_redefined (method_signature, parent_name, method_name, class_name) =
   let c_name, c_formals, c_type, c_exp = unpack_method method_signature in
   match Hashtbl.find_opt method_map (parent_name, method_name) with
   (* No Parent with same method name found *)
@@ -92,7 +92,7 @@ let check_redefined (method_signature, parent_name, method_name) =
           (*"Type Error: Method %s overriden and method type redefined from %s \*)
            (*to %s\n"*)
           (*method_name p_type.name c_type.name;*)
-        print_typecheck_error c_name.line_num (sprintf "class %s redefines method %s and changes return type (from %s to %s)" c_name.name method_name p_type.name c_type.name);
+        print_typecheck_error c_name.line_num (sprintf "class %s redefines method %s and changes return type (from %s to %s)" class_name method_name p_type.name c_type.name);
 
         exit 1);
       (* Check if amount of formals is the same *)
@@ -101,7 +101,7 @@ let check_redefined (method_signature, parent_name, method_name) =
           (*"Type Error: Method %s in class %s overrides method from parent %s \*)
            (*and had incorrect amount of formals"*)
           (*method_name c_name.name p_name.name;*)
-        (print_typecheck_error c_name.line_num (sprintf "class %s redefines method %s and changes number of formals)" c_name.name method_name ); exit 1);
+        (print_typecheck_error c_name.line_num (sprintf "class %s redefines method %s and changes number of formals)" class_name method_name ); exit 1);
 
 
       (* Checks if type of formals is the same *)
@@ -165,7 +165,7 @@ and check_all_methods () =
     let ancestry_tree = get_ancestors class_name [] in
     List.iter
       (fun ancestor ->
-        check_redefined (method_signature, ancestor.typename.name, method_name))
+        check_redefined (method_signature, ancestor.typename.name, method_name, class_name))
       ancestry_tree
   in
   let methods =
