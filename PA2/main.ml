@@ -91,7 +91,7 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
   | None -> () (* Parent found w/ same method name *)
   | Some meth ->
       let p_name, p_formals, p_type, p_exp = unpack_method meth in
-      if p_type.name != c_type.name then (
+      if p_type.name <> c_type.name then (
         (*Printf.printf*)
         (*"Type Error: Method %s overriden and method type redefined from %s \*)
            (*to %s\n"*)
@@ -104,7 +104,7 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
 
         exit 1);
       (* Check if amount of formals is the same *)
-      if List.length p_formals != List.length c_formals then (
+      if List.length p_formals <> List.length c_formals then (
         (*Printf.printf*)
         (*"Type Error: Method %s in class %s overrides method from parent %s \*)
            (*and had incorrect amount of formals"*)
@@ -134,19 +134,19 @@ let rec get_ancestors (name : string) acc =
           List.iter
             (fun c_class ->
               if c_class.typename.name = parent.name then (
-                print_typecheck_error c_class.typename.line_num
+                print_typecheck_error 0
                   (Printf.sprintf "Inheritence cycle for %s"
                      c_class.typename.name);
                 exit 1);
               if
                 parent.name = "Bool" || parent.name = "String"
                 || parent.name = "Int" || parent.name = "SELF_TYPE"
+                || parent.name = "void" || parent.name = ""
               then (
                 print_typecheck_error c_class.typename.line_num
                   (Printf.sprintf "Class %s inherits uninheritable class "
                      c_class.typename.name);
-                exit 1);
-              if parent.name = "String" then assert false)
+                exit 1))
             acc;
           get_ancestors parent.name acc
       | None ->
@@ -348,7 +348,10 @@ and get_sub_expr name =
   | "not" -> Not (get_expression ())
   | "negate" -> Negate (get_expression ())
   | "integer" -> Int_Constant (read_int ())
-  | "string" -> String_Constant (read ())
+  | "string" ->
+      let str = read () in
+      if String.contains str '\000' then assert false;
+      String_Constant str
   | "identifier" -> Ident_Expr (get_identifier ())
   | "true" -> Boolean_Constant True
   | "false" -> Boolean_Constant False
@@ -367,7 +370,10 @@ and get_case_element () =
   let var = get_identifier () in
   let typ = get_identifier () in
   let exp = get_expression () in
-  if typ.name = "SELF_TYPE" then (
+  if
+    typ.name = "SELF_TYPE" || typ.name = "self" || var.name = "SELF_TYPE"
+    || var.name = "self"
+  then (
     print_typecheck_error typ.line_num
       "SELF_TYPE can not be used as an identifier";
     exit 1);
@@ -388,15 +394,28 @@ and get_base_let () =
       Printf.fprintf out_file "%s\n" c;
       assert false
 
+and check_type (name, typ, linenum) =
+  if name = typ then
+    print_typecheck_error linenum
+      (Printf.sprintf "%s can not be used in this context" typ)
+
 and get_no_init_binding () =
   let name = get_identifier () in
   let typename = get_identifier () in
+  check_type (typename.name, "SELF_TYPE", typename.line_num);
+  check_type (typename.name, "self", typename.line_num);
+  check_type (name.name, "self", name.line_num);
+  check_type (typename.name, "void", typename.line_num);
   (name, typename, None)
 
 and get_init_binding () =
   let name = get_identifier () in
   let typename = get_identifier () in
   let exp1 = get_expression () in
+  check_type (typename.name, "SELF_TYPE", typename.line_num);
+  check_type (typename.name, "self", typename.line_num);
+  check_type (name.name, "self", name.line_num);
+  check_type (typename.name, "void", typename.line_num);
   (name, typename, Some exp1)
 
 and get_identifier () : identifier =
@@ -411,20 +430,30 @@ and get_inherits () : identifier option =
 and get_no_init_attribute () =
   let name = get_identifier () in
   let typename = get_identifier () in
+
+  if typename.name = "SELF_TYPE" || typename.name = "self" || name.name = "self"
+  then
+    print_typecheck_error typename.line_num
+      "SELF_TYPE can not be used as an attribute";
+
   Attribute (name, typename, None)
 
 and get_init_attribute () =
   let name = get_identifier () in
   let typename = get_identifier () in
   let exp = get_expression () in
+  if typename.name = "SELF_TYPE" || typename.name = "self" || name.name = "self"
+  then
+    print_typecheck_error typename.line_num
+      "SELF_TYPE can not be used as an attribute";
   Attribute (name, typename, Some exp)
 
 and get_formal () =
   let name = get_identifier () in
   let typename = get_identifier () in
-  if typename.name = "SELF_TYPE" then
+  if typename.name = "SELF_TYPE" || typename.name = "self" then
     print_typecheck_error typename.line_num
-      "SELF_TYPE can not be used as an identifier";
+      "SELF_TYPE/self can not be used as a formal";
   { name; typename }
 
 and get_method (class_name : string) =
@@ -677,7 +706,7 @@ and print_sub_expr (sub_exp : sub_expr) =
       in
       List.iter print_case_element elems
 
-let check_main_existence () =
+let validate_main () =
   (* Check that there's a class called Main *)
   if not (Hashtbl.mem class_map "Main") then (
     print_typecheck_error 0 "class Main not found";
@@ -702,7 +731,10 @@ let check_main_existence () =
     match
       main_class.features
       |> List.find (function
-           | Method (nm, fm, tp, bd) -> nm.name = "main"
+           | Method (nm, fm, tp, bd) ->
+               nm.name = "main"
+               && List.length fm = 0
+               && (tp.name = "Object" || tp.name = "SELF_TYPE")
            | Attribute _ -> false)
     with
     | Method (nm, fm, tp, bd) -> not (list_is_empty fm)
@@ -749,7 +781,40 @@ let check_redefined_attributes class_name (attributes : feature list) =
               | Some a -> a + 1))
     attributes
 
-let check_dispatches (ast : cool_class list) = print_string ""
+let get_method_if_exists (class_name, method_name) =
+  let ancestors = get_ancestors class_name [] in
+  let method_signatures =
+    List.filter
+      (fun signature_opt ->
+        match
+          Hashtbl.find_opt method_map (signature_opt.typename.name, method_name)
+        with
+        | Some m -> true
+        | None -> false)
+      ancestors
+  in
+  if List.length method_signatures < 1 then assert false
+  else
+    Hashtbl.find method_map
+      ((List.hd method_signatures).typename.name, method_name)
+
+let check_dispatches dispatches class_name =
+  List.iter
+    (fun dispatch ->
+      match dispatch with
+      | Dynamic_Dispatch (exp, meth, args) ->
+          let m_id, m_formals, m_id2, m_exp =
+            unpack_method (get_method_if_exists (class_name, meth.name))
+          in
+          if List.length args <> List.length m_formals then assert false
+      | Static_Dispatch (exp, typename, meth, args) ->
+          let m_id, m_formals, m_id2, m_exp =
+            unpack_method (get_method_if_exists (class_name, meth.name))
+          in
+          if List.length args <> List.length m_formals then assert false
+      | _ -> raise (Invalid_argument "Something is fundamentally wrong"))
+    dispatches
+
 (* Step 1: Get all function dispatches by parsing ast*)
 (* let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in *)
 
@@ -767,9 +832,9 @@ in
 check_class_cycle ();
 add_all_methods ();
 check_all_methods ();
-check_main_existence ();
+validate_main ();
 check_unknown_class_inherit ();
-check_dispatches ast;
+(* check_dispatches (); *)
 List.iter
   (fun cls ->
     check_redefined_attributes cls.typename.name (get_all_attributes cls))

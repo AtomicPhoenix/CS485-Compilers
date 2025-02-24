@@ -1,0 +1,32 @@
+#!/bin/bash
+ocamlc main.ml
+for file in ./bad_tests/*.cl; do
+	./cool --parse "$file"
+	ERR="$(./cool "$file")"
+	ERR2="$(./a.out "$file-ast")"
+
+	if [ $? -ne 1 ]; then
+		echo "$file-ast SUCCEEDED where it should have FAILED"
+	fi
+
+	if [ "${ERR:0:10}" != "${ERR2:0:10}" ]; then
+		printf "$file-ast's output is incorrect:\n\t%s\n\t%s\n\n" "$ERR" "$ERR2"
+	fi
+done
+
+for file in ./good_tests/*.cl; do
+	./cool --parse "$file"
+	OUTPUT=$(./cool --class-map --out "$file-ref" "$file")
+	OUTPUT2=$(./a.out "$file-ast")
+
+	if [ $? -ne 0 ]; then
+		echo "$file FAILED where it should have SUCCEEDED"
+	fi
+
+	if [ "$OUTPUT" != "$OUTPUT2" ]; then
+		echo "$file's output is incorrect"
+	fi
+done
+
+rm ./good_tests/*.cl-*
+rm ./bad_tests/*.cl-*
