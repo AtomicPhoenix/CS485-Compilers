@@ -151,8 +151,8 @@ let rec get_ancestors (name : string) acc =
           get_ancestors parent.name acc
       | None ->
           if c_class.typename.name <> "Object" then
-            c_class :: get_ancestors "Object" acc
-          else c_class :: acc)
+            Hashtbl.find class_map "Object" :: acc
+          else acc)
   | None -> []
 
 and lub (child, parent) =
@@ -161,9 +161,25 @@ and lub (child, parent) =
   | Some _ -> true
   | None -> false
 
+let check_duplicate_formals (lst : formal list) method_name class_name =
+  let rec aux seen = function
+    | [] -> None
+    | x :: xs -> if List.mem x seen then Some x else aux (x :: seen) xs
+  in
+  match aux [] lst with
+  | None -> ()
+  | Some c ->
+      print_typecheck_error c.name.line_num
+        (Printf.sprintf
+           "Type-Check: Duplicate formal parameter %s redefined in Method %s \
+            Class %s"
+           c.name.name method_name class_name);
+      exit 1
+
 let rec add_method (class_name : string) (method_signature : feature) =
   match method_signature with
-  | Method (id, _, _, _) -> (
+  | Method (id, fl, _, _) -> (
+      check_duplicate_formals fl id.name class_name;
       let method_name = id.name in
       (* Check if method has already been defined within this class *)
       match Hashtbl.find_opt method_map (class_name, method_name) with
@@ -227,8 +243,7 @@ let default_classes =
     {
       typename = { line_num = 0; name = "Object" };
       inherits = None;
-      features =
-        [ (* Method({line_num =0; name="abort"},  [], {line_num =0; name="SELF_TYPE"}, sub)*) ];
+      features = [];
     };
     {
       typename = { line_num = 0; name = "Bool" };
@@ -432,10 +447,10 @@ and get_no_init_attribute () =
   let typename = get_identifier () in
 
   if typename.name = "SELF_TYPE" || typename.name = "self" || name.name = "self"
-  then
+  then (
     print_typecheck_error typename.line_num
       "SELF_TYPE can not be used as an attribute";
-
+    exit 1);
   Attribute (name, typename, None)
 
 and get_init_attribute () =
@@ -756,9 +771,56 @@ let check_unknown_class_inherit () =
                     v.typename.name w.name);
                exit 1))
 
+let rec check_attributes class_name attributes =
+  check_valid_attribute_names class_name attributes;
+  check_redefined_attributes class_name attributes
+
+and unpack_attribute (feat : feature) =
+  match feat with
+  | Method _ -> assert false
+  | Attribute (attr_name, attr_type, attr_assign) -> (attr_name, attr_type)
+
+and check_valid_attribute_names class_name attributes =
+  let find_duplicate lst =
+    let unpacked_list = List.map (fun f -> unpack_attribute f) attributes in
+    let names = Hashtbl.create (List.length lst) in
+    List.iter
+      (fun f ->
+        match f with
+        | attr_name, attr_type -> (
+            match Hashtbl.find_opt names attr_name.name with
+            | Some _ ->
+                print_typecheck_error attr_name.line_num
+                  (Printf.sprintf "Attribute %s redefined in class %s"
+                     attr_name.name class_name);
+                exit 1
+            | None -> Hashtbl.add names attr_name.name attr_name))
+      unpacked_list
+  in
+  find_duplicate attributes;
+
+  List.iter
+    (function
+      | Method _ -> ()
+      | Attribute (attr_name, attr_type, attr_assign) -> (
+          if attr_type.name = "SELF_TYPE" || attr_type.name = "self" then (
+            print_typecheck_error attr_name.line_num
+              (Printf.sprintf "In class %s, attribute %s has invalid type %s"
+                 class_name attr_name.name attr_type.name);
+            exit 1);
+          match Hashtbl.find_opt class_map attr_type.name with
+          | Some n -> ()
+          | None ->
+              print_typecheck_error attr_name.line_num
+                (Printf.sprintf
+                   "Attribute %s cannot be of non-existant type Class %s "
+                   attr_name.name class_name);
+              exit 1))
+    attributes
+
 (** [check_redefined_attributes class_name attributes] checks if any attributes
     in [class_name] are redefined *)
-let check_redefined_attributes class_name (attributes : feature list) =
+and check_redefined_attributes class_name (attributes : feature list) =
   let attrs = Hashtbl.create 10 in
   List.iter
     (function
@@ -836,7 +898,6 @@ validate_main ();
 check_unknown_class_inherit ();
 (* check_dispatches (); *)
 List.iter
-  (fun cls ->
-    check_redefined_attributes cls.typename.name (get_all_attributes cls))
+  (fun cls -> check_attributes cls.typename.name (get_all_attributes cls))
   ast;
 print_class_map ast
