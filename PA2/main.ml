@@ -72,6 +72,7 @@ and case_el = { variable : identifier; typename : identifier; elem_body : expr }
 and arith_operator = Plus | Minus | Times | Divide
 and comparison_operator = LessThan | LessEqual | Equal
 and bool_val = True | False
+exception T of string
 
 let class_map = Hashtbl.create 5
 let method_map = Hashtbl.create 50
@@ -172,8 +173,7 @@ let check_duplicate_formals (lst : formal list) method_name class_name =
         (Printf.sprintf
            "Type-Check: Duplicate formal parameter %s redefined in Method %s \
             Class %s"
-           c.name.name method_name class_name);
-      exit 1
+           c.name.name method_name class_name)
 
 let rec add_method (class_name : string) (method_signature : feature) =
   match method_signature with
@@ -363,7 +363,7 @@ let rec get_class () : cool_class =
   let feats = get_feature_list ident.name in
   if ident.name = "SELF_TYPE" then
     print_typecheck_error ident.line_num
-      "SELF_TYPE can not be used as an identifier";
+      "SELF_TYPE can not be used as a class name";
   { typename = ident; inherits = inh; features = feats }
 
 and read_int () : int =
@@ -384,10 +384,10 @@ and get_class_list () = List.init (read_int ()) (fun _ -> get_class ())
 
 and get_expression () : expr =
   let base_expr = get_identifier () in
-  Expression (base_expr, get_sub_expr base_expr.name)
+  Expression (base_expr, get_sub_expr base_expr)
 
 and get_sub_expr name =
-  match name with
+  match name.name with
   | "assign" ->
       let i = get_identifier () in
       let e = get_expression () in
@@ -422,7 +422,7 @@ and get_sub_expr name =
       let e1 = get_expression () in
       let e2 = get_expression () in
       While (e1, e2)
-  | "block" -> Block (get_expression_list ())
+  | "block" -> let res = (get_expression_list ()) in if List.length res = 0 then (print_typecheck_error name.line_num "empty block somehow wth"); Block res
   | "new" -> New (get_identifier ())
   | "isvoid" -> Isvoid (get_expression ())
   | "plus" ->
@@ -472,17 +472,18 @@ and get_sub_expr name =
       Case (e, get_case_element_list ())
   | name ->
       print_string name;
-      raise Not_found
+      raise (T ("Not found:" ^ name))
 
 and get_case_element () =
   let var = get_identifier () in
   let typ = get_identifier () in
   let exp = get_expression () in
   if
-    typ.name = "SELF_TYPE" || typ.name = "self" || var.name = "SELF_TYPE"
-    || var.name = "self"
-  then
+    typ.name = "SELF_TYPE" || typ.name = "self" then
     print_typecheck_error typ.line_num
+      "SELF_TYPE can not be used as an identifier";
+  if var.name = "SELF_TYPE" || var.name = "self" then
+    print_typecheck_error var.line_num
       "SELF_TYPE can not be used as an identifier";
   { variable = var; typename = typ; elem_body = exp }
 
@@ -538,28 +539,36 @@ and get_no_init_attribute () =
   let name = get_identifier () in
   let typename = get_identifier () in
 
-  if typename.name = "SELF_TYPE" || typename.name = "self" || name.name = "self"
-  then (
+  if typename.name = "SELF_TYPE" || typename.name = "self"
+  then
     print_typecheck_error typename.line_num
       "SELF_TYPE can not be used as an attribute";
-    exit 1);
+  if name.name = "self" then
+    print_typecheck_error name.line_num
+      "SELF can not be used as an attribute";
   Attribute (name, typename, None)
 
 and get_init_attribute () =
   let name = get_identifier () in
   let typename = get_identifier () in
   let exp = get_expression () in
-  if typename.name = "SELF_TYPE" || typename.name = "self" || name.name = "self"
+  if typename.name = "SELF_TYPE" || typename.name = "self"
   then
     print_typecheck_error typename.line_num
       "SELF_TYPE can not be used as an attribute";
+  if name.name = "self" then
+    print_typecheck_error name.line_num
+      "SELF can not be used as an attribute";
   Attribute (name, typename, Some exp)
 
 and get_formal () =
   let name = get_identifier () in
   let typename = get_identifier () in
-  if typename.name = "SELF_TYPE" || name.name = "self" then
+  if typename.name = "SELF_TYPE" then
     print_typecheck_error typename.line_num
+      "SELF_TYPE/self can not be used as a formal";
+  if name.name = "self" then
+    print_typecheck_error name.line_num
       "SELF_TYPE/self can not be used as a formal";
   { name; typename }
 
@@ -748,14 +757,17 @@ and print_sub_expr (sub_exp : sub_expr) =
   | Dynamic_Dispatch (exp, id, el) ->
       print_expression exp;
       print_identifier id;
+      Printf.fprintf out_file "%d\n" (List.length el);
       List.iter print_expression el
   | Static_Dispatch (exp, id1, id2, el) ->
       print_expression exp;
       print_identifier id1;
       print_identifier id2;
+      Printf.fprintf out_file "%d\n" (List.length el);
       List.iter print_expression el
   | Self_Dispatch (id, el) ->
       print_identifier id;
+      Printf.fprintf out_file "%d\n" (List.length el);
       List.iter print_expression el
   | If (exp1, exp2, exp3) ->
       print_expression exp1;
@@ -764,7 +776,7 @@ and print_sub_expr (sub_exp : sub_expr) =
   | While (exp1, exp2) ->
       print_expression exp1;
       print_expression exp2
-  | Block el -> List.iter print_expression el
+  | Block el -> Printf.fprintf out_file "%d\n" (List.length el); List.iter print_expression el
   | New id -> print_identifier id
   | Isvoid exp -> print_expression exp
   | Arith_Operation (typename, exp, exp2) ->
@@ -784,10 +796,10 @@ and print_sub_expr (sub_exp : sub_expr) =
   | Int_Constant i -> Printf.fprintf out_file "%d\n" i
   | String_Constant s -> Printf.fprintf out_file "%s\n" s
   | Ident_Expr s -> print_identifier s
-  | Boolean_Constant v -> (
+  | Boolean_Constant v -> ((*
       match v with
       | True -> Printf.fprintf out_file "true"
-      | False -> Printf.fprintf out_file "false")
+      | False -> Printf.fprintf out_file "false"*))
   | Let_Expr (binding_list, exp2) ->
       let print_binding (id1, id2, exp) =
         match exp with
@@ -831,7 +843,7 @@ let validate_main () =
   (* check that main has 0 parameters *)
   if
     (* TODO: convert to method map *)
-    let main_class = Hashtbl.find class_map "Main" in
+    (*let main_class = Hashtbl.find class_map "Main" in
     match
       main_class.features
       |> List.find (function
@@ -842,7 +854,7 @@ let validate_main () =
            | Attribute _ -> false)
     with
     | Method (nm, fm, tp, bd) -> not (list_is_empty fm)
-    | _ -> false
+    | _ -> false*) let res = Hashtbl.find_opt method_map ("Main", "main") in match res with | None -> true | _ -> false
   then print_typecheck_error 0 "class Main method main w/ 0 params not found"
 
 (** Check if any classes inherit from an unbound class *)
@@ -878,8 +890,7 @@ and check_valid_attribute_names class_name attributes =
             | Some _ ->
                 print_typecheck_error attr_name.line_num
                   (Printf.sprintf "Attribute %s redefined in class %s"
-                     attr_name.name class_name);
-                exit 1
+                     attr_name.name class_name)
             | None -> Hashtbl.add names attr_name.name attr_name))
       unpacked_list
   in
@@ -889,19 +900,17 @@ and check_valid_attribute_names class_name attributes =
     (function
       | Method _ -> ()
       | Attribute (attr_name, attr_type, attr_assign) -> (
-          if attr_type.name = "SELF_TYPE" || attr_type.name = "self" then (
+          if attr_type.name = "SELF_TYPE" || attr_type.name = "self" then
             print_typecheck_error attr_name.line_num
               (Printf.sprintf "In class %s, attribute %s has invalid type %s"
                  class_name attr_name.name attr_type.name);
-            exit 1);
           match Hashtbl.find_opt class_map attr_type.name with
           | Some n -> ()
           | None ->
               print_typecheck_error attr_name.line_num
                 (Printf.sprintf
                    "Attribute %s cannot be of non-existant type Class %s "
-                   attr_name.name class_name);
-              exit 1))
+                   attr_name.name class_name)))
     attributes
 
 (** [check_redefined_attributes class_name attributes] checks if any attributes
@@ -912,20 +921,12 @@ and check_redefined_attributes class_name (attributes : feature list) =
     (function
       | Method _ -> ()
       | Attribute (n, _, _) ->
-          (*printf "%s" n.name;*)
-          if
-            match Hashtbl.find_opt attrs n.name with
-            | None -> false
-            | Some a -> a > 1
-          then
+          (*Printf.printf "%s" n.name;*)
+          if Hashtbl.mem attrs n.name then
             print_typecheck_error n.line_num
               (Printf.sprintf "class %s redefines attribute %s" class_name
                  n.name)
-          else
-            Hashtbl.add attrs n.name
-              (match Hashtbl.find_opt attrs n.name with
-              | None -> 1
-              | Some a -> a + 1))
+          else Hashtbl.add attrs n.name n)
     attributes
 
 let get_method_if_exists (class_name, method_name) =
@@ -975,7 +976,8 @@ let rec check_expr expr (cur_class : cool_class) =
       | Dynamic_Dispatch (expr, id, exprlist) ->
           check_expr expr cur_class;
           List.iter (fun e -> check_expr e cur_class) exprlist
-      | Static_Dispatch (expr, typename, methodname, exprlist) -> ((*
+      | Static_Dispatch (expr, typename, methodname, exprlist) ->
+          ( (*
           check_expr expr cur_class;
           List.iter (fun e -> check_expr e cur_class) exprlist;
           if typename.name = "SELF_TYPE" then self_bad typename.line_num;
@@ -986,8 +988,9 @@ let rec check_expr expr (cur_class : cool_class) =
           | None ->
               print_typecheck_error methodname.line_num
                 "bad method name in static dispatch :("
-          | Some _ -> ()*))
-      | Self_Dispatch (meth, args) -> ((*
+          | Some _ -> ()*) )
+      | Self_Dispatch (meth, args) ->
+          ( (*
           List.iter (fun e -> check_expr e cur_class) args;
           let res =
             Hashtbl.find_opt method_map (cur_class.typename.name, meth.name)
@@ -996,7 +999,7 @@ let rec check_expr expr (cur_class : cool_class) =
           | None ->
               print_typecheck_error meth.line_num
                 "bad method name in self dispatch :("
-          | Some _ -> ()*))
+          | Some _ -> ()*) )
       | If (pred, thn, els) ->
           check_expr pred cur_class;
           check_expr thn cur_class;
