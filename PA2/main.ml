@@ -451,7 +451,7 @@ and get_init_attribute () =
 and get_formal () =
   let name = get_identifier () in
   let typename = get_identifier () in
-  if typename.name = "SELF_TYPE" || typename.name = "self" then
+  if typename.name = "SELF_TYPE" || name.name = "self" then
     print_typecheck_error typename.line_num
       "SELF_TYPE/self can not be used as a formal";
   { name; typename }

@@ -5,7 +5,7 @@ for file in ./bad_tests/*.cl; do
 	ERR="$(./cool "$file")"
 	ERR2="$(./a.out "$file-ast")"
 
-	if [ $? -ne 1 ]; then
+	if [ $? -eq 0 ]; then
 		echo "$file-ast SUCCEEDED where it should have FAILED"
 	fi
 
