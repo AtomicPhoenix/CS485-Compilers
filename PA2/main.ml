@@ -45,8 +45,13 @@ and sub_expr =
   | Block of expr list  (** body *)
   | New of identifier  (** class *)
   | Isvoid of expr  (** exp *)
-  | Arith_Operation of arith_operator * expr * expr  (** arith, x, y*)
-  | Comparison_Operation of comparison_operator * expr * expr  (** cmp, x, y *)
+  | Plus of expr * expr  (** arith, x, y*)
+  | Minus of expr * expr
+  | Divide of expr * expr
+  | Times of expr * expr
+  | LessThan of expr * expr
+  | LessEqual of expr * expr
+  | Equal of expr * expr
   | Not of expr  (** x: exp *)
   | Negate of expr  (** x : exp *)
   | Int_Constant of int  (** int *)
@@ -56,6 +61,8 @@ and sub_expr =
   | Let_Expr of (identifier * identifier * expr option) list * expr
       (** (variable, type, value option) list, body*)
   | Case of expr * case_el list  (** expr, case-element-list *)
+
+and bool_val = True | False
 
 and feature =
   | Attribute of (identifier * identifier * expr option)
@@ -80,14 +87,11 @@ and case = { lnum : identifier; case_exp : expr; elements : case_el list }
 and case_el = { variable : identifier; typename : identifier; elem_body : expr }
 (** variable (identifier), type (identifier), and case-element-body (exp) *)
 
-and arith_operator = Plus | Minus | Times | Divide
-and comparison_operator = LessThan | LessEqual | Equal
-and bool_val = True | False
-
 exception T of string
 
-let class_map = Hashtbl.create 5
-let method_map = Hashtbl.create 50
+let class_map = Hashtbl.create 64
+let method_map = Hashtbl.create 64
+let (objEnv : (string, static_type) Hashtbl.t) = Hashtbl.create 64
 let list_is_empty l = List.compare_length_with l 0 = 0
 
 let print_typecheck_error line error =
@@ -167,11 +171,14 @@ let rec get_ancestors (name : string) acc =
           else acc)
   | None -> []
 
-and lub (child, parent) =
+and lub child parent =
   let ancestors = get_ancestors child [] in
   match List.find_opt (fun f -> f.typename.name = parent) ancestors with
   | Some _ -> true
   | None -> false
+
+(* TODO: Implement join *)
+and get_join class_list = Class "Object"
 
 let check_duplicate_formals (lst : formal list) method_name class_name =
   let rec aux seen = function
@@ -473,37 +480,36 @@ and get_sub_expr name =
   | "plus" ->
       let e1 = get_expression () in
       let e2 = get_expression () in
-      Arith_Operation (Plus, e1, e2)
+      Plus (e1, e2)
   | "minus" ->
       let e1 = get_expression () in
       let e2 = get_expression () in
-      Arith_Operation (Minus, e1, e2)
+      Minus (e1, e2)
   | "times" ->
       let e1 = get_expression () in
       let e2 = get_expression () in
-      Arith_Operation (Times, e1, e2)
+      Times (e1, e2)
   | "divide" ->
       let e1 = get_expression () in
       let e2 = get_expression () in
-      Arith_Operation (Divide, e1, e2)
+      Divide (e1, e2)
   | "lt" ->
       let e1 = get_expression () in
       let e2 = get_expression () in
-      Comparison_Operation (LessThan, e1, e2)
+      LessThan (e1, e2)
   | "le" ->
       let e1 = get_expression () in
       let e2 = get_expression () in
-      Comparison_Operation (LessEqual, e1, e2)
+      LessEqual (e1, e2)
   | "eq" ->
       let e1 = get_expression () in
       let e2 = get_expression () in
-      Comparison_Operation (Equal, e1, e2)
+      Equal (e1, e2)
   | "not" -> Not (get_expression ())
   | "negate" -> Negate (get_expression ())
   | "integer" -> Int_Constant (read_int ())
   | "string" ->
       let str = read () in
-      if String.contains str '\000' then assert false;
       String_Constant str
   | "identifier" -> Ident_Expr (get_identifier ())
   | "true" -> Boolean_Constant True
@@ -670,8 +676,7 @@ and get_features (c_class : cool_class) (predicate : feature -> bool) =
           List.iter
             (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
             fl;
-          Printf.fprintf out_file
-            "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          Printf.fprintf out_file "%s" c_class.typename.name;
           print_expression exp
     in
     List.iter print selected
@@ -739,8 +744,7 @@ and print_features (c_class : cool_class) (predicate : feature -> bool) =
           List.iter
             (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
             fl;
-          Printf.fprintf out_file
-            "TODO: PRINT NAME OF CLASS WHERE METHOD IS DEFINED";
+          Printf.fprintf out_file "%s" c_class.typename.name;
           print_expression exp
     in
     List.iter print selected
@@ -817,16 +821,25 @@ and print_sub_expr (sub_exp : sub_expr) =
       List.iter print_expression el
   | New id -> print_identifier id
   | Isvoid exp -> print_expression exp
-  | Arith_Operation (typename, exp, exp2) ->
-      (match typename with
-      | Plus -> ()
-      | Minus -> ()
-      | Divide -> ()
-      | Times -> ());
+  | Plus (exp, exp2) ->
       print_expression exp;
       print_expression exp2
-  | Comparison_Operation (typename, exp, exp2) ->
-      (match typename with Equal -> () | LessThan -> () | LessEqual -> ());
+  | Minus (exp, exp2) ->
+      print_expression exp;
+      print_expression exp2
+  | Divide (exp, exp2) ->
+      print_expression exp;
+      print_expression exp2
+  | Times (exp, exp2) ->
+      print_expression exp;
+      print_expression exp2
+  | Equal (exp, exp2) ->
+      print_expression exp;
+      print_expression exp2
+  | LessEqual (exp, exp2) ->
+      print_expression exp;
+      print_expression exp2
+  | LessThan (exp, exp2) ->
       print_expression exp;
       print_expression exp2
   | Not exp -> print_expression exp
@@ -1043,18 +1056,19 @@ let rec check_expr expr (cur_class : cool_class) =
       check_expr pred cur_class;
       check_expr thn cur_class;
       check_expr els cur_class
-  | While (cond, body) ->
-      check_expr cond cur_class;
-      check_expr body cur_class
   | Block exps -> List.iter (fun x -> check_expr x cur_class) exps
   | New id ->
       if id.name = "self" then self_bad id.line_num;
       ()
   | Isvoid exp -> check_expr exp cur_class
-  | Arith_Operation (_, x, y) ->
-      check_expr x cur_class;
-      check_expr y cur_class
-  | Comparison_Operation (_, x, y) ->
+  | Plus (x, y)
+  | Minus (x, y)
+  | Divide (x, y)
+  | Times (x, y)
+  | LessEqual (x, y)
+  | LessThan (x, y)
+  | Equal (x, y)
+  | While (x, y) ->
       check_expr x cur_class;
       check_expr y cur_class
   | Not x -> check_expr x cur_class
@@ -1076,29 +1090,244 @@ let rec check_expr expr (cur_class : cool_class) =
       process_caselist case_el_list cur_class
   | _ -> ()
 
-(*
-and getType expr =
+and get_type expr (c_class : cool_class) : static_type =
   match expr.sub_expr with
-  | Assignment (id, exp) -> ""
-  | Dynamic_Dispatch (expr, id, exprlist) -> ""
-  | Static_Dispatch (expr, typename, methodname, exprlist) -> ""
-  | Self_Dispatch (meth, args) -> ""
-  | If (pred, thn, els) -> ""
-  | While (cond, body) -> ""
-  | Block exps -> ""
-  | New id -> ""
-  | Isvoid exp -> ""
-  | Arith_Operation (_, x, y) -> ""
-  | Comparison_Operation (_, x, y) -> ""
-  | Not x -> ""
-  | Negate x -> ""
-  | Ident_Expr id -> ""
-  | Let_Expr (letlist, body) -> ""
-  | Case (exp, case_el_list) -> ""
-  | Int_Constant int_val -> ""
-  | Boolean_Constant bool_val -> ""
-  | String_Constant str_val -> ""
-*)
+  | Assignment (id, exp) -> (
+      (* O(id) = T *)
+      let var_id_opt = Hashtbl.find_opt objEnv id.name in
+      match var_id_opt with
+      | None ->
+          print_typecheck_error expr.id.line_num
+            (Printf.sprintf "Assignment on undeclared variable %s" id.name)
+      | Some t1 ->
+          (* O, M, C |- e1 =: T' *)
+          let t2 = get_type expr c_class in
+          (* T' <= T *)
+          if not (lub (type_to_str t2) (type_to_str t1)) then
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf
+                 "Assignment on variable %s has type %s, does not conform to \
+                  type %s"
+                 id.name (type_to_str t2) (type_to_str t1))
+          (* O. M, C |- Id <-- e1: T' *)
+            else t2
+      (* TODO: Dynamic_Dispatch *))
+  | Dynamic_Dispatch (expr, id, exprlist) ->
+      Class "Fix Me" (* TODO: Static_Dispatch *)
+  | Static_Dispatch (expr, typename, methodname, exprlist) ->
+      Class "Fix Me" (* TODO: Self_Dispatch *)
+  | Self_Dispatch (meth, args) -> Class "Fix Me"
+  | If (pred, thn, els) ->
+      let t1 = get_type pred c_class in
+      (* O, M, C |- e1 : Bool *)
+      if t1 <> Class "Bool" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Predicate must be of type Bool, not type %s"
+             (type_to_str t1))
+      else
+        (* O, M, C |- e2 : T2 *)
+        (* O, M, C |- e3 : T3 *)
+        let t2 = get_type thn c_class in
+        let t3 = get_type els c_class in
+        (* O, M, C |- if e1 then e2 else e3 fi : T2 U T3 *)
+        get_join [ (type_to_str t2, type_to_str t3) ]
+  | While (cond, body) ->
+      (* O,M,C |- e1 : Bool *)
+      (* O,M,C |- e2 : Type2 *)
+      (* O,M,C |- while e1 loop e2 pool : Object *)
+      if get_type cond c_class <> Class "Bool" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Loop conditional must be of type Bool, not type %s"
+             (type_to_str (get_type cond c_class)))
+      else Class "Object"
+  | Block exps ->
+      Class "Object"
+      (* TODO: Confirms all Block expressions are objects I can't find a source in the CRM *)
+  | New id -> (
+      if
+        (* T' = { SELF_TYPEc if T = SELF_TYPE*)
+        (*      {         T otherwise        *)
+        id.name = "SELF_TYPE"
+      then SELF_TYPE "FIX ME: Get class name"
+      else
+        let var_opt = Hashtbl.find_opt objEnv id.name in
+        match var_opt with
+        | None ->
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf "Cannot create new variable of undeclared type %s"
+                 id.name)
+        | Some v -> v (* O, M, C |- new T : T' *))
+  | Isvoid exp -> Class "Bool"
+  | Plus (x, y) | Minus (x, y) | Divide (x, y) | Times (x, y) ->
+      let xtype = get_type x c_class in
+      if xtype <> Class "Int" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform arithmetic with type %s"
+             (type_to_str xtype));
+      let ytype = get_type y c_class in
+      if ytype <> Class "Int" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform arithmetic with type %s"
+             (type_to_str ytype));
+      Class "Int"
+  | Equal (x, y) ->
+      let xtype = get_type x c_class in
+      let ytype = get_type y c_class in
+      if ytype <> xtype then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf
+             "Cannot perform equality comparison with varying types %s and %s"
+             (type_to_str xtype) (type_to_str ytype));
+      Class "Bool"
+  | LessThan (x, y) | LessEqual (x, y) ->
+      let xtype = get_type x c_class in
+      if xtype <> Class "Int" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform comparison with type %s"
+             (type_to_str xtype));
+      let ytype = get_type y c_class in
+      if ytype <> Class "Int" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform comparison with type %s"
+             (type_to_str ytype));
+      Class "Bool"
+  | Not x ->
+      let xtype = get_type x c_class in
+      if xtype <> Class "Bool" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform boolean negation with type %s"
+             (type_to_str xtype))
+      else Class "Bool"
+  | Negate x ->
+      let xtype = get_type x c_class in
+      if xtype <> Class "Int" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform integer negation with type %s"
+             (type_to_str xtype))
+      else Class "Int"
+  | Ident_Expr id -> (
+      let ident = Hashtbl.find_opt objEnv id.name in
+      match ident with
+      | None ->
+          print_typecheck_error expr.id.line_num
+            (Printf.sprintf "Undeclared variable %s" id.name)
+      | Some v -> Class "Fix Me")
+  | Let_Expr (letlist, expr) -> (
+      (* COOL REFERENCE MANUAL: 
+         Typing a multiple let
+         let x1 : T1 [← e1], x2 : T2 [← e2], . . . , xn : Tn [← en] in e
+         is defined to be the same as typing
+         let x1 : T1 [← e1] in (let x2 : T2 [← e2], . . . , xn : Tn [← en] in e ) 
+      *)
+      (* 
+        Ok so basically we typecheck the outermost type and then the next and so on so forth until the let list is empty at which point we type check the actual expression
+      *)
+      match letlist with
+      | [] -> get_type expr c_class
+      | (varname, typename, expr_opt) :: tail -> (
+          match expr_opt with
+          | None ->
+              (* Let No Init*)
+              (* T0' = { SELF_TYPEc if T0 = SELF_TYPE*)
+              (*       {         T0 otherwise        *)
+              (* O, M, C |- e1 : T1 *)
+              (* O, M, C |- let x : T0 <- e1 in e2 : T2 *)
+              let t0 =
+                if typename.name = "SELF_TYPE" then
+                  SELF_TYPE c_class.typename.name
+                else Class typename.name
+              in
+              Hashtbl.add objEnv varname.name t0;
+              let next_let =
+                {
+                  id = expr.id;
+                  sub_expr = Let_Expr (tail, expr);
+                  static_type = None;
+                }
+              in
+              let t1 = get_type next_let c_class in
+              Hashtbl.remove objEnv varname.name;
+              t1
+          | Some inner_expr ->
+              (* Let-Init*)
+              (* T0' = { SELF_TYPEc if T0 = SELF_TYPE*)
+              (*       {         T0 otherwise        *)
+              (* O, M, C |- e1 : T1 *)
+              (* T1 <= T0' *)
+              (* O[T0'/x], M, C |- e2 : T2 *)
+              (* O, M, C |- let x : T0 <- e1 in e2 : T2 *)
+              let t0 =
+                if typename.name = "SELF_TYPE" then
+                  SELF_TYPE c_class.typename.name
+                else Class typename.name
+              in
+              let t1 = get_type inner_expr c_class in
+              if not (lub (type_to_str t1) (type_to_str t0)) then
+                print_typecheck_error expr.id.line_num
+                  (Printf.sprintf
+                     "Variable %s of type %s cannot be have type %s assigned \
+                      to it"
+                     varname.name typename.name (type_to_str t1))
+              else (
+                Hashtbl.add objEnv varname.name t0;
+                let next_let =
+                  {
+                    id = expr.id;
+                    sub_expr = Let_Expr (tail, expr);
+                    static_type = None;
+                  }
+                in
+                let t2 = get_type next_let c_class in
+                Hashtbl.remove objEnv varname.name;
+                t2)))
+  | Case (exp, case_el_list) ->
+      (* TODO: Verify whatever this is is correct *)
+      (*
+        O, M, C |- e0 : T0
+        O[T1/x1], M, C |- e1 : T1'
+        ...
+        O[Tn/xn], M, C |- en : Tn'
+        O, M, C |- case e0 of x1 : T1 -> e1; ... xn : Tn ⇒ en; esac : ⊔1 <= i <= n Ti'
+      *)
+
+      (* NOTE: Variables declared on each branch of a case must have distinct type *)
+      let type_list =
+        List.map
+          (fun (case_element : case_el) -> case_element.typename.name)
+          case_el_list
+      in
+      let rec aux seen = function
+        | [] -> ()
+        | x :: xs ->
+            if List.mem x seen then
+              print_typecheck_error expr.id.line_num
+                (Printf.sprintf "Two cases may not be type %s" x)
+            else aux (x :: seen) xs
+      in
+      aux [] type_list;
+      (* Finish checking for distinct types *)
+      (* Typecheck each expr *)
+      List.iter
+        (fun (case_element : case_el) ->
+          let t1 = get_type case_element.elem_body c_class in
+          if t1 <> Class case_element.typename.name then
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf
+                 "Case element must return type %s, returns type %s"
+                 case_element.typename.name (type_to_str t1)))
+        case_el_list;
+      let static_type_list =
+        List.map
+          (fun (case_element : case_el) -> Class case_element.typename.name)
+          case_el_list
+      in
+
+      (* Return join of all types *)
+      get_join static_type_list
+      (* These three should be fine as we type check them on initial parsing *)
+  | Int_Constant int_val -> Class "Int"
+  | Boolean_Constant bool_val -> Class "String"
+  | String_Constant str_val -> Class "Bool"
 
 and process_caselist ellist cur_class =
   List.iter
@@ -1133,6 +1362,24 @@ let traverse_tree_for_errors ast =
     ast;
   List.iter
     (fun cls -> List.iter (fun feat -> check_feature feat cls) cls.features)
+    ast;
+  List.iter
+    (fun cls ->
+      List.iter
+        (fun feat ->
+          match feat with
+          | Attribute (id, cool_type, Some init_expr) ->
+              let t1 = get_type init_expr cls in
+              if lub (type_to_str t1) cool_type.name then assert true
+              else
+                print_typecheck_error id.line_num
+                  (Printf.sprintf
+                     "Attribute assignment %s does not conform to attribute \
+                      type %s"
+                     (type_to_str t1) cool_type.name)
+          | Attribute (id, cool_type, _) -> ()
+          | Method _ -> (*  TODO: Typecheck methods *) ())
+        cls.features)
     ast
 (* Step 1: Get all function dispatches by parsing ast*)
 (* let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in *)
