@@ -289,7 +289,7 @@ and remove_all_formals (formal_list : formal list) (c_class: cool_class) =
 and add_class (c_class : cool_class) =
   let name = c_class.typename.name in
   match Hashtbl.find_opt class_map name with
-  | None ->( Hashtbl.add class_map name c_class)
+  | None -> Hashtbl.add class_map name c_class
   | Some _ ->
       print_typecheck_error c_class.typename.line_num
         (Printf.sprintf "class %s redefined" c_class.typename.name)
@@ -1239,15 +1239,15 @@ let t2 =get_type i c_class in
         (* T' = { SELF_TYPEc if T = SELF_TYPE*)
         (*      {         T otherwise        *)
         id.name = "SELF_TYPE"
-      then SELF_TYPE c_class.typename.name
+      then SELF_TYPE "FIX ME: Get class name"
       else
-        let var_opt = Hashtbl.find_opt class_map id.name in
+        let var_opt = Hashtbl.find_opt objEnv id.name in
         match var_opt with
         | None ->
             print_typecheck_error expr.id.line_num
               (Printf.sprintf "Cannot create new variable of undeclared type %s"
                  id.name)
-        | Some v -> Class v.typename.name (* O, M, C |- new T : T' *))
+        | Some v -> v (* O, M, C |- new T : T' *))
   | Isvoid exp -> Class "Bool"
   | Plus (x, y) | Minus (x, y) | Divide (x, y) | Times (x, y) ->
       let xtype = get_type x c_class in
@@ -1297,15 +1297,13 @@ let t2 =get_type i c_class in
              (type_to_str xtype))
       else Class "Int"
   | Ident_Expr id -> (
-    if (id.name = "self") then 
-      Class c_class.typename.name 
-    else (
-      let ident = Hashtbl.find_opt objEnv id.name in
+    let typename = if (id.name = "self") then c_class.typename.name else id.name in
+      let ident = Hashtbl.find_opt objEnv typename in
       match ident with
       | None ->
           print_typecheck_error expr.id.line_num
             (Printf.sprintf "Undeclared variable %s" id.name)
-      | Some v -> v))
+      | Some v -> v)
   | Let_Expr (letlist, expr) -> (
       (* COOL REFERENCE MANUAL: 
          Typing a multiple let
@@ -1503,6 +1501,6 @@ let ast =
       String.compare c_class1.typename.name c_class2.typename.name)
     (user_classes @ default_classes)
 in
-(* check_ispatches (); *)
+(* check_dispatches (); *)
 traverse_tree_for_errors ast;
 print_class_map ast
