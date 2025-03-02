@@ -47,13 +47,9 @@ and sub_expr =
   | Case of expr * case_el list  (** expr, case-element-list *)
 
 and feature =
-  | Attribute of (identifier * identifier * expr option)
-      (** name (identifier), type (identifier), and assignment (expr option, to
-          cover no init) *)
-  | Method of identifier * formal list * identifier * expr
+  | Attribute of (identifier * identifier * expr option) (** name (identifier), type (identifier), and assignment (expr option, to cover no init) *)
+  | Method of identifier * formal list * identifier * expr (** name (identifier), formal list (formal list), type (identifier), and body (expression) *)
 
-(** name (identifier), formal list (formal list), type (identifier), and body
-    (expression) *)
 
 and formal = { name : identifier; typename : identifier }
 (** name (identifier) and type (identifier) *)
@@ -941,10 +937,10 @@ let get_method_if_exists (class_name, method_name) =
         | None -> false)
       ancestors
   in
-  if List.length method_signatures < 1 then assert false
+  if List.length method_signatures < 1 then None
   else
-    Hashtbl.find method_map
-      ((List.hd method_signatures).typename.name, method_name)
+    Some (Hashtbl.find method_map
+      ((List.hd method_signatures).typename.name, method_name))
 
 let check_dispatches dispatches class_name =
   List.iter
@@ -952,12 +948,12 @@ let check_dispatches dispatches class_name =
       match dispatch with
       | Dynamic_Dispatch (exp, meth, args) ->
           let m_id, m_formals, m_id2, m_exp =
-            unpack_method (get_method_if_exists (class_name, meth.name))
+            unpack_method (Option.get (get_method_if_exists (class_name, meth.name)))
           in
           if List.length args <> List.length m_formals then assert false
       | Static_Dispatch (exp, typename, meth, args) ->
           let m_id, m_formals, m_id2, m_exp =
-            unpack_method (get_method_if_exists (class_name, meth.name))
+            unpack_method (Option.get (get_method_if_exists (class_name, meth.name)))
           in
           if List.length args <> List.length m_formals then assert false
       | _ -> raise (Invalid_argument "Something is fundamentally wrong"))
@@ -966,6 +962,9 @@ let check_dispatches dispatches class_name =
 let self_bad lnum =
   print_typecheck_error lnum "self can't be used in this way :("
 
+let check_arg_count exp_id arglist meth = match meth with
+  | Attribute _ -> ()
+  | Method (nam, formals, id, exp) -> if (List.compare_lengths formals arglist) <> 0 then print_typecheck_error exp_id.line_num (Printf.sprintf "wrong number of actual arguments (%d vs %d)" (List.length arglist)(List.length formals))
 let rec check_expr expr (cur_class : cool_class) =
   match expr with
   | Expression (iden, sub) -> (
@@ -977,29 +976,33 @@ let rec check_expr expr (cur_class : cool_class) =
           check_expr expr cur_class;
           List.iter (fun e -> check_expr e cur_class) exprlist
       | Static_Dispatch (expr, typename, methodname, exprlist) ->
-          ( (*
+          ( 
           check_expr expr cur_class;
           List.iter (fun e -> check_expr e cur_class) exprlist;
           if typename.name = "SELF_TYPE" then self_bad typename.line_num;
           let res =
-            Hashtbl.find_opt method_map (typename.name, methodname.name)
+            (*Hashtbl.find_opt method_map (typename.name, methodname.name)*)
+            get_method_if_exists (typename.name, methodname.name)
           in
           match res with
           | None ->
+            (*Hashtbl.iter (fun x feat -> match feat with Attribute _ -> () | Method (id, _, _, _) ->  Printf.printf "%s * %s -> %s\n" (fst x) (snd x) id.name) method_map;*)
               print_typecheck_error methodname.line_num
-                "bad method name in static dispatch :("
-          | Some _ -> ()*) )
+                (Printf.sprintf "%s does not exist for %s in static dispatch" methodname.name typename.name)
+          | Some r -> (check_arg_count iden exprlist r) )
       | Self_Dispatch (meth, args) ->
-          ( (*
+          ( 
           List.iter (fun e -> check_expr e cur_class) args;
           let res =
-            Hashtbl.find_opt method_map (cur_class.typename.name, meth.name)
+            (*Hashtbl.find_opt method_map (cur_class.typename.name, meth.name)*)
+            get_method_if_exists (cur_class.typename.name, meth.name)
           in
           match res with
           | None ->
+            (*Hashtbl.iter (fun x feat -> match feat with Attribute _ -> () | Method (id, _, _, _) ->  Printf.printf "%s * %s -> %s\n" (fst x) (snd x) id.name) method_map;*)
               print_typecheck_error meth.line_num
-                "bad method name in self dispatch :("
-          | Some _ -> ()*) )
+                (Printf.sprintf "Method name %s does not exist for class %s in self dispatch" meth.name cur_class.typename.name)
+          | Some r -> (check_arg_count iden args r) )
       | If (pred, thn, els) ->
           check_expr pred cur_class;
           check_expr thn cur_class;
