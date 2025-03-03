@@ -25,15 +25,14 @@ for file in ./good_tests/*.cl; do
 	# OUTPUTDATA=$(cat "$file-ref")
 	# OUTPUTDATA2=$(cat "$file-type")
 	OUTPUTDIFF=$(diff "$file-ref" "$file-type")
-
-	if [ "$OUTPUT" != "$OUTPUT2" ]; then
-		echo "$file's output is incorrect"
-		echo "$OUTPUT2"
-	fi
 	if [ "$OUTPUTDIFF" ]; then
 		echo "$file has wrong output file"
 		#		echo "$OUTPUTDIFF"
 	fi
+	if [ "$OUTPUT" != "$OUTPUT2" ]; then
+		printf "$file's output is incorrect:\n\t%s\n\n" "$OUTPUT2"
+	fi
+
 done
 
 rm ./good_tests/*.cl-*

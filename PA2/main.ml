@@ -183,59 +183,34 @@ let is_subtype child parent =
   | Some _ -> true
   | None -> false
 
-let basic_common_subtype child parent =
-  let ancestors = get_ancestors child [] in
-  match List.find_opt (fun f -> f.typename.name = parent) ancestors with
-  | Some a -> Some (Class a.typename.name)
+(* Find the least common ancestor of two classes *)
+let rec common_ancestor child parent =
+  let child_ancestors = get_ancestors child [] in
+  let parent_ancestors = get_ancestors parent [] in
+  match
+    (* returns the first element of the list child_ancestors that is also in parent_ancestors *)
+    List.find_opt (fun x -> List.mem x parent_ancestors) child_ancestors
+  with
+  | Some lca -> Some lca
   | None -> None
 
-let common_subtype child parent =
-  (*let ancestors = get_ancestors child [] in*)
-  (*match List.find_opt (fun f -> f.typename.name = parent) ancestors with*)
-  (*| Some a -> Some a*)
-  (*| None -> None*)
-  match child with
-  | Class a -> (
-      match parent with
-      | Class b -> basic_common_subtype a b
-      | SELF_TYPE b -> basic_common_subtype a b)
-  | SELF_TYPE a -> (
-      match parent with
-      | Class b -> basic_common_subtype a b
-      | SELF_TYPE b -> Some (SELF_TYPE b))
-
-(* TODO: Implement join better this is all garbage*)
-let rec lub (class_list : static_type list) =
-  (*let rec find_first_shared lst1 lst2 =
-    match lst1 with
-    | [] -> None (* No shared value found *)
-    | x :: xs -> if List.mem x lst2 then Some x else find_first_shared xs lst2
-  in
-  let find_first_shared_multiple lists =
-    match lists with
-    | [] -> None (* No lists provided *)
-    | first :: rest ->
-        let rec find_in_rest lst rest_lists =
-          match rest_lists with
-          | [] -> None
-          | l :: ls -> (
-              match find_first_shared lst l with
-              | Some x -> Some x
-              | None -> find_in_rest lst ls)
-        in
-        find_in_rest first rest
-  in
-  let lists = List.map (fun f -> get_ancestors f []) class_list in
-  let opt = find_first_shared_multiple lists in
-  match opt with None -> Class "Object" | Some v -> Class v.typename.name*)
-  (* basic idea: iterate thru ancestors backwards, see last which has a is_subtype return true on both*)
-  class_list
-  |> List.fold_left
-       (fun cls next ->
-         match common_subtype cls next with
-         | Some a -> a
-         | None -> Class "Object")
-       (List.hd class_list)
+(* Finds least upper bound (lub) for a list of classes. Return the lub as a static type *)
+let lub class_list : static_type =
+  match class_list with
+  | [] ->
+      failwith
+        "ERROR in lub: No classes passed to function. Either that or something \
+         has gone seriously wrong :("
+  | hd :: tl ->
+      let classname =
+        List.fold_left
+          (fun acc next ->
+            match common_ancestor acc next with
+            | Some lca -> lca.typename.name
+            | None -> "Object") (* Fallback to Top (Object) *)
+          hd tl
+      in
+      Class classname
 
 let check_duplicate_formals (lst : formal list) method_name class_name =
   let rec aux seen = function
@@ -294,28 +269,6 @@ and check_all_methods () =
     Hashtbl.fold (fun (k1, k2) v acc -> ((k1, k2), v) :: acc) method_map []
   in
   List.iter (fun ((k1, k2), v) -> check ((k1, k2), v)) methods
-
-and add_all_attributes feature_list (c_class : cool_class) =
-  (* Printf.printf ("Adding up to %d Attributes for class %s\n") (List.length feature_list) c_class.typename.name; *)
-  List.iter
-    (fun feat ->
-      match feat with
-      | Attribute (name, attr_type, _) ->
-          let typ =
-            if attr_type.name = "SELF_TYPE" then SELF_TYPE c_class.typename.name
-            else Class attr_type.name
-          in
-          Hashtbl.add objEnv name.name typ
-      | _ -> ())
-    feature_list
-
-and remove_all_attributes feature_list =
-  List.iter
-    (fun feat ->
-      match feat with
-      | Attribute (name, _, _) -> Hashtbl.remove objEnv name.name
-      | _ -> ())
-    feature_list
 
 and add_all_formals (formal_list : formal list) (c_class : cool_class) =
   List.iter
@@ -749,6 +702,30 @@ and get_all_attributes (c_class : cool_class) =
   in
   List.flatten (List.map get_attributes parent_tree)
 (* let rec get_attrs(c_class) = List.filter (function Method _ -> true | _ -> false) c_class in *)
+
+and add_all_attributes (c_class : cool_class) =
+  (* Printf.printf ("Adding up to %d Attributes for class %s\n") (List.length feature_list) c_class.typename.name; *)
+  let attributes = get_all_attributes c_class in
+  List.iter
+    (fun feat ->
+      match feat with
+      | Attribute (name, attr_type, _) ->
+          let typ =
+            if attr_type.name = "SELF_TYPE" then SELF_TYPE c_class.typename.name
+            else Class attr_type.name
+          in
+          Hashtbl.add objEnv name.name typ
+      | _ -> ())
+    attributes
+
+and remove_all_attributes c_class =
+  let attributes = get_all_attributes c_class in
+  List.iter
+    (fun feat ->
+      match feat with
+      | Attribute (name, _, _) -> Hashtbl.remove objEnv name.name
+      | _ -> ())
+    attributes
 
 and get_features (c_class : cool_class) (predicate : feature -> bool) =
   let selected = List.filter predicate c_class.features in
@@ -1270,12 +1247,17 @@ let rec get_type expr (c_class : cool_class) : static_type =
       if m_type.name <> "SELF_TYPE" then Class m_type.name
       else SELF_TYPE (type_to_str class_name)
   | Static_Dispatch (exp, typename, meth, args) ->
-      let class_name = get_type exp c_class in
+      let class_name = type_to_str (get_type exp c_class) in
       let m_id, m_formals, m_type, m_exp =
-        unpack_method
-          (get_method_if_exists (type_to_str class_name, meth.name) meth)
+        unpack_method (get_method_if_exists (class_name, meth.name) meth)
       in
-      if List.length args <> List.length m_formals then
+      if not (is_subtype class_name typename.name) then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf
+             "Static_Dispatch error: Class %s cannot call upon method of class \
+              %s\n"
+             class_name typename.name)
+      else if List.length args <> List.length m_formals then
         print_typecheck_error expr.id.line_num
           (Printf.sprintf "wrong number of actual arguments (%d vs %d)"
              (List.length m_formals) (List.length args));
@@ -1290,10 +1272,8 @@ let rec get_type expr (c_class : cool_class) : static_type =
                   recieved type %s"
                  j.name.name j.typename.name (type_to_str t2)))
         args m_formals;
-      (* TODO: Static_Dispatch *)
-      (*Class m_type.name*)
       if m_type.name <> "SELF_TYPE" then Class m_type.name
-      else SELF_TYPE (type_to_str class_name)
+      else SELF_TYPE class_name
   | Self_Dispatch (meth, args) ->
       (* TODO: Self_Dispatch *)
       (*let class_name = get_type expr c_class in*)
@@ -1333,7 +1313,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         let t2 = get_type thn c_class in
         let t3 = get_type els c_class in
         (* O, M, C |- if e1 then e2 else e3 fi : T2 U T3 *)
-        Class (type_to_str (lub [ t2; t3 ]))
+        lub [ type_to_str t2; type_to_str t3 ]
   | While (cond, body) ->
       (* O,M,C |- e1 : Bool *)
       (* O,M,C |- e2 : Type2 *)
@@ -1526,23 +1506,16 @@ let rec get_type expr (c_class : cool_class) : static_type =
         (fun (case_element : case_el) ->
           Hashtbl.add objEnv case_element.variable.name
             (Class case_element.typename.name);
-          get_type case_element.elem_body c_class;
-          (* TODO: idk what to do with this honestly because I think what i commented out is wrong :/ *)
-          Hashtbl.remove objEnv case_element.variable.name
-          (*if t1 <> Class case_element.typename.name then
-            print_typecheck_error expr.id.line_num
-              (Printf.sprintf
-                 "Case element must return type %s, returns type %s"
-                 case_element.typename.name (type_to_str t1))*))
+          Hashtbl.remove objEnv case_element.variable.name)
         case_el_list;
       let static_type_list =
         List.map
-          (fun (case_element : case_el) -> Class case_element.typename.name)
+          (fun (case_element : case_el) ->
+            get_type case_element.elem_body c_class)
           case_el_list
       in
-
       (* Return join of all types *)
-      Class (type_to_str (lub static_type_list))
+      lub (List.map (fun f -> type_to_str f) static_type_list)
       (* These three should be fine as we type check them on initial parsing *)
   | Int_Constant int_val -> Class "Int"
   | Boolean_Constant bool_val -> Class "Bool"
@@ -1562,7 +1535,7 @@ let traverse_tree_for_errors ast =
     ast;
   List.iter
     (fun cls ->
-      add_all_attributes cls.features cls;
+      add_all_attributes cls;
       List.iter
         (fun feat ->
           match feat with
@@ -1590,7 +1563,7 @@ let traverse_tree_for_errors ast =
                      (type_to_str t1) typename.name id.name);
               remove_all_formals formal_list cls)
         cls.features;
-      remove_all_attributes cls.features)
+      remove_all_attributes cls)
     ast
 (* Step 1: Get all function dispatches by parsing ast*)
 (* let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in *)
@@ -1608,4 +1581,5 @@ let ast =
 in
 (* check_ispatches (); *)
 traverse_tree_for_errors ast;
-print_class_map ast
+print_class_map ast;
+print_implementation_map ast
