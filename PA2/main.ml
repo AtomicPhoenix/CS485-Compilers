@@ -176,15 +176,20 @@ let rec get_ancestors (name : string) acc =
           else acc)
   | None -> []
 
-and lub child parent =
+let is_subtype child parent =
   let ancestors = get_ancestors child [] in
   match List.find_opt (fun f -> f.typename.name = parent) ancestors with
   | Some _ -> true
   | None -> false
+let common_subtype child parent =
+  let ancestors = get_ancestors child [] in
+  match List.find_opt (fun f -> f.typename.name = parent) ancestors with
+  | Some a -> Some a
+  | None -> None
 
 (* TODO: Implement join better this is all garbage*)
-and get_join (class_list : string list) =
-  let rec find_first_shared lst1 lst2 =
+let rec lub (class_list : string list) =
+  (*let rec find_first_shared lst1 lst2 =
     match lst1 with
     | [] -> None (* No shared value found *)
     | x :: xs -> if List.mem x lst2 then Some x else find_first_shared xs lst2
@@ -205,7 +210,10 @@ and get_join (class_list : string list) =
   in
   let lists = List.map (fun f -> get_ancestors f []) class_list in
   let opt = find_first_shared_multiple lists in
-  match opt with None -> Class "Object" | Some v -> Class v.typename.name
+  match opt with None -> Class "Object" | Some v -> Class v.typename.name*)
+  (* basic idea: iterate thru ancestors backwards, see last which has a is_subtype return true on both*)
+  class_list |> List.fold_left (fun cls next -> match common_subtype cls next with | Some a -> a.typename.name | None -> "Object") (List.hd class_list)
+  
 
 let check_duplicate_formals (lst : formal list) method_name class_name =
   let rec aux seen = function
@@ -1193,7 +1201,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
           (* O, M, C |- e1 =: T' *)
           let t2 = get_type exp c_class in
           (* T' <= T *)
-          if not (lub (type_to_str t2) (type_to_str t1)) then
+          if not (is_subtype (type_to_str t2) (type_to_str t1)) then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Assignment on variable %s has type %s, does not conform to \
@@ -1270,7 +1278,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         let t2 = get_type thn c_class in
         let t3 = get_type els c_class in
         (* O, M, C |- if e1 then e2 else e3 fi : T2 U T3 *)
-        get_join [ type_to_str t2; type_to_str t3 ]
+        Class (lub [ type_to_str t2; type_to_str t3 ])
   | While (cond, body) ->
       (* O,M,C |- e1 : Bool *)
       (* O,M,C |- e2 : Type2 *)
@@ -1411,7 +1419,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
                 else Class typename.name
               in
               let t1 = get_type inner_expr c_class in
-              if not (lub (type_to_str t1) (type_to_str t0)) then
+              if not (is_subtype (type_to_str t1) (type_to_str t0)) then
                 print_typecheck_error expr.id.line_num
                   (Printf.sprintf
                      "Variable %s of type %s cannot have type %s assigned to it"
@@ -1471,7 +1479,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
       in
 
       (* Return join of all types *)
-      get_join static_type_list
+      Class (lub static_type_list)
       (* These three should be fine as we type check them on initial parsing *)
   | Int_Constant int_val -> Class "Int"
   | Boolean_Constant bool_val -> Class "Bool"
@@ -1497,7 +1505,7 @@ let traverse_tree_for_errors ast =
           match feat with
           | Attribute (id, cool_type, Some init_expr) ->
               let t1 = get_type init_expr cls in
-              if not (lub (type_to_str t1) cool_type.name) then
+              if not (is_subtype (type_to_str t1) cool_type.name) then
                 print_typecheck_error id.line_num
                   (Printf.sprintf
                      "Attribute assignment %s does not conform to attribute \
@@ -1509,7 +1517,7 @@ let traverse_tree_for_errors ast =
               let t1 = get_type expr cls in
               if
                 not
-                  (lub (type_to_str t1) typename.name
+                  (is_subtype (type_to_str t1) typename.name
                   || typename.name != "SELF_TYPE")
               then
                 print_typecheck_error id.line_num
