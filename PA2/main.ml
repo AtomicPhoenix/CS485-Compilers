@@ -368,7 +368,7 @@ let default_classes =
           Method
             ( { line_num = 0; name = "length" },
               [],
-              { line_num = 0; name = "String" },
+              { line_num = 0; name = "Int" },
               {
                 id = { name = "string"; line_num = 0 };
                 sub_expr = String_Constant "";
@@ -1048,7 +1048,7 @@ and check_redefined_attributes class_name (attributes : feature list) =
           else Hashtbl.add attrs n.name n)
     attributes
 
-let get_method_if_exists (class_name, method_name) =
+let get_method_if_exists (class_name, method_name) metadata =
   let ancestors = get_ancestors class_name [] in
   let method_signatures =
     List.filter
@@ -1060,9 +1060,10 @@ let get_method_if_exists (class_name, method_name) =
         | None -> false)
       ancestors
   in
-  if List.length method_signatures < 1 then (
-    Printf.printf "Couldnt find method %s in class %s" method_name class_name;
-    assert false)
+  if List.length method_signatures < 1 then
+    print_typecheck_error metadata.line_num
+      (Printf.sprintf "Couldnt find method %s in class %s" method_name
+         class_name)
   else
     Hashtbl.find method_map
       ((List.hd method_signatures).typename.name, method_name)
@@ -1073,12 +1074,12 @@ let check_dispatches dispatches class_name =
       match dispatch with
       | Dynamic_Dispatch (exp, meth, args) ->
           let m_id, m_formals, m_id2, m_exp =
-            unpack_method (get_method_if_exists (class_name, meth.name))
+            unpack_method (get_method_if_exists (class_name, meth.name) meth)
           in
           if List.length args <> List.length m_formals then assert false
       | Static_Dispatch (exp, typename, meth, args) ->
           let m_id, m_formals, m_id2, m_exp =
-            unpack_method (get_method_if_exists (class_name, meth.name))
+            unpack_method (get_method_if_exists (class_name, meth.name) meth)
           in
           if List.length args <> List.length m_formals then assert false
       | _ -> raise (Invalid_argument "Something is fundamentally wrong"))
@@ -1157,7 +1158,29 @@ let rec check_expr expr (cur_class : cool_class) =
       process_caselist case_el_list cur_class
   | _ -> ()
 
-and get_type expr (c_class : cool_class) : static_type =
+and process_caselist ellist cur_class =
+  List.iter
+    (fun el ->
+      if el.variable.name = "self" then self_bad el.variable.line_num;
+      let res = Hashtbl.find_opt class_map el.typename.name in
+      (match res with
+      | None ->
+          print_typecheck_error el.typename.line_num "bad type name in let :("
+      | Some _ -> ());
+      check_expr el.elem_body cur_class)
+    ellist
+
+and check_expr_opt expropt cur_class =
+  match expropt with None -> () | Some expr -> check_expr expr cur_class
+
+let check_feature feat cur_class =
+  match feat with
+  | Attribute (_, tp, assign) ->
+      (*check_attr_type tp;*)
+      check_expr_opt assign cur_class
+  | Method (_, _, _, body) -> check_expr body cur_class
+
+let rec get_type expr (c_class : cool_class) : static_type =
   match expr.sub_expr with
   | Assignment (id, exp) -> (
       (* O(id) = T *)
@@ -1168,7 +1191,7 @@ and get_type expr (c_class : cool_class) : static_type =
             (Printf.sprintf "Assignment on undeclared variable %s" id.name)
       | Some t1 ->
           (* O, M, C |- e1 =: T' *)
-          let t2 = get_type expr c_class in
+          let t2 = get_type exp c_class in
           (* T' <= T *)
           if not (lub (type_to_str t2) (type_to_str t1)) then
             print_typecheck_error expr.id.line_num
@@ -1179,11 +1202,12 @@ and get_type expr (c_class : cool_class) : static_type =
           (* O. M, C |- Id <-- e1: T' *)
             else t2
       (* TODO: Dynamic_Dispatch *))
-  | Dynamic_Dispatch (expr, meth, exprlist) ->
+  | Dynamic_Dispatch (exp, meth, exprlist) ->
       (* e, method, args*)
-      let class_name = get_type expr c_class in
+      let class_name = get_type exp c_class in
       let m_id, m_formals, m_type, m_exp =
-        unpack_method (get_method_if_exists (type_to_str class_name, meth.name))
+        unpack_method
+          (get_method_if_exists (type_to_str class_name, meth.name) meth)
       in
       if List.length exprlist <> List.length m_formals then
         print_typecheck_error expr.id.line_num
@@ -1214,19 +1238,21 @@ and get_type expr (c_class : cool_class) : static_type =
         O, M, C |- e0.f (e1,.., en) : Tn+1
       *)
       Class m_type.name
-  | Static_Dispatch (expr, typename, meth, args) ->
-      let class_name = get_type expr c_class in
+  | Static_Dispatch (exp, typename, meth, args) ->
+      let class_name = get_type exp c_class in
       let m_id, m_formals, m_type, m_exp =
-        unpack_method (get_method_if_exists (type_to_str class_name, meth.name))
+        unpack_method
+          (get_method_if_exists (type_to_str class_name, meth.name) meth)
       in
       if List.length args <> List.length m_formals then assert false;
       (* TODO: Static_Dispatch *)
       Class m_type.name
   | Self_Dispatch (meth, args) ->
       (* TODO: Self_Dispatch *)
-      let class_name = get_type expr c_class in
+      (*let class_name = get_type expr c_class in*)
       let m_id, m_formals, m_type, m_exp =
-        unpack_method (get_method_if_exists (type_to_str class_name, meth.name))
+        unpack_method
+          (get_method_if_exists (c_class.typename.name, meth.name) meth)
       in
       if List.length args <> List.length m_formals then assert false;
       (* TODO: Static_Dispatch *)
@@ -1255,8 +1281,15 @@ and get_type expr (c_class : cool_class) : static_type =
              (type_to_str (get_type cond c_class)))
       else Class "Object"
   | Block exps ->
-      Class "Object"
+      (*Class "Object"*)
       (* TODO: Confirms all Block expressions are objects I can't find a source in the CRM *)
+      (*List.iter (fun x -> get_type x c_class) exps*)
+      let rec check_block exprs class_context prev_type =
+        match exprs with
+        | [] -> prev_type
+        | hd :: tl -> check_block tl class_context (get_type hd class_context)
+      in
+      check_block exps c_class (Class "Object")
   | New id -> (
       if
         (* T' = { SELF_TYPEc if T = SELF_TYPE*)
@@ -1441,30 +1474,8 @@ and get_type expr (c_class : cool_class) : static_type =
       get_join static_type_list
       (* These three should be fine as we type check them on initial parsing *)
   | Int_Constant int_val -> Class "Int"
-  | Boolean_Constant bool_val -> Class "String"
-  | String_Constant str_val -> Class "Bool"
-
-and process_caselist ellist cur_class =
-  List.iter
-    (fun el ->
-      if el.variable.name = "self" then self_bad el.variable.line_num;
-      let res = Hashtbl.find_opt class_map el.typename.name in
-      (match res with
-      | None ->
-          print_typecheck_error el.typename.line_num "bad type name in let :("
-      | Some _ -> ());
-      check_expr el.elem_body cur_class)
-    ellist
-
-and check_expr_opt expropt cur_class =
-  match expropt with None -> () | Some expr -> check_expr expr cur_class
-
-let check_feature feat cur_class =
-  match feat with
-  | Attribute (_, tp, assign) ->
-      (*check_attr_type tp;*)
-      check_expr_opt assign cur_class
-  | Method (_, _, _, body) -> check_expr body cur_class
+  | Boolean_Constant bool_val -> Class "Bool"
+  | String_Constant str_val -> Class "String"
 
 let traverse_tree_for_errors ast =
   check_class_cycle ();
