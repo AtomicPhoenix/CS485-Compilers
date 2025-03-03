@@ -314,16 +314,7 @@ let default_classes =
               [],
               { line_num = 0; name = "Object" },
               {
-                id = { name = "string"; line_num = 0 };
-                sub_expr = String_Constant "";
-                static_type = None;
-              } );
-          Method
-            ( { line_num = 0; name = "type_name" },
-              [],
-              { line_num = 0; name = "String" },
-              {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "Object"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -332,7 +323,16 @@ let default_classes =
               [],
               { line_num = 0; name = "SELF_TYPE" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "SELF_TYPE"; line_num = 0 };
+                sub_expr = String_Constant "";
+                static_type = None;
+              } );
+          Method
+            ( { line_num = 0; name = "type_name" },
+              [],
+              { line_num = 0; name = "String" },
+              {
+                id = { name = "String"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -411,7 +411,7 @@ let default_classes =
               ],
               { line_num = 0; name = "SELF_TYPE" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "SELF_TYPE"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -425,7 +425,7 @@ let default_classes =
               ],
               { line_num = 0; name = "SELF_TYPE" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "SELF_TYPE"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -434,7 +434,7 @@ let default_classes =
               [],
               { line_num = 0; name = "String" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "String"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -443,7 +443,7 @@ let default_classes =
               [],
               { line_num = 0; name = "Int" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "Int"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -821,8 +821,61 @@ and print_features (c_class : cool_class) (predicate : feature -> bool) =
     in
     List.iter print selected
 
+(*
+Output each method in turn (in order of appearance, with inherited or overridden methods from a superclass coming first; internal methods are defined to appear in ascending alphabetical order):
+  - Output the method name and then \n.
+  - Output the number of formals and then \n.
+  - Output each formal’s name only:
+  - Output the name and then \n
+  - If this method is inherited from a parent class and not overriden, output the name of the ultimate parent class that defined the method body expression and then \n. Otherwise, output the name of the current class and then \n.
+  - Output the method body expression.
+*)
 and print_methods (c_class : cool_class) =
-  print_features c_class (function Method _ -> true | _ -> false)
+  (* Generate a list of ancestors *)
+  let ancestors = get_ancestors c_class.typename.name [] in
+  (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
+  (* Compare features sorts all methods first by class (starting with inherited methods) then alphabetically within each class *)
+  let compare_features (f1, _) (f2, _) =
+    let get_name = function
+      | Attribute (id, _, _) -> id.name
+      | Method (id, _, _, _) -> id.name
+    in
+    String.compare (get_name f1) (get_name f2)
+  in
+  let all_methods =
+    List.flatten
+      (List.map
+         (fun c_class ->
+           List.sort compare_features
+             (List.filter_map
+                (fun feat ->
+                  match feat with
+                  | Method (id, fl, id2, exp) ->
+                      Some (Method (id, fl, id2, exp), c_class)
+                  | _ -> None)
+                c_class.features))
+         ancestors)
+  in
+  let print_method (meth, c_class) =
+    match meth with
+    | Method (varname, fl, typename, exp) ->
+        Printf.fprintf out_file "%s\n" varname.name;
+        Printf.fprintf out_file "%d\n" (List.length fl);
+        List.iter
+          (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
+          fl;
+        (* TODO: Get methods original class *)
+        Printf.fprintf out_file "%s\n" c_class.typename.name;
+
+        if exp.static_type = None then (
+          print_identifier exp.id;
+          Printf.fprintf out_file "internal\n%s.%s\n" c_class.typename.name
+            varname.name)
+        else print_expression exp
+    | _ -> ()
+  in
+  Printf.fprintf out_file "%d\n" (List.length all_methods);
+  List.iter print_method all_methods
 
 and print_attributes (c_class : cool_class) =
   let attrs = get_all_attributes c_class in
@@ -1581,5 +1634,5 @@ let ast =
 in
 (* check_ispatches (); *)
 traverse_tree_for_errors ast;
-print_class_map ast;
+(* print_class_map ast; *)
 print_implementation_map ast
