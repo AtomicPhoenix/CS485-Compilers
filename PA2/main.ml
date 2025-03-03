@@ -12,7 +12,8 @@ type static_type =
 let type_to_str t =
   match t with
   | Class x -> x
-  | SELF_TYPE c -> String.concat " " [ "SELF_TYPE"; c ]
+  (*| SELF_TYPE c -> String.concat " " [ "SELF_TYPE"; c ]*)
+  | SELF_TYPE c -> c
 
 type program = cool_class list
 (** ast is a list of classes *)
@@ -181,14 +182,30 @@ let is_subtype child parent =
   match List.find_opt (fun f -> f.typename.name = parent) ancestors with
   | Some _ -> true
   | None -> false
-let common_subtype child parent =
+
+let basic_common_subtype child parent =
   let ancestors = get_ancestors child [] in
   match List.find_opt (fun f -> f.typename.name = parent) ancestors with
-  | Some a -> Some a
+  | Some a -> Some (Class a.typename.name)
   | None -> None
 
+let common_subtype child parent =
+  (*let ancestors = get_ancestors child [] in*)
+  (*match List.find_opt (fun f -> f.typename.name = parent) ancestors with*)
+  (*| Some a -> Some a*)
+  (*| None -> None*)
+  match child with
+  | Class a -> (
+      match parent with
+      | Class b -> basic_common_subtype a b
+      | SELF_TYPE b -> basic_common_subtype a b)
+  | SELF_TYPE a -> (
+      match parent with
+      | Class b -> basic_common_subtype a b
+      | SELF_TYPE b -> Some (SELF_TYPE b))
+
 (* TODO: Implement join better this is all garbage*)
-let rec lub (class_list : string list) =
+let rec lub (class_list : static_type list) =
   (*let rec find_first_shared lst1 lst2 =
     match lst1 with
     | [] -> None (* No shared value found *)
@@ -212,8 +229,13 @@ let rec lub (class_list : string list) =
   let opt = find_first_shared_multiple lists in
   match opt with None -> Class "Object" | Some v -> Class v.typename.name*)
   (* basic idea: iterate thru ancestors backwards, see last which has a is_subtype return true on both*)
-  class_list |> List.fold_left (fun cls next -> match common_subtype cls next with | Some a -> a.typename.name | None -> "Object") (List.hd class_list)
-  
+  class_list
+  |> List.fold_left
+       (fun cls next ->
+         match common_subtype cls next with
+         | Some a -> a
+         | None -> Class "Object")
+       (List.hd class_list)
 
 let check_duplicate_formals (lst : formal list) method_name class_name =
   let rec aux seen = function
@@ -1245,16 +1267,33 @@ let rec get_type expr (c_class : cool_class) : static_type =
                { T(n+1)' otherwise 
         O, M, C |- e0.f (e1,.., en) : Tn+1
       *)
-      Class m_type.name
+      if m_type.name <> "SELF_TYPE" then Class m_type.name
+      else SELF_TYPE (type_to_str class_name)
   | Static_Dispatch (exp, typename, meth, args) ->
       let class_name = get_type exp c_class in
       let m_id, m_formals, m_type, m_exp =
         unpack_method
           (get_method_if_exists (type_to_str class_name, meth.name) meth)
       in
-      if List.length args <> List.length m_formals then assert false;
+      if List.length args <> List.length m_formals then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "wrong number of actual arguments (%d vs %d)"
+             (List.length m_formals) (List.length args));
+      List.iter2
+        (fun i (j : formal) ->
+          let t1 = Class j.typename.name in
+          let t2 = get_type i c_class in
+          if t1 == t2 then
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf
+                 "Argument mismatch for argument %s, expected type %s, \
+                  recieved type %s"
+                 j.name.name j.typename.name (type_to_str t2)))
+        args m_formals;
       (* TODO: Static_Dispatch *)
-      Class m_type.name
+      (*Class m_type.name*)
+      if m_type.name <> "SELF_TYPE" then Class m_type.name
+      else SELF_TYPE (type_to_str class_name)
   | Self_Dispatch (meth, args) ->
       (* TODO: Self_Dispatch *)
       (*let class_name = get_type expr c_class in*)
@@ -1262,9 +1301,25 @@ let rec get_type expr (c_class : cool_class) : static_type =
         unpack_method
           (get_method_if_exists (c_class.typename.name, meth.name) meth)
       in
-      if List.length args <> List.length m_formals then assert false;
+      if List.length args <> List.length m_formals then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "wrong number of actual arguments (%d vs %d)"
+             (List.length m_formals) (List.length args));
+      List.iter2
+        (fun i (j : formal) ->
+          let t1 = Class j.typename.name in
+          let t2 = get_type i c_class in
+          if t1 == t2 then
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf
+                 "Argument mismatch for argument %s, expected type %s, \
+                  recieved type %s"
+                 j.name.name j.typename.name (type_to_str t2)))
+        args m_formals;
       (* TODO: Static_Dispatch *)
-      Class m_type.name
+      (*Class m_type.name*)
+      if m_type.name <> "SELF_TYPE" then Class m_type.name
+      else SELF_TYPE c_class.typename.name
   | If (pred, thn, els) ->
       let t1 = get_type pred c_class in
       (* O, M, C |- e1 : Bool *)
@@ -1278,7 +1333,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         let t2 = get_type thn c_class in
         let t3 = get_type els c_class in
         (* O, M, C |- if e1 then e2 else e3 fi : T2 U T3 *)
-        Class (lub [ type_to_str t2; type_to_str t3 ])
+        Class (type_to_str (lub [ t2; t3 ]))
   | While (cond, body) ->
       (* O,M,C |- e1 : Bool *)
       (* O,M,C |- e2 : Type2 *)
@@ -1336,15 +1391,19 @@ let rec get_type expr (c_class : cool_class) : static_type =
       Class "Bool"
   | LessThan (x, y) | LessEqual (x, y) ->
       let xtype = get_type x c_class in
-      if xtype <> Class "Int" then
+      let ytype = get_type y c_class in
+      if xtype = Class "Int" && ytype <> Class "Int" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform comparison with type %s"
+             (type_to_str xtype))
+      else if xtype = Class "String" && ytype <> Class "String" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform comparison with type %s"
+             (type_to_str xtype))
+      else if xtype = Class "Bool" && ytype <> Class "Bool" then
         print_typecheck_error expr.id.line_num
           (Printf.sprintf "Cannot perform comparison with type %s"
              (type_to_str xtype));
-      let ytype = get_type y c_class in
-      if ytype <> Class "Int" then
-        print_typecheck_error expr.id.line_num
-          (Printf.sprintf "Cannot perform comparison with type %s"
-             (type_to_str ytype));
       Class "Bool"
   | Not x ->
       let xtype = get_type x c_class in
@@ -1465,21 +1524,25 @@ let rec get_type expr (c_class : cool_class) : static_type =
       (* Typecheck each expr *)
       List.iter
         (fun (case_element : case_el) ->
-          let t1 = get_type case_element.elem_body c_class in
-          if t1 <> Class case_element.typename.name then
+          Hashtbl.add objEnv case_element.variable.name
+            (Class case_element.typename.name);
+          get_type case_element.elem_body c_class;
+          (* TODO: idk what to do with this honestly because I think what i commented out is wrong :/ *)
+          Hashtbl.remove objEnv case_element.variable.name
+          (*if t1 <> Class case_element.typename.name then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Case element must return type %s, returns type %s"
-                 case_element.typename.name (type_to_str t1)))
+                 case_element.typename.name (type_to_str t1))*))
         case_el_list;
-      let (static_type_list : string list) =
+      let static_type_list =
         List.map
-          (fun (case_element : case_el) -> case_element.typename.name)
+          (fun (case_element : case_el) -> Class case_element.typename.name)
           case_el_list
       in
 
       (* Return join of all types *)
-      Class (lub static_type_list)
+      Class (type_to_str (lub static_type_list))
       (* These three should be fine as we type check them on initial parsing *)
   | Int_Constant int_val -> Class "Int"
   | Boolean_Constant bool_val -> Class "Bool"
