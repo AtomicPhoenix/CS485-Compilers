@@ -946,16 +946,7 @@ and print_methods (c_class : cool_class) =
           (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
           fl;
         Printf.fprintf out_file "%s\n" c_class.typename.name;
-        (match exp.static_type with
-        | None -> print_identifier exp.id
-        (* Printf.fprintf out_file "No type"; *)
-        | Some v ->
-            let typename =
-              match v with SELF_TYPE v -> "SELF_TYPE" | Class v -> v
-            in
-            Printf.fprintf out_file "%d\n%s\n%s\n" exp.id.line_num typename
-              exp.id.name);
-        print_sub_expr exp.sub_expr
+        print_expression exp
     | _ -> ()
   in
   Printf.fprintf out_file "%d\n" (List.length all_methods);
