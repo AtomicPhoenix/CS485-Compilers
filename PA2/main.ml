@@ -248,19 +248,27 @@ let lub class_list : static_type =
   Printf.fprintf out_file "Is: %s\n\n" (get_name ret); *)
   ret
 
+(* Checks for duplicate formals in a list of formals. *)
 let check_duplicate_formals (lst : formal list) method_name class_name =
-  let rec aux seen = function
-    | [] -> None
-    | x :: xs -> if List.mem x seen then Some x else aux (x :: seen) xs
+  (* Function to find duplicate identifiers for simplicity's sake *)
+  let find_duplicate_identifier (idents : identifier list) : identifier option =
+    let rec check seen = function
+      | [] -> None
+      | ({ line_num; name } as ident) :: rest ->
+          if List.mem name seen then Some ident else check (name :: seen) rest
+    in
+    check [] idents
   in
-  match aux [] (List.rev lst) with
+  (* Get list of identifiers *)
+  let ids = List.map (fun (f : formal) -> f.name) lst in
+  match find_duplicate_identifier ids with
   | None -> ()
   | Some c ->
-      print_typecheck_error c.name.line_num
+      print_typecheck_error c.line_num
         (Printf.sprintf
            "Type-Check: Duplicate formal parameter %s redefined in Method %s \
             Class %s"
-           c.name.name method_name class_name)
+           c.name method_name class_name)
 
 let rec add_method (class_name : string) (method_signature : feature) =
   match method_signature with
@@ -1220,6 +1228,8 @@ let get_method_if_exists (class_name, method_name) metadata =
       ancestors
   in
   if List.length method_signatures < 1 then
+    (* Printf.printf "List of ancestors:\n";
+    List.iter (fun f -> Printf.printf "%s\n" f.typename.name) ancestors;*)
     print_typecheck_error metadata.line_num
       (Printf.sprintf "Couldnt find method %s in class %s" method_name
          class_name)
@@ -1379,7 +1389,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         (fun i (j : formal) ->
           let t1 = Class j.typename.name in
           let t2 = get_type i c_class in
-          if t1 <> t2 then
+          if type_to_str t1 <> type_to_str t2 then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Argument mismatch for argument %s, expected type %s, \
@@ -1415,7 +1425,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
       let m_id, m_formals, m_type, m_exp =
         unpack_method (get_method_if_exists (class_name, meth.name) meth)
       in
-      if not (is_child class_name typename.name) then
+      if not (is_subtype (Class class_name) (Class typename.name)) then
         print_typecheck_error expr.id.line_num
           (Printf.sprintf
              "Static_Dispatch error: Class %s cannot call upon method of class \
@@ -1601,7 +1611,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         t
   | Ident_Expr id -> (
       if id.name = "self" then (
-        let t = SELF_TYPE "SELF_TYPE" in
+        let t = SELF_TYPE c_class.typename.name in
         expr.static_type <- Some t;
         t)
       else
@@ -1763,7 +1773,7 @@ let traverse_tree_for_errors ast =
           match feat with
           | Attribute (id, cool_type, Some init_expr) ->
               let t1 = get_type init_expr cls in
-              if not (is_child (type_to_str t1) cool_type.name) then
+              if not (is_subtype t1 (Class cool_type.name)) then
                 print_typecheck_error id.line_num
                   (Printf.sprintf
                      "Attribute assignment %s does not conform to attribute \
@@ -1781,8 +1791,8 @@ let traverse_tree_for_errors ast =
               if not (is_subtype t1 t2) then (
                 let get_typename t =
                   match t with
-                  | Class v -> "Class" ^ v
-                  | SELF_TYPE v -> "SELFTYPE" ^ v
+                  | Class v -> "Class: " ^ v
+                  | SELF_TYPE v -> "SELF_TYPE: " ^ v
                 in
                 Printf.fprintf out_file "-----------------";
                 print_sub_expr expr.sub_expr;
