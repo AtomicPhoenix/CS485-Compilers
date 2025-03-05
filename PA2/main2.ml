@@ -65,7 +65,6 @@ and sub_expr =
   | Let_Expr of (identifier * identifier * expr option) list * expr
       (** (variable, type, value option) list, body*)
   | Case of expr * case_el list  (** expr, case-element-list *)
-  | Internal of string * string * string (* Classname, Methodname, Returntype *)
 
 and bool_val = True | False
 
@@ -316,7 +315,7 @@ let default_classes =
               { line_num = 0; name = "Object" },
               {
                 id = { name = "Object"; line_num = 0 };
-                sub_expr = Internal ("Object", "abort", "Object");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
           Method
@@ -325,7 +324,7 @@ let default_classes =
               { line_num = 0; name = "SELF_TYPE" },
               {
                 id = { name = "SELF_TYPE"; line_num = 0 };
-                sub_expr = Internal ("Object", "copy", "SELF_TYPE");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
           Method
@@ -334,7 +333,7 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "String"; line_num = 0 };
-                sub_expr = Internal ("Object", "type_name", "String");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
         ];
@@ -355,7 +354,7 @@ let default_classes =
               { line_num = 0; name = "Int" },
               {
                 id = { name = "string"; line_num = 0 };
-                sub_expr = Internal ("String", "length", "Int");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
           Method
@@ -369,7 +368,7 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "string"; line_num = 0 };
-                sub_expr = Internal ("String", "concat", "String");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
           Method
@@ -387,7 +386,7 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "string"; line_num = 0 };
-                sub_expr = Internal ("String", "substr", "String");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
         ];
@@ -413,7 +412,7 @@ let default_classes =
               { line_num = 0; name = "SELF_TYPE" },
               {
                 id = { name = "SELF_TYPE"; line_num = 0 };
-                sub_expr = Internal ("IO", "out_string", "SELF_TYPE");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
           Method
@@ -427,7 +426,7 @@ let default_classes =
               { line_num = 0; name = "SELF_TYPE" },
               {
                 id = { name = "SELF_TYPE"; line_num = 0 };
-                sub_expr = Internal ("IO", "out_int", "SELF_TYPE");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
           Method
@@ -436,7 +435,7 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "String"; line_num = 0 };
-                sub_expr = Internal ("IO", "in_string", "String");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
           Method
@@ -445,7 +444,7 @@ let default_classes =
               { line_num = 0; name = "Int" },
               {
                 id = { name = "Int"; line_num = 0 };
-                sub_expr = Internal ("IO", "in_int", "Int");
+                sub_expr = String_Constant "";
                 static_type = None;
               } );
         ];
@@ -850,55 +849,6 @@ Output each method in turn (in order of appearance, with inherited or overridden
   - If this method is inherited from a parent class and not overriden, output the name of the ultimate parent class that defined the method body expression and then \n. Otherwise, output the name of the current class and then \n.
   - Output the method body expression.
 *)
-and print_all_features (c_class : cool_class) =
-  (* Generate a list of ancestors *)
-  let ancestors = get_ancestors c_class.typename.name [] in
-  (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
-  (* Compare features sorts all methods first by class (starting with inherited methods) then alphabetically within each class *)
-  let compare_features (f1, _) (f2, _) =
-    let get_name = function
-      | Attribute (id, _, _) -> id.name
-      | Method (id, _, _, _) -> id.name
-    in
-    String.compare (get_name f1) (get_name f2)
-  in
-  let all_feats =
-    List.flatten
-      (List.map
-         (fun c_class ->
-           List.sort compare_features
-             (List.map (fun feat -> (feat, c_class)) c_class.features))
-         ancestors)
-  in
-  let print_feats =
-   fun (feat, c_class) ->
-    match feat with
-    | Attribute (name, typ, assign) -> (
-        match assign with
-        | None ->
-            Printf.fprintf out_file "no_initializer\n%s\n%s\n" name.name
-              typ.name
-        | Some exp ->
-            Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
-            print_init_expression (exp, typ.name))
-    | Method (varname, fl, typename, exp) ->
-        Printf.fprintf out_file "%s\n" varname.name;
-        Printf.fprintf out_file "%d\n" (List.length fl);
-        List.iter
-          (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
-          fl;
-        (* TODO: Get methods original class *)
-        Printf.fprintf out_file "%s\n" c_class.typename.name;
-
-        if exp.static_type = None then (
-          print_identifier exp.id;
-          Printf.fprintf out_file "internal\n%s.%s\n" c_class.typename.name
-            varname.name)
-        else print_expression exp
-  in
-  Printf.fprintf out_file "%d\n" (List.length all_feats);
-  List.iter print_feats all_feats
-
 and print_methods (c_class : cool_class) =
   (* Generate a list of ancestors *)
   let ancestors = get_ancestors c_class.typename.name [] in
@@ -935,7 +885,12 @@ and print_methods (c_class : cool_class) =
           fl;
         (* TODO: Get methods original class *)
         Printf.fprintf out_file "%s\n" c_class.typename.name;
-        print_expression exp
+
+        if exp.static_type = None then (
+          print_identifier exp.id;
+          Printf.fprintf out_file "internal\n%s.%s\n" c_class.typename.name
+            varname.name)
+        else print_expression exp
     | _ -> ()
   in
   Printf.fprintf out_file "%d\n" (List.length all_methods);
@@ -972,8 +927,7 @@ and print_expression (exp : expr) =
   print_sub_expr exp.sub_expr
 
 and print_init_expression ((exp : expr), (typename : string)) =
-  Printf.fprintf out_file "%d\n" exp.id.line_num;
-  Printf.fprintf out_file "%s\n" exp.id.name;
+  Printf.fprintf out_file "%d\n%s\n" exp.id.line_num exp.id.name;
   print_sub_expr exp.sub_expr
 
 and print_identifier (id : identifier) =
@@ -1057,8 +1011,6 @@ and print_sub_expr (sub_exp : sub_expr) =
       in
       List.iter print_binding binding_list;
       print_expression exp2
-  | Internal (classname, methodname, methodreturn) ->
-      Printf.fprintf out_file "internal\n%s.%s\n" classname methodname
   | Case (exp, elems) ->
       print_expression exp;
       Printf.fprintf out_file "%d\n" (List.length elems);
@@ -1086,6 +1038,19 @@ let validate_main () =
   then print_typecheck_error 0 "class Main method main not found";
   (* check that main has 0 parameters *)
   if
+    (* TODO: convert to method map *)
+    (*let main_class = Hashtbl.find class_map "Main" in
+    match
+      main_class.features
+      |> List.find (function
+           | Method (nm, fm, tp, bd) ->
+               nm.name = "main"
+               && List.length fm = 0
+               && (tp.name = "Object" || tp.name = "SELF_TYPE")
+           | Attribute _ -> false)
+    with
+    | Method (nm, fm, tp, bd) -> not (list_is_empty fm)
+    | _ -> false*)
     let res = Hashtbl.find_opt method_map ("Main", "main") in
     match res with None -> true | _ -> false
   then print_typecheck_error 0 "class Main method main w/ 0 params not found"
@@ -1623,20 +1588,10 @@ let rec get_type expr (c_class : cool_class) : static_type =
       in
       (* Return join of all types *)
       lub (List.map (fun f -> type_to_str f) static_type_list)
-  | Internal (classname, methodname, methodreturn) -> Class methodreturn
-  (* These three should be fine as we type check them on initial parsing *)
-  | Int_Constant int_val ->
-      let t = Class "Int" in
-      expr.static_type <- Some t;
-      t
-  | Boolean_Constant bool_val ->
-      let t = Class "Bool" in
-      expr.static_type <- Some t;
-      t
-  | String_Constant str_val ->
-      let t = Class "String" in
-      expr.static_type <- Some t;
-      t
+      (* These three should be fine as we type check them on initial parsing *)
+  | Int_Constant int_val -> Class "Int"
+  | Boolean_Constant bool_val -> Class "Bool"
+  | String_Constant str_val -> Class "String"
 
 let traverse_tree_for_errors ast =
   check_class_cycle ();
@@ -1699,7 +1654,7 @@ in
 (* check_ispatches (); *)
 traverse_tree_for_errors ast;
 (* print_class_map ast; *)
-(* print_class_map ast; *)
-print_implementation_map ast
-(* print_parent_map ast; 
-print_annotated_ast ast *)
+print_class_map ast;
+print_implementation_map ast;
+print_parent_map ast;
+print_annotated_ast ast
