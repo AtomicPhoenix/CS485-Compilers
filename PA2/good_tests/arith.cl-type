@@ -36,7 +36,7 @@ set_var
 num
 A
 14
-A
+SELF_TYPE
 block
 2
 15
@@ -50,7 +50,7 @@ identifier
 15
 num
 16
-A
+SELF_TYPE
 identifier
 16
 self
@@ -59,7 +59,7 @@ method1
 num
 A
 21
-A
+SELF_TYPE
 identifier
 21
 self
@@ -69,6 +69,7 @@ num1
 num2
 A
 25
+B
 let
 1
 let_binding_no_init
@@ -119,6 +120,7 @@ method3
 num
 A
 34
+C
 let
 1
 let_binding_no_init
@@ -165,7 +167,7 @@ num1
 num2
 A
 43
-Object
+D
 if
 43
 Bool
@@ -181,6 +183,7 @@ identifier
 43
 num1
 44
+D
 let
 1
 let_binding_no_init
@@ -227,6 +230,7 @@ identifier
 47
 x
 51
+D
 let
 1
 let_binding_no_init
@@ -277,6 +281,7 @@ method5
 num
 A
 61
+E
 let
 1
 let_binding_init
@@ -293,6 +298,7 @@ E
 block
 2
 63
+Object
 let
 1
 let_binding_init
@@ -321,33 +327,42 @@ identifier
 64
 num
 65
+No type found :c
 block
 2
 66
+No type found :c
 assign
 66
 x
 66
+No type found :c
 times
 66
+No type found :c
 identifier
 66
 x
 66
+No type found :c
 identifier
 66
 y
 67
+No type found :c
 assign
 67
 y
 67
+No type found :c
 plus
 67
+No type found :c
 identifier
 67
 y
 67
+No type found :c
 integer
 1
 71
@@ -394,7 +409,7 @@ c2i
 char
 A2I
 158
-Object
+Int
 if
 158
 Bool
@@ -413,7 +428,7 @@ Int
 integer
 0
 159
-Object
+Int
 if
 159
 Bool
@@ -432,7 +447,7 @@ Int
 integer
 1
 160
-Object
+Int
 if
 160
 Bool
@@ -451,7 +466,7 @@ Int
 integer
 2
 161
-Object
+Int
 if
 161
 Bool
@@ -470,7 +485,7 @@ Int
 integer
 3
 162
-Object
+Int
 if
 162
 Bool
@@ -489,7 +504,7 @@ Int
 integer
 4
 163
-Object
+Int
 if
 163
 Bool
@@ -508,7 +523,7 @@ Int
 integer
 5
 164
-Object
+Int
 if
 164
 Bool
@@ -527,7 +542,7 @@ Int
 integer
 6
 165
-Object
+Int
 if
 165
 Bool
@@ -546,7 +561,7 @@ Int
 integer
 7
 166
-Object
+Int
 if
 166
 Bool
@@ -565,7 +580,7 @@ Int
 integer
 8
 167
-Object
+Int
 if
 167
 Bool
@@ -602,7 +617,7 @@ i2c
 i
 A2I
 177
-Object
+String
 if
 177
 Bool
@@ -621,7 +636,7 @@ String
 string
 0
 178
-Object
+String
 if
 178
 Bool
@@ -640,7 +655,7 @@ String
 string
 1
 179
-Object
+String
 if
 179
 Bool
@@ -659,7 +674,7 @@ String
 string
 2
 180
-Object
+String
 if
 180
 Bool
@@ -678,7 +693,7 @@ String
 string
 3
 181
-Object
+String
 if
 181
 Bool
@@ -697,7 +712,7 @@ String
 string
 4
 182
-Object
+String
 if
 182
 Bool
@@ -716,7 +731,7 @@ String
 string
 5
 183
-Object
+String
 if
 183
 Bool
@@ -735,7 +750,7 @@ String
 string
 6
 184
-Object
+String
 if
 184
 Bool
@@ -754,7 +769,7 @@ String
 string
 7
 185
-Object
+String
 if
 185
 Bool
@@ -773,7 +788,7 @@ String
 string
 8
 186
-Object
+String
 if
 186
 Bool
@@ -810,7 +825,7 @@ a2i
 s
 A2I
 200
-Object
+Int
 if
 200
 Bool
@@ -835,7 +850,7 @@ Int
 integer
 0
 201
-Object
+Int
 if
 201
 Bool
@@ -906,7 +921,7 @@ Int
 integer
 1
 202
-Object
+Int
 if
 202
 Bool
@@ -989,6 +1004,7 @@ a2i_aux
 s
 A2I
 212
+Int
 let
 1
 let_binding_init
@@ -1005,6 +1021,7 @@ Int
 block
 2
 214
+Object
 let
 1
 let_binding_init
@@ -1053,31 +1070,40 @@ identifier
 216
 j
 217
+No type found :c
 block
 2
 218
+No type found :c
 assign
 218
 int
 218
+No type found :c
 plus
 218
+No type found :c
 times
 218
+No type found :c
 identifier
 218
 int
 218
+No type found :c
 integer
 10
 218
+No type found :c
 self_dispatch
 218
 c2i
 1
 218
+No type found :c
 dynamic_dispatch
 218
+No type found :c
 identifier
 218
 s
@@ -1085,23 +1111,29 @@ s
 substr
 2
 218
+No type found :c
 identifier
 218
 i
 218
+No type found :c
 integer
 1
 219
+No type found :c
 assign
 219
 i
 219
+No type found :c
 plus
 219
+No type found :c
 identifier
 219
 i
 219
+No type found :c
 integer
 1
 224
@@ -1114,7 +1146,7 @@ i2a
 i
 A2I
 233
-Object
+String
 if
 233
 Bool
@@ -1133,7 +1165,7 @@ String
 string
 0
 234
-Object
+String
 if
 234
 Bool
@@ -1194,7 +1226,7 @@ i2a_aux
 i
 A2I
 242
-Object
+String
 if
 242
 Bool
@@ -1213,6 +1245,7 @@ String
 string
 
 243
+String
 let
 1
 let_binding_init
@@ -1311,7 +1344,7 @@ set_var
 num
 A
 14
-A
+SELF_TYPE
 block
 2
 15
@@ -1325,7 +1358,7 @@ identifier
 15
 num
 16
-A
+SELF_TYPE
 identifier
 16
 self
@@ -1334,7 +1367,7 @@ method1
 num
 A
 21
-A
+SELF_TYPE
 identifier
 21
 self
@@ -1344,6 +1377,7 @@ num1
 num2
 A
 25
+B
 let
 1
 let_binding_no_init
@@ -1394,6 +1428,7 @@ method3
 num
 A
 34
+C
 let
 1
 let_binding_no_init
@@ -1440,7 +1475,7 @@ num1
 num2
 A
 43
-Object
+D
 if
 43
 Bool
@@ -1456,6 +1491,7 @@ identifier
 43
 num1
 44
+D
 let
 1
 let_binding_no_init
@@ -1502,6 +1538,7 @@ identifier
 47
 x
 51
+D
 let
 1
 let_binding_no_init
@@ -1552,6 +1589,7 @@ method5
 num
 A
 61
+E
 let
 1
 let_binding_init
@@ -1568,6 +1606,7 @@ E
 block
 2
 63
+Object
 let
 1
 let_binding_init
@@ -1596,33 +1635,42 @@ identifier
 64
 num
 65
+No type found :c
 block
 2
 66
+No type found :c
 assign
 66
 x
 66
+No type found :c
 times
 66
+No type found :c
 identifier
 66
 x
 66
+No type found :c
 identifier
 66
 y
 67
+No type found :c
 assign
 67
 y
 67
+No type found :c
 plus
 67
+No type found :c
 identifier
 67
 y
 67
+No type found :c
 integer
 1
 71
@@ -1646,6 +1694,7 @@ method5
 num
 B
 81
+E
 let
 1
 let_binding_no_init
@@ -1750,7 +1799,7 @@ set_var
 num
 A
 14
-A
+SELF_TYPE
 block
 2
 15
@@ -1764,7 +1813,7 @@ identifier
 15
 num
 16
-A
+SELF_TYPE
 identifier
 16
 self
@@ -1773,7 +1822,7 @@ method1
 num
 A
 21
-A
+SELF_TYPE
 identifier
 21
 self
@@ -1783,6 +1832,7 @@ num1
 num2
 A
 25
+B
 let
 1
 let_binding_no_init
@@ -1833,6 +1883,7 @@ method3
 num
 A
 34
+C
 let
 1
 let_binding_no_init
@@ -1879,7 +1930,7 @@ num1
 num2
 A
 43
-Object
+D
 if
 43
 Bool
@@ -1895,6 +1946,7 @@ identifier
 43
 num1
 44
+D
 let
 1
 let_binding_no_init
@@ -1941,6 +1993,7 @@ identifier
 47
 x
 51
+D
 let
 1
 let_binding_no_init
@@ -1991,6 +2044,7 @@ method5
 num
 A
 61
+E
 let
 1
 let_binding_init
@@ -2007,6 +2061,7 @@ E
 block
 2
 63
+Object
 let
 1
 let_binding_init
@@ -2035,33 +2090,42 @@ identifier
 64
 num
 65
+No type found :c
 block
 2
 66
+No type found :c
 assign
 66
 x
 66
+No type found :c
 times
 66
+No type found :c
 identifier
 66
 x
 66
+No type found :c
 identifier
 66
 y
 67
+No type found :c
 assign
 67
 y
 67
+No type found :c
 plus
 67
+No type found :c
 identifier
 67
 y
 67
+No type found :c
 integer
 1
 71
@@ -2085,6 +2149,7 @@ method5
 num
 B
 81
+E
 let
 1
 let_binding_no_init
@@ -2135,6 +2200,7 @@ method6
 num
 C
 94
+A
 let
 1
 let_binding_no_init
@@ -2180,6 +2246,7 @@ method5
 num
 C
 103
+E
 let
 1
 let_binding_no_init
@@ -2269,7 +2336,7 @@ set_var
 num
 A
 14
-A
+SELF_TYPE
 block
 2
 15
@@ -2283,7 +2350,7 @@ identifier
 15
 num
 16
-A
+SELF_TYPE
 identifier
 16
 self
@@ -2292,7 +2359,7 @@ method1
 num
 A
 21
-A
+SELF_TYPE
 identifier
 21
 self
@@ -2302,6 +2369,7 @@ num1
 num2
 A
 25
+B
 let
 1
 let_binding_no_init
@@ -2352,6 +2420,7 @@ method3
 num
 A
 34
+C
 let
 1
 let_binding_no_init
@@ -2398,7 +2467,7 @@ num1
 num2
 A
 43
-Object
+D
 if
 43
 Bool
@@ -2414,6 +2483,7 @@ identifier
 43
 num1
 44
+D
 let
 1
 let_binding_no_init
@@ -2460,6 +2530,7 @@ identifier
 47
 x
 51
+D
 let
 1
 let_binding_no_init
@@ -2510,6 +2581,7 @@ method5
 num
 A
 61
+E
 let
 1
 let_binding_init
@@ -2526,6 +2598,7 @@ E
 block
 2
 63
+Object
 let
 1
 let_binding_init
@@ -2554,33 +2627,42 @@ identifier
 64
 num
 65
+No type found :c
 block
 2
 66
+No type found :c
 assign
 66
 x
 66
+No type found :c
 times
 66
+No type found :c
 identifier
 66
 x
 66
+No type found :c
 identifier
 66
 y
 67
+No type found :c
 assign
 67
 y
 67
+No type found :c
 plus
 67
+No type found :c
 identifier
 67
 y
 67
+No type found :c
 integer
 1
 71
@@ -2604,6 +2686,7 @@ method5
 num
 B
 81
+E
 let
 1
 let_binding_no_init
@@ -2654,6 +2737,7 @@ method7
 num
 D
 116
+Bool
 let
 1
 let_binding_init
@@ -2667,7 +2751,7 @@ identifier
 116
 num
 117
-Object
+Bool
 if
 117
 Bool
@@ -2696,7 +2780,7 @@ identifier
 117
 x
 118
-Object
+Bool
 if
 118
 Bool
@@ -2714,7 +2798,7 @@ x
 Bool
 true
 119
-Object
+Bool
 if
 119
 Bool
@@ -2732,7 +2816,7 @@ x
 Bool
 false
 120
-Object
+Bool
 if
 120
 Bool
@@ -2803,7 +2887,7 @@ set_var
 num
 A
 14
-A
+SELF_TYPE
 block
 2
 15
@@ -2817,7 +2901,7 @@ identifier
 15
 num
 16
-A
+SELF_TYPE
 identifier
 16
 self
@@ -2826,7 +2910,7 @@ method1
 num
 A
 21
-A
+SELF_TYPE
 identifier
 21
 self
@@ -2836,6 +2920,7 @@ num1
 num2
 A
 25
+B
 let
 1
 let_binding_no_init
@@ -2886,6 +2971,7 @@ method3
 num
 A
 34
+C
 let
 1
 let_binding_no_init
@@ -2932,7 +3018,7 @@ num1
 num2
 A
 43
-Object
+D
 if
 43
 Bool
@@ -2948,6 +3034,7 @@ identifier
 43
 num1
 44
+D
 let
 1
 let_binding_no_init
@@ -2994,6 +3081,7 @@ identifier
 47
 x
 51
+D
 let
 1
 let_binding_no_init
@@ -3044,6 +3132,7 @@ method5
 num
 A
 61
+E
 let
 1
 let_binding_init
@@ -3060,6 +3149,7 @@ E
 block
 2
 63
+Object
 let
 1
 let_binding_init
@@ -3088,33 +3178,42 @@ identifier
 64
 num
 65
+No type found :c
 block
 2
 66
+No type found :c
 assign
 66
 x
 66
+No type found :c
 times
 66
+No type found :c
 identifier
 66
 x
 66
+No type found :c
 identifier
 66
 y
 67
+No type found :c
 assign
 67
 y
 67
+No type found :c
 plus
 67
+No type found :c
 identifier
 67
 y
 67
+No type found :c
 integer
 1
 71
@@ -3138,6 +3237,7 @@ method5
 num
 B
 81
+E
 let
 1
 let_binding_no_init
@@ -3188,6 +3288,7 @@ method7
 num
 D
 116
+Bool
 let
 1
 let_binding_init
@@ -3201,7 +3302,7 @@ identifier
 116
 num
 117
-Object
+Bool
 if
 117
 Bool
@@ -3230,7 +3331,7 @@ identifier
 117
 x
 118
-Object
+Bool
 if
 118
 Bool
@@ -3248,7 +3349,7 @@ x
 Bool
 true
 119
-Object
+Bool
 if
 119
 Bool
@@ -3266,7 +3367,7 @@ x
 Bool
 false
 120
-Object
+Bool
 if
 120
 Bool
@@ -3306,6 +3407,7 @@ method6
 num
 E
 131
+A
 let
 1
 let_binding_no_init
@@ -3801,6 +3903,7 @@ Int
 block
 1
 301
+Int
 let
 1
 let_binding_init
@@ -3849,6 +3952,7 @@ is_even
 num
 Main
 310
+Bool
 let
 1
 let_binding_init
@@ -3862,7 +3966,7 @@ identifier
 310
 num
 311
-Object
+Bool
 if
 311
 Bool
@@ -3891,7 +3995,7 @@ identifier
 311
 x
 312
-Object
+Bool
 if
 312
 Bool
@@ -3909,7 +4013,7 @@ x
 Bool
 true
 313
-Object
+Bool
 if
 313
 Bool
@@ -3949,9 +4053,10 @@ class_type
 var
 Main
 320
-Object
+Main
 case
 320
+No type found :c
 identifier
 320
 var
@@ -4045,6 +4150,7 @@ print
 var
 Main
 331
+Main
 let
 1
 let_binding_init
@@ -4125,35 +4231,44 @@ identifier
 342
 flag
 343
+No type found :c
 block
 6
 345
+No type found :c
 self_dispatch
 345
 out_string
 1
 345
+No type found :c
 string
 number 
 346
+No type found :c
 self_dispatch
 346
 print
 1
 346
+No type found :c
 identifier
 346
 avar
 347
+No type found :c
 if
 347
+No type found :c
 self_dispatch
 347
 is_even
 1
 347
+No type found :c
 dynamic_dispatch
 347
+No type found :c
 identifier
 347
 avar
@@ -4161,60 +4276,76 @@ avar
 value
 0
 348
+No type found :c
 self_dispatch
 348
 out_string
 1
 348
+No type found :c
 string
 is even!\n
 350
+No type found :c
 self_dispatch
 350
 out_string
 1
 350
+No type found :c
 string
 is odd!\n
 353
+No type found :c
 self_dispatch
 353
 class_type
 1
 353
+No type found :c
 identifier
 353
 avar
 354
+No type found :c
 assign
 354
 char
 354
+No type found :c
 self_dispatch
 354
 menu
 0
 355
+No type found :c
 if
 355
+No type found :c
 eq
 355
+No type found :c
 identifier
 355
 char
 355
+No type found :c
 string
 a
 356
+No type found :c
 block
 2
 357
+No type found :c
 assign
 357
 a_var
 357
+No type found :c
 dynamic_dispatch
 357
+No type found :c
 new
 357
 A
@@ -4222,17 +4353,21 @@ A
 set_var
 1
 357
+No type found :c
 self_dispatch
 357
 get_int
 0
 358
+No type found :c
 assign
 358
 avar
 358
+No type found :c
 dynamic_dispatch
 358
+No type found :c
 new
 358
 B
@@ -4240,8 +4375,10 @@ B
 method2
 2
 358
+No type found :c
 dynamic_dispatch
 358
+No type found :c
 identifier
 358
 avar
@@ -4249,8 +4386,10 @@ avar
 value
 0
 358
+No type found :c
 dynamic_dispatch
 358
+No type found :c
 identifier
 358
 a_var
@@ -4258,19 +4397,25 @@ a_var
 value
 0
 360
+No type found :c
 if
 360
+No type found :c
 eq
 360
+No type found :c
 identifier
 360
 char
 360
+No type found :c
 string
 b
 361
+No type found :c
 case
 361
+No type found :c
 identifier
 361
 avar
@@ -4280,12 +4425,15 @@ c
 362
 C
 362
+No type found :c
 assign
 362
 avar
 362
+No type found :c
 dynamic_dispatch
 362
+No type found :c
 identifier
 362
 c
@@ -4293,8 +4441,10 @@ c
 method6
 1
 362
+No type found :c
 dynamic_dispatch
 362
+No type found :c
 identifier
 362
 c
@@ -4306,12 +4456,15 @@ a
 363
 A
 363
+No type found :c
 assign
 363
 avar
 363
+No type found :c
 dynamic_dispatch
 363
+No type found :c
 identifier
 363
 a
@@ -4319,8 +4472,10 @@ a
 method3
 1
 363
+No type found :c
 dynamic_dispatch
 363
+No type found :c
 identifier
 363
 a
@@ -4332,45 +4487,58 @@ o
 364
 Object
 364
+No type found :c
 block
 3
 365
+No type found :c
 self_dispatch
 365
 out_string
 1
 365
+No type found :c
 string
 Oooops\n
 366
+No type found :c
 self_dispatch
 366
 abort
 0
 366
+No type found :c
 integer
 0
 369
+No type found :c
 if
 369
+No type found :c
 eq
 369
+No type found :c
 identifier
 369
 char
 369
+No type found :c
 string
 c
 370
+No type found :c
 block
 2
 371
+No type found :c
 assign
 371
 a_var
 371
+No type found :c
 dynamic_dispatch
 371
+No type found :c
 new
 371
 A
@@ -4378,17 +4546,21 @@ A
 set_var
 1
 371
+No type found :c
 self_dispatch
 371
 get_int
 0
 372
+No type found :c
 assign
 372
 avar
 372
+No type found :c
 dynamic_dispatch
 372
+No type found :c
 new
 372
 D
@@ -4396,8 +4568,10 @@ D
 method4
 2
 372
+No type found :c
 dynamic_dispatch
 372
+No type found :c
 identifier
 372
 avar
@@ -4405,8 +4579,10 @@ avar
 value
 0
 372
+No type found :c
 dynamic_dispatch
 372
+No type found :c
 identifier
 372
 a_var
@@ -4414,23 +4590,30 @@ a_var
 value
 0
 374
+No type found :c
 if
 374
+No type found :c
 eq
 374
+No type found :c
 identifier
 374
 char
 374
+No type found :c
 string
 d
 374
+No type found :c
 assign
 374
 avar
 374
+No type found :c
 static_dispatch
 374
+No type found :c
 new
 374
 C
@@ -4440,8 +4623,10 @@ A
 method5
 1
 374
+No type found :c
 dynamic_dispatch
 374
+No type found :c
 identifier
 374
 avar
@@ -4449,23 +4634,30 @@ avar
 value
 0
 376
+No type found :c
 if
 376
+No type found :c
 eq
 376
+No type found :c
 identifier
 376
 char
 376
+No type found :c
 string
 e
 376
+No type found :c
 assign
 376
 avar
 376
+No type found :c
 static_dispatch
 376
+No type found :c
 new
 376
 C
@@ -4475,8 +4667,10 @@ B
 method5
 1
 376
+No type found :c
 dynamic_dispatch
 376
+No type found :c
 identifier
 376
 avar
@@ -4484,23 +4678,30 @@ avar
 value
 0
 378
+No type found :c
 if
 378
+No type found :c
 eq
 378
+No type found :c
 identifier
 378
 char
 378
+No type found :c
 string
 f
 378
+No type found :c
 assign
 378
 avar
 378
+No type found :c
 static_dispatch
 378
+No type found :c
 new
 378
 C
@@ -4510,8 +4711,10 @@ C
 method5
 1
 378
+No type found :c
 dynamic_dispatch
 378
+No type found :c
 identifier
 378
 avar
@@ -4519,21 +4722,28 @@ avar
 value
 0
 380
+No type found :c
 if
 380
+No type found :c
 eq
 380
+No type found :c
 identifier
 380
 char
 380
+No type found :c
 string
 g
 381
+No type found :c
 if
 381
+No type found :c
 dynamic_dispatch
 381
+No type found :c
 new
 381
 D
@@ -4541,8 +4751,10 @@ D
 method7
 1
 381
+No type found :c
 dynamic_dispatch
 381
+No type found :c
 identifier
 381
 avar
@@ -4550,73 +4762,92 @@ avar
 value
 0
 383
+No type found :c
 block
 3
 384
+No type found :c
 self_dispatch
 384
 out_string
 1
 384
+No type found :c
 string
 number 
 385
+No type found :c
 self_dispatch
 385
 print
 1
 385
+No type found :c
 identifier
 385
 avar
 386
+No type found :c
 self_dispatch
 386
 out_string
 1
 386
+No type found :c
 string
 is divisible by 3.\n
 389
+No type found :c
 block
 3
 390
+No type found :c
 self_dispatch
 390
 out_string
 1
 390
+No type found :c
 string
 number 
 391
+No type found :c
 self_dispatch
 391
 print
 1
 391
+No type found :c
 identifier
 391
 avar
 392
+No type found :c
 self_dispatch
 392
 out_string
 1
 392
+No type found :c
 string
 is not divisible by 3.\n
 395
+No type found :c
 if
 395
+No type found :c
 eq
 395
+No type found :c
 identifier
 395
 char
 395
+No type found :c
 string
 h
 396
+No type found :c
 let
 1
 let_binding_no_init
@@ -4625,15 +4856,19 @@ x
 396
 A
 397
+No type found :c
 block
 3
 398
+No type found :c
 assign
 398
 x
 398
+No type found :c
 dynamic_dispatch
 398
+No type found :c
 new
 398
 E
@@ -4641,8 +4876,10 @@ E
 method6
 1
 398
+No type found :c
 dynamic_dispatch
 398
+No type found :c
 identifier
 398
 avar
@@ -4650,6 +4887,7 @@ avar
 value
 0
 399
+No type found :c
 let
 1
 let_binding_init
@@ -4658,10 +4896,13 @@ r
 399
 Int
 399
+No type found :c
 minus
 399
+No type found :c
 dynamic_dispatch
 399
+No type found :c
 identifier
 399
 avar
@@ -4669,10 +4910,13 @@ avar
 value
 0
 399
+No type found :c
 times
 399
+No type found :c
 dynamic_dispatch
 399
+No type found :c
 identifier
 399
 x
@@ -4680,54 +4924,67 @@ x
 value
 0
 399
+No type found :c
 integer
 8
 400
+No type found :c
 block
 6
 401
+No type found :c
 self_dispatch
 401
 out_string
 1
 401
+No type found :c
 string
 number 
 402
+No type found :c
 self_dispatch
 402
 print
 1
 402
+No type found :c
 identifier
 402
 avar
 403
+No type found :c
 self_dispatch
 403
 out_string
 1
 403
+No type found :c
 string
 is equal to 
 404
+No type found :c
 self_dispatch
 404
 print
 1
 404
+No type found :c
 identifier
 404
 x
 405
+No type found :c
 self_dispatch
 405
 out_string
 1
 405
+No type found :c
 string
 times 8 with a remainder of 
 406
+No type found :c
 let
 1
 let_binding_init
@@ -4736,20 +4993,25 @@ a
 406
 A2I
 406
+No type found :c
 new
 406
 A2I
 407
+No type found :c
 block
 2
 408
+No type found :c
 self_dispatch
 408
 out_string
 1
 408
+No type found :c
 dynamic_dispatch
 408
+No type found :c
 identifier
 408
 a
@@ -4757,68 +5019,88 @@ a
 i2a
 1
 408
+No type found :c
 identifier
 408
 r
 409
+No type found :c
 self_dispatch
 409
 out_string
 1
 409
+No type found :c
 string
 \n
 414
+No type found :c
 assign
 414
 avar
 414
+No type found :c
 identifier
 414
 x
 418
+No type found :c
 if
 418
+No type found :c
 eq
 418
+No type found :c
 identifier
 418
 char
 418
+No type found :c
 string
 j
 418
+No type found :c
 assign
 418
 avar
 418
+No type found :c
 new
 418
 A
 420
+No type found :c
 if
 420
+No type found :c
 eq
 420
+No type found :c
 identifier
 420
 char
 420
+No type found :c
 string
 q
 420
+No type found :c
 assign
 420
 flag
 420
+No type found :c
 false
 422
+No type found :c
 assign
 422
 avar
 422
+No type found :c
 dynamic_dispatch
 422
+No type found :c
 new
 422
 A
@@ -4826,8 +5108,10 @@ A
 method1
 1
 422
+No type found :c
 dynamic_dispatch
 422
+No type found :c
 identifier
 422
 avar
@@ -4880,27 +5164,27 @@ Object
 String
 internal
 Object.type_name
-length
-0
-String
-0
-string
-internal
-String.length
 concat
 1
 s
 String
 0
-string
+String
 internal
 String.concat
+length
+0
+String
+0
+Int
+internal
+String.length
 substr
 2
 i
 l
 String
 0
-string
+String
 internal
 String.substr
