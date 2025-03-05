@@ -65,7 +65,8 @@ and sub_expr =
   | Let_Expr of (identifier * identifier * expr option) list * expr
       (** (variable, type, value option) list, body*)
   | Case of expr * case_el list  (** expr, case-element-list *)
-  | Internal of string * string * string (* Classname, Methodname, Returntype *)
+  | Internal of
+      string * string * static_type (* Classname, Methodname, Returntype *)
 
 and bool_val = True | False
 
@@ -178,11 +179,22 @@ let rec get_ancestors (name : string) acc =
           else acc)
   | None -> []
 
-let is_subtype child parent =
-  let ancestors = get_ancestors child [] in
-  match List.find_opt (fun f -> f.typename.name = parent) ancestors with
-  | Some _ -> true
+let is_child child parent =
+  let parent_ancestors = get_ancestors parent [] in
+  let child_ancestors = get_ancestors child [] in
+  match
+    (* returns the first element of the list child_ancestors that is also in parent_ancestors *)
+    List.find_opt (fun x -> List.mem x parent_ancestors) child_ancestors
+  with
+  | Some lca -> true
   | None -> false
+
+let is_subtype (child : static_type) (parent : static_type) =
+  match (child, parent) with
+  | SELF_TYPE _, SELF_TYPE _ -> true
+  | SELF_TYPE styp, Class ctyp -> is_child styp ctyp
+  | Class _, SELF_TYPE _ -> false
+  | Class ctyp1, Class ctyp2 -> is_child ctyp1 ctyp2
 
 (* Finds least upper bound (lub) for a list of classes. Return the lub as a static type *)
 let lub class_list : static_type =
@@ -220,19 +232,28 @@ let lub class_list : static_type =
         | Some lca -> Class lca.typename.name
         | None -> Class "Object" (* Fallback to Top (Object) *))
   in
-  match class_list with
-  | [] ->
-      failwith
-        "ERROR in lub: No classes passed to function. Either that or something \
-         has gone seriously wrong :("
-  | hd :: tl -> List.fold_left get_lub hd tl
+  let ret =
+    match class_list with
+    | [] ->
+        failwith
+          "ERROR in lub: No classes passed to function. Either that or \
+           something has gone seriously wrong :("
+    | hd :: tl -> List.fold_left get_lub hd tl
+  in
+  (* Printf.fprintf out_file "The LUB of: \n";
+  let get_name t =
+    match t with Class v -> "Class: " ^ v | SELF_TYPE v -> "SELF_TYPE: " ^ v
+  in
+  List.iter (fun f -> Printf.fprintf out_file "\t-%s\n" (get_name f)) class_list;
+  Printf.fprintf out_file "Is: %s\n\n" (get_name ret); *)
+  ret
 
 let check_duplicate_formals (lst : formal list) method_name class_name =
   let rec aux seen = function
     | [] -> None
     | x :: xs -> if List.mem x seen then Some x else aux (x :: seen) xs
   in
-  match aux [] lst with
+  match aux [] (List.rev lst) with
   | None -> ()
   | Some c ->
       print_typecheck_error c.name.line_num
@@ -330,7 +351,7 @@ let default_classes =
               { line_num = 0; name = "Object" },
               {
                 id = { name = "Object"; line_num = 0 };
-                sub_expr = Internal ("Object", "abort", "Object");
+                sub_expr = Internal ("Object", "abort", Class "Object");
                 static_type = None;
               } );
           Method
@@ -339,7 +360,7 @@ let default_classes =
               { line_num = 0; name = "SELF_TYPE" },
               {
                 id = { name = "SELF_TYPE"; line_num = 0 };
-                sub_expr = Internal ("Object", "copy", "SELF_TYPE");
+                sub_expr = Internal ("Object", "copy", SELF_TYPE "Object");
                 static_type = None;
               } );
           Method
@@ -348,7 +369,7 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "String"; line_num = 0 };
-                sub_expr = Internal ("Object", "type_name", "String");
+                sub_expr = Internal ("Object", "type_name", Class "String");
                 static_type = None;
               } );
         ];
@@ -374,7 +395,7 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "String"; line_num = 0 };
-                sub_expr = Internal ("String", "concat", "String");
+                sub_expr = Internal ("String", "concat", Class "String");
                 static_type = None;
               } );
           Method
@@ -383,7 +404,7 @@ let default_classes =
               { line_num = 0; name = "Int" },
               {
                 id = { name = "Int"; line_num = 0 };
-                sub_expr = Internal ("String", "length", "Int");
+                sub_expr = Internal ("String", "length", Class "Int");
                 static_type = None;
               } );
           Method
@@ -401,7 +422,7 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "String"; line_num = 0 };
-                sub_expr = Internal ("String", "substr", "String");
+                sub_expr = Internal ("String", "substr", Class "String");
                 static_type = None;
               } );
         ];
@@ -427,8 +448,8 @@ let default_classes =
               { line_num = 0; name = "SELF_TYPE" },
               {
                 id = { name = "SELF_TYPE"; line_num = 0 };
-                sub_expr = Internal ("IO", "out_string", "SELF_TYPE");
-                static_type = None;
+                sub_expr = Internal ("IO", "out_string", SELF_TYPE "IO");
+                static_type = Some (SELF_TYPE "IO");
               } );
           Method
             ( { line_num = 0; name = "out_int" },
@@ -441,8 +462,8 @@ let default_classes =
               { line_num = 0; name = "SELF_TYPE" },
               {
                 id = { name = "SELF_TYPE"; line_num = 0 };
-                sub_expr = Internal ("IO", "out_int", "SELF_TYPE");
-                static_type = None;
+                sub_expr = Internal ("IO", "out_int", SELF_TYPE "IO");
+                static_type = Some (SELF_TYPE "IO");
               } );
           Method
             ( { line_num = 0; name = "in_string" },
@@ -450,8 +471,8 @@ let default_classes =
               { line_num = 0; name = "String" },
               {
                 id = { name = "String"; line_num = 0 };
-                sub_expr = Internal ("IO", "in_string", "String");
-                static_type = None;
+                sub_expr = Internal ("IO", "in_string", Class "String");
+                static_type = Some (Class "String");
               } );
           Method
             ( { line_num = 0; name = "in_int" },
@@ -459,8 +480,8 @@ let default_classes =
               { line_num = 0; name = "Int" },
               {
                 id = { name = "Int"; line_num = 0 };
-                sub_expr = Internal ("IO", "in_int", "Int");
-                static_type = None;
+                sub_expr = Internal ("IO", "in_int", Class "Int");
+                static_type = Some (Class "Int");
               } );
         ];
     };
@@ -946,7 +967,16 @@ and print_methods (c_class : cool_class) =
           (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
           fl;
         Printf.fprintf out_file "%s\n" c_class.typename.name;
-        print_expression exp
+        (match exp.static_type with
+        | None -> print_identifier exp.id
+        (* Printf.fprintf out_file "No type"; *)
+        | Some v ->
+            let typename =
+              match v with SELF_TYPE v -> "SELF_TYPE" | Class v -> v
+            in
+            Printf.fprintf out_file "%d\n%s\n%s\n" exp.id.line_num typename
+              exp.id.name);
+        print_sub_expr exp.sub_expr
     | _ -> ()
   in
   Printf.fprintf out_file "%d\n" (List.length all_methods);
@@ -1322,7 +1352,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
           (* O, M, C |- e1 =: T' *)
           let t2 = get_type exp c_class in
           (* T' <= T *)
-          if not (is_subtype (type_to_str t2) (type_to_str t1)) then
+          if not (is_subtype t2 t1) then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Assignment on variable %s has type %s, does not conform to \
@@ -1356,6 +1386,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
                   recieved type %s"
                  j.name.name j.typename.name (type_to_str t2)))
         exprlist m_formals;
+
       (*
         O, M, C |- e0 : T0
         O, M, C |- e1 : T1
@@ -1369,6 +1400,8 @@ let rec get_type expr (c_class : cool_class) : static_type =
                { T(n+1)' otherwise 
         O, M, C |- e0.f (e1,.., en) : Tn+1
       *)
+      (* Printf.fprintf out_file "The type of method %s is %s\n" m_id.name
+        m_type.name; *)
       if m_type.name <> "SELF_TYPE" then (
         let t = Class m_type.name in
         expr.static_type <- Some t;
@@ -1382,7 +1415,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
       let m_id, m_formals, m_type, m_exp =
         unpack_method (get_method_if_exists (class_name, meth.name) meth)
       in
-      if not (is_subtype class_name typename.name) then
+      if not (is_child class_name typename.name) then
         print_typecheck_error expr.id.line_num
           (Printf.sprintf
              "Static_Dispatch error: Class %s cannot call upon method of class \
@@ -1436,7 +1469,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         expr.static_type <- Some t;
         t)
       else
-        let t = Class c_class.typename.name in
+        let t = SELF_TYPE c_class.typename.name in
         expr.static_type <- Some t;
         t
   | If (pred, thn, els) ->
@@ -1639,7 +1672,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
               (* O, M, C |- e1 : T1 *)
               let t1 = get_type inner_expr c_class in
               (* T1 <= T0' *)
-              if not (is_subtype (type_to_str t1) (type_to_str t0)) then
+              if not (is_subtype t1 t0) then
                 print_typecheck_error expr.id.line_num
                   (Printf.sprintf
                      "Variable %s of type %s cannot have type %s assigned to it"
@@ -1683,6 +1716,10 @@ let rec get_type expr (c_class : cool_class) : static_type =
             Hashtbl.add objEnv case_element.variable.name
               (Class case_element.typename.name);
             let t = get_type case_element.elem_body c_class in
+            (* Printf.fprintf out_file
+              "CASE: The type of case element %s on line %d of type %s is %s\n"
+              case_element.variable.name expr.id.line_num
+              case_element.elem_body.id.name (type_to_str t); COMMENT *)
             Hashtbl.remove objEnv case_element.variable.name;
             t)
           case_el_list
@@ -1691,7 +1728,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
       let t = lub static_type_list in
       expr.static_type <- Some t;
       t
-  | Internal (classname, methodname, methodreturn) -> Class methodreturn
+  | Internal (classname, methodname, methodreturn) -> methodreturn
   (* These three should be fine as we type check them on initial parsing *)
   | Int_Constant int_val ->
       let t = Class "Int" in
@@ -1726,7 +1763,7 @@ let traverse_tree_for_errors ast =
           match feat with
           | Attribute (id, cool_type, Some init_expr) ->
               let t1 = get_type init_expr cls in
-              if not (is_subtype (type_to_str t1) cool_type.name) then
+              if not (is_child (type_to_str t1) cool_type.name) then
                 print_typecheck_error id.line_num
                   (Printf.sprintf
                      "Attribute assignment %s does not conform to attribute \
@@ -1736,16 +1773,25 @@ let traverse_tree_for_errors ast =
           | Method (id, formal_list, typename, expr) ->
               add_all_formals formal_list cls;
               let t1 = get_type expr cls in
-              if
-                not
-                  (is_subtype (type_to_str t1) typename.name
-                  || typename.name != "SELF_TYPE")
-              then
+              let t2 =
+                match typename.name with
+                | "SELF_TYPE" -> SELF_TYPE cls.typename.name
+                | _ -> Class cls.typename.name
+              in
+              if not (is_subtype t1 t2) then (
+                let get_typename t =
+                  match t with
+                  | Class v -> "Class" ^ v
+                  | SELF_TYPE v -> "SELFTYPE" ^ v
+                in
+                Printf.fprintf out_file "-----------------";
+                print_sub_expr expr.sub_expr;
+                Printf.fprintf out_file "-----------------";
                 print_typecheck_error id.line_num
                   (Printf.sprintf
                      "Method return %s does not conform to method type %s for \
-                      method %s"
-                     (type_to_str t1) typename.name id.name);
+                      method %s for expression type %s"
+                     (get_typename t1) (get_typename t2) id.name expr.id.name));
               remove_all_formals formal_list cls)
         cls.features;
       remove_all_attributes cls)
