@@ -1570,6 +1570,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
             expr.static_type <- Some t;
             t (* O, M, C |- new T : T' *))
   | Isvoid exp ->
+      ignore (get_type exp c_class);
       let t = Class "Bool" in
       expr.static_type <- Some t;
       t
@@ -1722,6 +1723,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
             t)
           case_el_list
       in
+      ignore (get_type exp c_class);
       (* Return join of all types *)
       let t = lub static_type_list in
       expr.static_type <- Some t;
