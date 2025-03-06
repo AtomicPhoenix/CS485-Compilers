@@ -4,4 +4,4 @@ ocamlc main.ml
 mv "$1-type" ./out-mine.txt
 ./cool --type "$1"
 mv "$1-type" ./out-ref.txt
-diff -b -B -E -w ./out-mine.txt ./out-ref.txt
+nvim -d ./out-mine.txt ./out-ref.txt

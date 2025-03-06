@@ -865,7 +865,8 @@ and print_annotated_ast ast =
 and print_class c_class =
   print_identifier c_class.typename;
   (match c_class.inherits with
-  | Some inhrt -> Printf.fprintf out_file "inherits\n%d\n%s\n" inhrt.line_num inhrt.name
+  | Some inhrt ->
+      Printf.fprintf out_file "inherits\n%d\n%s\n" inhrt.line_num inhrt.name
   | None -> Printf.fprintf out_file "no_inherits\n");
   print_features c_class
 
@@ -958,19 +959,11 @@ and print_all_features (c_class : cool_class) =
 and print_methods (c_class : cool_class) =
   (* Generate a list of ancestors *)
   let ancestors = get_ancestors c_class.typename.name [] in
-
-  (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
-  (* Compare features sorts all methods first by class (starting with inherited methods) then alphabetically within each class *)
-  (* let compare_features ((f1 : feature), _) ((f2 : feature), _) =
-    let get_name = function
-      | Attribute (id, _, _) -> id.name
-      | Method (id, _, _, _) -> id.name
-    in
-    String.compare (get_name f1) (get_name f2)
-  in *)
+  (* Utility function *)
   let get_feature_name feat =
     match feat with Attribute (id, _, _) | Method (id, _, _, _) -> id.name
   in
+  (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
   let remove_duplicates lst =
     let latest_feature_map = Hashtbl.create (List.length lst) in
     List.iter
@@ -1063,9 +1056,7 @@ and print_identifier (id : identifier) =
   Printf.fprintf out_file "%d\n%s\n" id.line_num id.name
 
 and print_identifier_with_type (id : identifier) s_type =
-  let typename =
-    match s_type with SELF_TYPE v -> "SELF_TYPE" | Class v -> v
-  in
+  let typename = match s_type with Class v -> v | _ -> "SELF_TYPE" in
   Printf.fprintf out_file "%d\n%s\n%s\n" id.line_num typename id.name
 
 and print_identifier_without_type (id : identifier) =
@@ -1417,7 +1408,8 @@ let rec get_type expr (c_class : cool_class) : static_type =
           t2)
   | Dynamic_Dispatch (exp, meth, exprlist) ->
       (* e, method, args*)
-      let class_name = type_to_str (get_type exp c_class) in
+      let t0 = get_type exp c_class in
+      let class_name = type_to_str t0 in
       let m_id, m_formals, m_type, m_exp =
         unpack_method (get_method_if_exists (class_name, meth.name) meth)
       in
@@ -1457,11 +1449,12 @@ let rec get_type expr (c_class : cool_class) : static_type =
         expr.static_type <- Some t;
         t)
       else
-        let t = Class class_name in
+        let t = t0 in
         expr.static_type <- Some t;
-        t
+        t0
   | Static_Dispatch (exp, typename, meth, args) ->
-      let class_name = type_to_str (get_type exp c_class) in
+      let t0 = get_type exp c_class in
+      let class_name = type_to_str t0 in
       let m_id, m_formals, m_type, m_exp =
         unpack_method (get_method_if_exists (class_name, meth.name) meth)
       in
@@ -1491,9 +1484,9 @@ let rec get_type expr (c_class : cool_class) : static_type =
         expr.static_type <- Some t;
         t)
       else
-        let t = Class class_name in
+        let t = t0 in
         expr.static_type <- Some t;
-        t
+        t0
   | Self_Dispatch (meth, args) ->
       let m_id, m_formals, m_type, m_exp =
         unpack_method
@@ -1619,14 +1612,21 @@ let rec get_type expr (c_class : cool_class) : static_type =
       expr.static_type <- Some t;
       t
   | LessThan (x, y) | LessEqual (x, y) ->
-      let xtype = get_type x c_class in
-      let ytype = get_type y c_class in
-      if xtype = Class "Int" && ytype <> Class "Int" then
+      let xtype = type_to_str (get_type x c_class) in
+      let ytype = type_to_str (get_type y c_class) in
+
+      if
+        ytype <> xtype
+        && (xtype = "Int" || ytype = "Int" || xtype = "String"
+          || ytype = "String" || xtype = "Bool" || ytype = "Bool")
+      then
         print_typecheck_error expr.id.line_num
-          (Printf.sprintf "Cannot perform comparison with type %s"
-             (type_to_str xtype));
+          (Printf.sprintf "Cannot perform comparison with type %s" xtype);
+
       let t = Class "Bool" in
+
       expr.static_type <- Some t;
+
       t
   | Not x ->
       let xtype = get_type x c_class in
