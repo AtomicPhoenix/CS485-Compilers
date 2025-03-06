@@ -865,7 +865,7 @@ and print_annotated_ast ast =
 and print_class c_class =
   print_identifier c_class.typename;
   (match c_class.inherits with
-  | Some inhrt -> Printf.fprintf out_file "inherits\n%s\n" inhrt.name
+  | Some inhrt -> Printf.fprintf out_file "inherits\n%d\n%s\n" inhrt.line_num inhrt.name
   | None -> Printf.fprintf out_file "no_inherits\n");
   print_features c_class
 
@@ -876,15 +876,16 @@ and print_features (c_class : cool_class) =
      fun feat ->
       match feat with
       | Attribute (name, typ, None) ->
-          Printf.fprintf out_file "no_initializer\n";
+          Printf.fprintf out_file "attribute_no_init\n";
           print_identifier name;
           print_identifier typ
       | Attribute (name, typ, Some exp) ->
-          Printf.fprintf out_file "initializer\n%s\n%s\n" name.name typ.name;
+          Printf.fprintf out_file "attribute_init\n";
           print_identifier name;
           print_identifier typ;
           print_expression exp
       | Method (id, fl, id2, exp) ->
+          Printf.fprintf out_file "method\n";
           print_identifier id;
           Printf.fprintf out_file "%d\n" (List.length fl);
           List.iter
@@ -1845,4 +1846,4 @@ traverse_tree_for_errors ast;
 print_class_map ast;
 print_implementation_map ast;
 print_parent_map ast;
-print_annotated_ast ast
+print_annotated_ast user_classes
