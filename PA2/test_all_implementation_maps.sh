@@ -1,5 +1,7 @@
 #!/bin/bash
 ocamlc main.ml
+rm ./output* 2>/dev/null
+rm ./good_tests/*.cl-* 2>/dev/null
 for file in ./good_tests/*; do
 	./cool --parse "$file"
 	./cool --imp-map "$file"

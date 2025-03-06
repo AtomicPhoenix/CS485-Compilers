@@ -957,38 +957,50 @@ and print_methods (c_class : cool_class) =
   let ancestors = get_ancestors c_class.typename.name [] in
   (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
   (* Compare features sorts all methods first by class (starting with inherited methods) then alphabetically within each class *)
-  (* let compare_features (f1, _) (f2, _) =
+  (* let compare_features ((f1 : feature), _) ((f2 : feature), _) =
     let get_name = function
       | Attribute (id, _, _) -> id.name
       | Method (id, _, _, _) -> id.name
     in
-    String.compare (get_name f1) (get_name f2) 
+    String.compare (get_name f1) (get_name f2)
   in *)
+
+  (*A1 B1 C1 D1 E1 F1 G1 A2 B2 H -> B2 A2 C1 D1 E1 F1 G1 H *)
 
   let remove_duplicates lst =
     let rec aux seen acc = function
-      | ((Method (id, fl, id2, exp), c_class) as elem) :: rest ->
+      | ((Method (id, _, _, _), c_class | Attribute (id, _, _), c_class) as elem)
+        :: tail ->
           let name = id.name in
-          if List.mem name seen then aux seen acc rest
-          else aux (name :: seen) (elem :: acc) rest
-      | _ -> List.rev acc
+          if List.mem name seen then
+            (* Move overridden method to the front *)
+            aux seen
+              (elem
+              :: List.filter
+                   (fun (Method (id1, _, _, _), _ | Attribute (id1, _, _), _) ->
+                     id1.name <> name)
+                   acc)
+              tail
+          else
+            (* Keep the method normally *)
+            aux (name :: seen) (elem :: acc) tail
+      | [] -> acc
     in
     aux [] [] lst
   in
   let all_methods =
-    remove_duplicates
-      (List.rev
-         (List.flatten
-            (List.map
-               (fun c_class ->
-                 List.filter_map
-                   (fun feat ->
-                     match feat with
-                     | Method (id, fl, id2, exp) ->
-                         Some (Method (id, fl, id2, exp), c_class)
-                     | _ -> None)
-                   c_class.features)
-               ancestors)))
+    List.map
+      (fun c_class ->
+        List.filter_map
+          (fun feat ->
+            match feat with
+            | Method (id, f1, id2, exp) ->
+                Some (Method (id, f1, id2, exp), c_class)
+            | _ -> None)
+          c_class.features)
+      ancestors
+    |> List.flatten |> remove_duplicates
+    (* No List.rev before calling this, as we process oldest first *)
   in
   let print_method (meth, c_class) =
     match meth with
@@ -1011,6 +1023,14 @@ and print_methods (c_class : cool_class) =
         print_sub_expr exp.sub_expr
     | _ -> ()
   in
+  (* Printf.printf "Printing all methods of class %s:\n" c_class.typename.name;
+  List.iter
+    (fun (f, c) ->
+      match f with
+      | Method (id, _, _, _) ->
+          Printf.printf "%s from %s\n" id.name c.typename.name
+      | _ -> ())
+    (List.rev all_methods);*)
   Printf.fprintf out_file "%d\n" (List.length all_methods);
   List.iter print_method (List.rev all_methods)
 
@@ -1377,7 +1397,7 @@ let check_feature feat cur_class =
 
 let rec get_type expr (c_class : cool_class) : static_type =
   match expr.sub_expr with
-  | Assignment (id, exp) -> (
+  | Assignment (id, assign_exp) -> (
       (* O(id) = T *)
       let var_id_opt = Hashtbl.find_opt objEnv id.name in
       match var_id_opt with
@@ -1386,7 +1406,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
             (Printf.sprintf "Assignment on undeclared variable %s" id.name)
       | Some t1 ->
           (* O, M, C |- e1 =: T' *)
-          let t2 = get_type exp c_class in
+          let t2 = get_type assign_exp c_class in
           (* T' <= T *)
           if not (is_subtype t2 t1) then
             print_typecheck_error expr.id.line_num
@@ -1398,9 +1418,8 @@ let rec get_type expr (c_class : cool_class) : static_type =
           else
             (* Printf.fprintf out_file "Assigning variable %s to type %s\n" id.name
               (type_to_str t2); *)
-            let t = t2 in
-            expr.static_type <- Some t;
-            t)
+            expr.static_type <- Some t2;
+          t2)
   | Dynamic_Dispatch (exp, meth, exprlist) ->
       (* e, method, args*)
       let class_name = type_to_str (get_type exp c_class) in
@@ -1570,6 +1589,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
             expr.static_type <- Some t;
             t (* O, M, C |- new T : T' *))
   | Isvoid exp ->
+      let _ = get_type exp c_class in
       let t = Class "Bool" in
       expr.static_type <- Some t;
       t
@@ -1769,6 +1789,26 @@ let traverse_tree_for_errors ast =
                      (type_to_str t1) cool_type.name)
           | Attribute (id, cool_type, _) -> ()
           | Method (id, formal_list, typename, expr) ->
+              (*   add_all_formals m_formals c_class;
+      let t1 = get_type m_exp c_class in
+      let t2 =
+        match m_type.name with
+        | "SELF_TYPE" -> SELF_TYPE c_class.typename.name
+        | _ -> Class m_type.name
+      in
+      (if not (is_subtype t1 t2) then
+         let get_typename t =
+           match t with
+           | Class v -> "Class: " ^ v
+           | SELF_TYPE v -> "SELF_TYPE: " ^ v
+         in
+         print_typecheck_error expr.id.line_num
+           (Printf.sprintf
+              "Method return %s does not conform to method type %s for method \
+               %s for expression type %s"
+              (get_typename t1) (get_typename t2) m_exp.id.name m_exp.id.name));
+      remove_all_formals m_formals c_class;
+*)
               add_all_formals formal_list cls;
               let t1 = get_type expr cls in
               let t2 =

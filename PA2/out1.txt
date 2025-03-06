@@ -1,0 +1,111 @@
+Printing all methods of class A:
+abort from Object
+copy from Object
+type_name from Object
+value from A
+set_var from A
+method1 from A
+method2 from A
+method3 from A
+method4 from A
+method5 from A
+Printing all methods of class A2I:
+abort from Object
+copy from Object
+type_name from Object
+c2i from A2I
+i2c from A2I
+a2i from A2I
+a2i_aux from A2I
+i2a from A2I
+i2a_aux from A2I
+Printing all methods of class B:
+abort from Object
+copy from Object
+type_name from Object
+value from A
+set_var from A
+method1 from A
+method2 from A
+method3 from A
+method4 from A
+method5 from B
+Printing all methods of class Bool:
+abort from Object
+copy from Object
+type_name from Object
+Printing all methods of class C:
+abort from Object
+copy from Object
+type_name from Object
+value from A
+set_var from A
+method1 from A
+method2 from A
+method3 from A
+method4 from A
+method6 from C
+method5 from C
+Printing all methods of class D:
+abort from Object
+copy from Object
+type_name from Object
+value from A
+set_var from A
+method1 from A
+method2 from A
+method3 from A
+method4 from A
+method5 from B
+method7 from D
+Printing all methods of class E:
+abort from Object
+copy from Object
+type_name from Object
+value from A
+set_var from A
+method1 from A
+method2 from A
+method3 from A
+method4 from A
+method5 from B
+method7 from D
+method6 from E
+Printing all methods of class IO:
+abort from Object
+copy from Object
+type_name from Object
+in_int from IO
+in_string from IO
+out_int from IO
+out_string from IO
+Printing all methods of class Int:
+abort from Object
+copy from Object
+type_name from Object
+Printing all methods of class Main:
+abort from Object
+copy from Object
+type_name from Object
+in_int from IO
+in_string from IO
+out_int from IO
+out_string from IO
+menu from Main
+prompt from Main
+get_int from Main
+is_even from Main
+class_type from Main
+print from Main
+main from Main
+Printing all methods of class Object:
+abort from Object
+copy from Object
+type_name from Object
+Printing all methods of class String:
+abort from Object
+copy from Object
+type_name from Object
+concat from String
+length from String
+substr from String
