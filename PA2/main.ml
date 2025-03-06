@@ -1000,7 +1000,6 @@ and print_methods (c_class : cool_class) =
           c_class.features)
       ancestors
     |> List.flatten |> remove_duplicates
-    (* No List.rev before calling this, as we process oldest first *)
   in
   let print_method (meth, c_class) =
     match meth with
