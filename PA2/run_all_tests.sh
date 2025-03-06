@@ -16,7 +16,7 @@ done
 
 for file in ./good_tests/*.cl; do
 	./cool --parse "$file"
-	OUTPUT=$(./cool --class-map "$file")
+	OUTPUT=$(./cool --type "$file")
 	mv "$file-type" "$file-ref"
 	OUTPUT2=$(./a.out "$file-ast")
 	if [ $? -ne 0 ]; then
@@ -25,9 +25,10 @@ for file in ./good_tests/*.cl; do
 			printf ": Output is incorrect:\n\t%s\n\n" "$OUTPUT2"
 		fi
 	else
-		OUTPUTDIFF=$(diff "$file-ref" "$file-type")
-		if [ "$OUTPUTDIFF" ]; then
-			echo "$file has wrong output file"
+
+		OUTPUTDIFF=$(diff -U 0 "$file-ref" "$file-type" | grep -c ^@)
+		if [ "$OUTPUTDIFF" -gt 0 ]; then
+			printf "%s has wrong output file: Off by %d lines.\n" "$file" "$OUTPUTDIFF"
 			#		echo "$OUTPUTDIFF"
 		fi
 	fi
