@@ -878,7 +878,7 @@ and print_annotated_ast ast =
   Printf.fprintf out_file "%d\n" (List.length ast);
   List.iter print_class ast
 
-(** Print all information about a class in the context of the class map *)
+(** Print all information about a class in the context of the annoted AST *)
 and print_class c_class =
   print_identifier c_class.typename;
   (match c_class.inherits with
@@ -1661,7 +1661,7 @@ let ast =
     (user_classes @ default_classes)
 in
 traverse_tree_for_errors ast;
-(* print_class_map ast; *)
-print_implementation_map ast
-(* print_parent_map ast *)
+ print_class_map ast; 
+print_implementation_map ast;
+ print_parent_map ast 
 (* print_annotated_ast ast *)
