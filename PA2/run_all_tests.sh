@@ -16,24 +16,26 @@ done
 
 for file in ./good_tests/*.cl; do
 	./cool --parse "$file"
-	OUTPUT=$(./cool --class-map "$file")
-        mv "$file-type" "$file-ref"
+	OUTPUT=$(./cool --type "$file")
+	mv "$file-type" "$file-ref"
 	OUTPUT2=$(./a.out "$file-ast")
 	if [ $? -ne 0 ]; then
-		echo "$file FAILED where it should have SUCCEEDED"
-	fi
-        OUTPUTDATA=$(cat "$file-ref")
-        OUTPUTDATA2=$(cat "$file-type")
-        OUTPUTDIFF=$(diff "$file-ref" "$file-type")
+		printf "%s FAILED where it should have SUCCEEDED" "$file"
+		if [ "$OUTPUT" != "$OUTPUT2" ]; then
+			printf ": Output is incorrect:\n\t%s\n\n" "$OUTPUT2"
+		fi
+	else
 
-
-	if [ "$OUTPUT" != "$OUTPUT2" ]; then
-		echo "$file's output is incorrect"
-                echo $OUTPUT2
+		OUTPUTDIFF=$(diff -U 0 "$file-ref" "$file-type" | grep -c ^@)
+		if [ "$OUTPUTDIFF" -gt 0 ]; then
+			printf "%s has wrong output file: Off by %d lines.\n" "$file" "$OUTPUTDIFF"
+			#		echo "$OUTPUTDIFF"
+		fi
 	fi
-        if [ "$OUTPUTDIFF" ]; then
-            echo "$file has wrong output file"
-        fi
+
+	# OUTPUTDATA=$(cat "$file-ref")
+	# OUTPUTDATA2=$(cat "$file-type")
+
 done
 
 rm ./good_tests/*.cl-*
