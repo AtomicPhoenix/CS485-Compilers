@@ -964,18 +964,30 @@ and print_methods (c_class : cool_class) =
     in
     String.compare (get_name f1) (get_name f2) 
   in *)
+
+  let remove_duplicates lst =
+    let rec aux seen acc = function
+      | ((Method (id, fl, id2, exp), c_class) as elem) :: rest ->
+          let name = id.name in
+          if List.mem name seen then aux seen acc rest
+          else aux (name :: seen) (elem :: acc) rest
+      | _ -> List.rev acc
+    in
+    aux [] [] lst
+  in
   let all_methods =
-    List.flatten
-      (List.map
-         (fun c_class ->
-           List.filter_map
-             (fun feat ->
-               match feat with
-               | Method (id, fl, id2, exp) ->
-                   Some (Method (id, fl, id2, exp), c_class)
-               | _ -> None)
-             c_class.features)
-         ancestors)
+    remove_duplicates
+      (List.flatten
+         (List.map
+            (fun c_class ->
+              List.filter_map
+                (fun feat ->
+                  match feat with
+                  | Method (id, fl, id2, exp) ->
+                      Some (Method (id, fl, id2, exp), c_class)
+                  | _ -> None)
+                c_class.features)
+            ancestors))
   in
   let print_method (meth, c_class) =
     match meth with
@@ -1035,7 +1047,9 @@ and print_identifier (id : identifier) =
   Printf.fprintf out_file "%d\n%s\n" id.line_num id.name
 
 and print_identifier_with_type (id : identifier) s_type =
-  let typename = match s_type with SELF_TYPE v -> "SELF_TYPE" | Class v -> v in
+  let typename =
+    match s_type with SELF_TYPE v -> "SELF_TYPE" | Class v -> v
+  in
   Printf.fprintf out_file "%d\n%s\n%s\n" id.line_num typename id.name
 
 and print_identifier_without_type (id : identifier) =
@@ -1635,77 +1649,38 @@ let rec get_type expr (c_class : cool_class) : static_type =
         | Some t ->
             expr.static_type <- Some t;
             t)
-  | Let_Expr (letlist, let_exp) -> (
-      (* COOL REFERENCE MANUAL: 
-         Typing a multiple let
-         let x1 : T1 [← e1], x2 : T2 [← e2], . . . , xn : Tn [← en] in e
-         is defined to be the same as typing
-         let x1 : T1 [← e1] in (let x2 : T2 [← e2], . . . , xn : Tn [← en] in e ) 
-      *)
-      (* 
-        Ok so basically we typecheck the outermost type and then the next and so on so forth until the let list is empty at which point we type check the actual expression
-      *)
-      match letlist with
-      | [] ->
-          let t = get_type let_exp c_class in
-          expr.static_type <- Some t;
-          t
-      | (varname, typename, expr_opt) :: tail -> (
-          let next_let =
-            {
-              id = expr.id;
-              sub_expr = Let_Expr (tail, let_exp);
-              static_type = None;
-            }
-          in
-
+  | Let_Expr (letlist, let_exp) ->
+      List.iter
+        (fun (varname, typename, expr_opt) ->
           match expr_opt with
-          (* Let No Init*)
           | None ->
-              (* T0' = { SELF_TYPEc if T0 = SELF_TYPE*)
-              (*       {         T0 otherwise        *)
               let t0 =
                 if typename.name = "SELF_TYPE" then
                   SELF_TYPE c_class.typename.name
                 else Class typename.name
               in
-              (* O[T0'/x], M, C |- e1 : T1*)
-              (* O, M, C |- let x : T0 <- e1 in e2 : T2 *)
-              Hashtbl.add objEnv varname.name t0;
-              let t1 = get_type next_let c_class in
-              Hashtbl.remove objEnv varname.name;
-              expr.static_type <- Some t1;
-              t1
+              Hashtbl.add objEnv varname.name t0
           | Some inner_expr ->
-              (* Let-Init*)
-              (* T0' = { SELF_TYPEc if T0 = SELF_TYPE*)
-              (*       {         T0 otherwise        *)
-              (* O, M, C |- e1 : T1 *)
-              (* T1 <= T0' *)
-              (* O[T0'/x], M, C |- e2 : T2 *)
-              (* O, M, C |- let x : T0 <- e1 in e2 : T2 *)
               let t0 =
-                (* T0' = { SELF_TYPEc if T0 = SELF_TYPE*)
-                (*       {         T0 otherwise        *)
                 if typename.name = "SELF_TYPE" then
                   SELF_TYPE c_class.typename.name
                 else Class typename.name
               in
-              (* O, M, C |- e1 : T1 *)
               let t1 = get_type inner_expr c_class in
-              (* T1 <= T0' *)
               if not (is_subtype t1 t0) then
                 print_typecheck_error expr.id.line_num
                   (Printf.sprintf
                      "Variable %s of type %s cannot have type %s assigned to it"
                      varname.name typename.name (type_to_str t1))
-              else (
-                (* O[T0'/x], M, C |- e2 : T2 *)
-                Hashtbl.add objEnv varname.name t0;
-                let t2 = get_type next_let c_class in
-                Hashtbl.remove objEnv varname.name;
-                expr.static_type <- Some t2;
-                t2)))
+              else Hashtbl.add objEnv varname.name t0)
+        letlist;
+      let t = get_type let_exp c_class in
+      List.iter
+        (fun (varname, typename, expr_opt) ->
+          Hashtbl.remove objEnv varname.name)
+        letlist;
+      expr.static_type <- Some t;
+      t
   | Case (exp, case_el_list) ->
       (* TODO: Verify whatever this is is correct *)
       (*
@@ -1834,7 +1809,7 @@ let ast =
 in
 (* check_ispatches (); *)
 traverse_tree_for_errors ast;
-print_class_map ast;
-print_implementation_map ast;
-print_parent_map ast
+(* print_class_map ast; *)
+print_implementation_map ast
+(* print_parent_map ast *)
 (* print_annotated_ast ast *)
