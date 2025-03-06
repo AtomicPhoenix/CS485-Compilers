@@ -9,7 +9,11 @@ type static_type =
   | Class of string (* "Int" or "Object" *)
   | SELF_TYPE of string (* "Self_Type_c" *)
 
-let type_to_str t = match t with Class x -> x | SELF_TYPE c -> (String.concat " " ["SELF_TYPE"; c])
+let type_to_str t =
+  match t with
+  | Class x -> x
+  (*| SELF_TYPE c -> String.concat " " [ "SELF_TYPE"; c ]*)
+  | SELF_TYPE c -> c
 
 type program = cool_class list
 (** ast is a list of classes *)
@@ -65,13 +69,12 @@ and sub_expr =
 and bool_val = True | False
 
 and feature =
+  | Attribute of (identifier * identifier * expr option)
       (** name (identifier), type (identifier), and assignment (expr option, to
           cover no init) *)
-  | Attribute of (identifier * identifier * expr option)
-(** name (identifier), formal list (formal list), type (identifier), and body
-    (expression) *)
   | Method of identifier * formal list * identifier * expr
-
+      (** name (identifier), formal list (formal list), type (identifier), and
+          body (expression) *)
 
 and formal = { name : identifier; typename : identifier }
 (** name (identifier) and type (identifier) *)
@@ -140,7 +143,10 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
       let c_formal_types =
         List.map (fun (form : formal) -> form.typename.name) c_formals
       in
-      assert (p_formal_types = c_formal_types)
+      (*assert (p_formal_types = c_formal_types)*)
+      if p_formal_types <> c_formal_types then
+        print_typecheck_error c_name.line_num
+          (Printf.sprintf "Method %s redefined in %s" method_name class_name)
 
 let rec get_ancestors (name : string) acc =
   let c = Hashtbl.find_opt class_map name in
@@ -171,37 +177,40 @@ let rec get_ancestors (name : string) acc =
           else acc)
   | None -> []
 
-and lub child parent =
+let is_subtype child parent =
   let ancestors = get_ancestors child [] in
   match List.find_opt (fun f -> f.typename.name = parent) ancestors with
   | Some _ -> true
   | None -> false
 
-(* TODO: Implement join better this is all garbage*)
-and get_join (class_list : string list) =
-let rec find_first_shared lst1 lst2 =
-  match lst1 with
-  | [] -> None (* No shared value found *)
-  | x :: xs -> if List.mem x lst2 then Some x else find_first_shared xs lst2
-in
-let find_first_shared_multiple lists =
-  match lists with
-  | [] -> None  (* No lists provided *)
-  | first :: rest ->
-      let rec find_in_rest lst rest_lists =
-        match rest_lists with
-        | [] -> None  
-        | l :: ls ->
-            match find_first_shared lst l with
-            | Some x -> Some x  
-            | None -> find_in_rest lst ls  
+(* Find the least common ancestor of two classes *)
+let rec common_ancestor child parent =
+  let child_ancestors = get_ancestors child [] in
+  let parent_ancestors = get_ancestors parent [] in
+  match
+    (* returns the first element of the list child_ancestors that is also in parent_ancestors *)
+    List.find_opt (fun x -> List.mem x parent_ancestors) child_ancestors
+  with
+  | Some lca -> Some lca
+  | None -> None
+
+(* Finds least upper bound (lub) for a list of classes. Return the lub as a static type *)
+let lub class_list : static_type =
+  match class_list with
+  | [] ->
+      failwith
+        "ERROR in lub: No classes passed to function. Either that or something \
+         has gone seriously wrong :("
+  | hd :: tl ->
+      let classname =
+        List.fold_left
+          (fun acc next ->
+            match common_ancestor acc next with
+            | Some lca -> lca.typename.name
+            | None -> "Object") (* Fallback to Top (Object) *)
+          hd tl
       in
-      find_in_rest first rest
-  in let lists = List.map (fun f -> get_ancestors f []) class_list in 
-  let opt = find_first_shared_multiple lists in match opt with 
-  | None -> Class "Object"
-  | Some v -> Class v.typename.name
-  
+      Class classname
 
 let check_duplicate_formals (lst : formal list) method_name class_name =
   let rec aux seen = function
@@ -261,30 +270,21 @@ and check_all_methods () =
   in
   List.iter (fun ((k1, k2), v) -> check ((k1, k2), v)) methods
 
+and add_all_formals (formal_list : formal list) (c_class : cool_class) =
+  List.iter
+    (fun (formal : formal) ->
+      let typ =
+        if formal.typename.name = "SELF_TYPE" then
+          SELF_TYPE c_class.typename.name
+        else Class formal.typename.name
+      in
+      Hashtbl.add objEnv formal.name.name typ)
+    formal_list
 
-and add_all_attributes (feature_list) (c_class: cool_class) =
-    (* Printf.printf ("Adding up to %d Attributes for class %s\n") (List.length feature_list) c_class.typename.name; *)
-
-  List.iter (fun feat -> match feat with 
-    | Attribute(name, attr_type, _) -> 
-    let typ = if attr_type.name = "SELF_TYPE" then SELF_TYPE c_class.typename.name else Class attr_type.name in
-      (Hashtbl.add objEnv name.name typ)
-    | _ -> () ) feature_list
-
-and remove_all_attributes (feature_list) =
-  List.iter (fun feat ->  match feat with 
-    | Attribute(name, _, _) -> (Hashtbl.remove objEnv name.name)
-    | _ -> () ) feature_list
-
-
-and add_all_formals (formal_list : formal list) (c_class: cool_class) =
-  List.iter (fun (formal : formal) ->  
-    let typ = if formal.typename.name = "SELF_TYPE" then SELF_TYPE c_class.typename.name else Class formal.typename.name in
-      (Hashtbl.add objEnv formal.name.name typ)) formal_list
-
-and remove_all_formals (formal_list : formal list) (c_class: cool_class) =
-  List.iter (fun (formal : formal) ->  
-      (Hashtbl.remove objEnv formal.name.name)) formal_list
+and remove_all_formals (formal_list : formal list) (c_class : cool_class) =
+  List.iter
+    (fun (formal : formal) -> Hashtbl.remove objEnv formal.name.name)
+    formal_list
 
 and add_class (c_class : cool_class) =
   let name = c_class.typename.name in
@@ -314,16 +314,7 @@ let default_classes =
               [],
               { line_num = 0; name = "Object" },
               {
-                id = { name = "string"; line_num = 0 };
-                sub_expr = String_Constant "";
-                static_type = None;
-              } );
-          Method
-            ( { line_num = 0; name = "type_name" },
-              [],
-              { line_num = 0; name = "String" },
-              {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "Object"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -332,7 +323,16 @@ let default_classes =
               [],
               { line_num = 0; name = "SELF_TYPE" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "SELF_TYPE"; line_num = 0 };
+                sub_expr = String_Constant "";
+                static_type = None;
+              } );
+          Method
+            ( { line_num = 0; name = "type_name" },
+              [],
+              { line_num = 0; name = "String" },
+              {
+                id = { name = "String"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -351,7 +351,7 @@ let default_classes =
           Method
             ( { line_num = 0; name = "length" },
               [],
-              { line_num = 0; name = "String" },
+              { line_num = 0; name = "Int" },
               {
                 id = { name = "string"; line_num = 0 };
                 sub_expr = String_Constant "";
@@ -411,7 +411,7 @@ let default_classes =
               ],
               { line_num = 0; name = "SELF_TYPE" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "SELF_TYPE"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -425,7 +425,7 @@ let default_classes =
               ],
               { line_num = 0; name = "SELF_TYPE" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "SELF_TYPE"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -434,7 +434,7 @@ let default_classes =
               [],
               { line_num = 0; name = "String" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "String"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -443,7 +443,7 @@ let default_classes =
               [],
               { line_num = 0; name = "Int" },
               {
-                id = { name = "string"; line_num = 0 };
+                id = { name = "Int"; line_num = 0 };
                 sub_expr = String_Constant "";
                 static_type = None;
               } );
@@ -703,6 +703,30 @@ and get_all_attributes (c_class : cool_class) =
   List.flatten (List.map get_attributes parent_tree)
 (* let rec get_attrs(c_class) = List.filter (function Method _ -> true | _ -> false) c_class in *)
 
+and add_all_attributes (c_class : cool_class) =
+  (* Printf.printf ("Adding up to %d Attributes for class %s\n") (List.length feature_list) c_class.typename.name; *)
+  let attributes = get_all_attributes c_class in
+  List.iter
+    (fun feat ->
+      match feat with
+      | Attribute (name, attr_type, _) ->
+          let typ =
+            if attr_type.name = "SELF_TYPE" then SELF_TYPE c_class.typename.name
+            else Class attr_type.name
+          in
+          Hashtbl.add objEnv name.name typ
+      | _ -> ())
+    attributes
+
+and remove_all_attributes c_class =
+  let attributes = get_all_attributes c_class in
+  List.iter
+    (fun feat ->
+      match feat with
+      | Attribute (name, _, _) -> Hashtbl.remove objEnv name.name
+      | _ -> ())
+    attributes
+
 and get_features (c_class : cool_class) (predicate : feature -> bool) =
   let selected = List.filter predicate c_class.features in
   Printf.fprintf out_file "%d\n" (List.length selected);
@@ -747,6 +771,13 @@ and print_implementation_map ast =
     ast
 
 and print_parent_map ast =
+  (* 
+    Output parent_map\n
+    Output the number of parent-child inheritance relations and then \n. This number is equal to the number of classes minus one (since Object has no parent).
+    Output each child class in turn (in ascending alphabetical order):
+        Output the name of the child class and then \n.
+        Output the name of the child class’s parent and then \n.
+   *)
   Printf.fprintf out_file "parent_map\n";
   Printf.fprintf out_file "%d\n" (List.length ast - 1);
   let no_object_ast =
@@ -761,6 +792,18 @@ and print_parent_map ast =
     no_object_ast
 
 and print_annotated_ast ast =
+  (* 
+    With two exceptions, the annotated AST format is identical to the normal AST format described above for the .cl-ast file.
+    The first change involves expressions. To output an Expression:
+        Output the line number of the expression and then a newline (as in the .cl-ast format).
+        Output the name of type associated with the expression and then a newline. For example, the expression 3+x is associated with the type Int. This is not required for any of the checkpoints for PA2, only in the final version of PA2.
+        Output the name of the expression and then a newline and then any subparts (as in the .cl-ast format).
+    The second change is a new kind of expression, internal, used to represent the bodies of predefined methods. Internal expressions are those that are handled by the run-time system — you might think of them as part of the standard library. You output Internal Expressions (including the type annotation, as above) as follows:
+        0 \n type \n internal \n Class.method \n
+        The valid kinds of internal expressions (i.e., the values for Class.method) are:
+            IO.in_int IO.in_string IO.out_int IO.out_string Object.abort Object.copy Object.type_name String.concat String.length String.substr
+            They are formally defined in the Cool Reference Manual.
+     *)
   Printf.fprintf out_file "%d\n" (List.length ast);
   List.iter print_class ast
 
@@ -797,8 +840,61 @@ and print_features (c_class : cool_class) (predicate : feature -> bool) =
     in
     List.iter print selected
 
+(*
+Output each method in turn (in order of appearance, with inherited or overridden methods from a superclass coming first; internal methods are defined to appear in ascending alphabetical order):
+  - Output the method name and then \n.
+  - Output the number of formals and then \n.
+  - Output each formal’s name only:
+  - Output the name and then \n
+  - If this method is inherited from a parent class and not overriden, output the name of the ultimate parent class that defined the method body expression and then \n. Otherwise, output the name of the current class and then \n.
+  - Output the method body expression.
+*)
 and print_methods (c_class : cool_class) =
-  print_features c_class (function Method _ -> true | _ -> false)
+  (* Generate a list of ancestors *)
+  let ancestors = get_ancestors c_class.typename.name [] in
+  (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
+  (* Compare features sorts all methods first by class (starting with inherited methods) then alphabetically within each class *)
+  let compare_features (f1, _) (f2, _) =
+    let get_name = function
+      | Attribute (id, _, _) -> id.name
+      | Method (id, _, _, _) -> id.name
+    in
+    String.compare (get_name f1) (get_name f2)
+  in
+  let all_methods =
+    List.flatten
+      (List.map
+         (fun c_class ->
+           List.sort compare_features
+             (List.filter_map
+                (fun feat ->
+                  match feat with
+                  | Method (id, fl, id2, exp) ->
+                      Some (Method (id, fl, id2, exp), c_class)
+                  | _ -> None)
+                c_class.features))
+         ancestors)
+  in
+  let print_method (meth, c_class) =
+    match meth with
+    | Method (varname, fl, typename, exp) ->
+        Printf.fprintf out_file "%s\n" varname.name;
+        Printf.fprintf out_file "%d\n" (List.length fl);
+        List.iter
+          (fun (f : formal) -> Printf.fprintf out_file "%s\n" f.name.name)
+          fl;
+        (* TODO: Get methods original class *)
+        Printf.fprintf out_file "%s\n" c_class.typename.name;
+
+        if exp.static_type = None then (
+          print_identifier exp.id;
+          Printf.fprintf out_file "internal\n%s.%s\n" c_class.typename.name
+            varname.name)
+        else print_expression exp
+    | _ -> ()
+  in
+  Printf.fprintf out_file "%d\n" (List.length all_methods);
+  List.iter print_method all_methods
 
 and print_attributes (c_class : cool_class) =
   let attrs = get_all_attributes c_class in
@@ -1031,7 +1127,7 @@ and check_redefined_attributes class_name (attributes : feature list) =
           else Hashtbl.add attrs n.name n)
     attributes
 
-let get_method_if_exists (class_name, method_name) =
+let get_method_if_exists (class_name, method_name) metadata =
   let ancestors = get_ancestors class_name [] in
   let method_signatures =
     List.filter
@@ -1043,7 +1139,10 @@ let get_method_if_exists (class_name, method_name) =
         | None -> false)
       ancestors
   in
-  if List.length method_signatures < 1 then (Printf.printf ("Couldnt find method %s in class %s") method_name class_name; assert false)
+  if List.length method_signatures < 1 then
+    print_typecheck_error metadata.line_num
+      (Printf.sprintf "Couldnt find method %s in class %s" method_name
+         class_name)
   else
     Hashtbl.find method_map
       ((List.hd method_signatures).typename.name, method_name)
@@ -1054,12 +1153,12 @@ let check_dispatches dispatches class_name =
       match dispatch with
       | Dynamic_Dispatch (exp, meth, args) ->
           let m_id, m_formals, m_id2, m_exp =
-            unpack_method (get_method_if_exists (class_name, meth.name))
+            unpack_method (get_method_if_exists (class_name, meth.name) meth)
           in
           if List.length args <> List.length m_formals then assert false
       | Static_Dispatch (exp, typename, meth, args) ->
           let m_id, m_formals, m_id2, m_exp =
-            unpack_method (get_method_if_exists (class_name, meth.name))
+            unpack_method (get_method_if_exists (class_name, meth.name) meth)
           in
           if List.length args <> List.length m_formals then assert false
       | _ -> raise (Invalid_argument "Something is fundamentally wrong"))
@@ -1138,7 +1237,29 @@ let rec check_expr expr (cur_class : cool_class) =
       process_caselist case_el_list cur_class
   | _ -> ()
 
-and get_type expr (c_class : cool_class) : static_type =
+and process_caselist ellist cur_class =
+  List.iter
+    (fun el ->
+      if el.variable.name = "self" then self_bad el.variable.line_num;
+      let res = Hashtbl.find_opt class_map el.typename.name in
+      (match res with
+      | None ->
+          print_typecheck_error el.typename.line_num "bad type name in let :("
+      | Some _ -> ());
+      check_expr el.elem_body cur_class)
+    ellist
+
+and check_expr_opt expropt cur_class =
+  match expropt with None -> () | Some expr -> check_expr expr cur_class
+
+let check_feature feat cur_class =
+  match feat with
+  | Attribute (_, tp, assign) ->
+      (*check_attr_type tp;*)
+      check_expr_opt assign cur_class
+  | Method (_, _, _, body) -> check_expr body cur_class
+
+let rec get_type expr (c_class : cool_class) : static_type =
   match expr.sub_expr with
   | Assignment (id, exp) -> (
       (* O(id) = T *)
@@ -1149,9 +1270,9 @@ and get_type expr (c_class : cool_class) : static_type =
             (Printf.sprintf "Assignment on undeclared variable %s" id.name)
       | Some t1 ->
           (* O, M, C |- e1 =: T' *)
-          let t2 = get_type expr c_class in
+          let t2 = get_type exp c_class in
           (* T' <= T *)
-          if not (lub (type_to_str t2) (type_to_str t1)) then
+          if not (is_subtype (type_to_str t2) (type_to_str t1)) then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Assignment on variable %s has type %s, does not conform to \
@@ -1160,25 +1281,28 @@ and get_type expr (c_class : cool_class) : static_type =
           (* O. M, C |- Id <-- e1: T' *)
             else t2
       (* TODO: Dynamic_Dispatch *))
-  | Dynamic_Dispatch (expr, meth, exprlist) ->
-    (** e, method, args*)
-    (     
-      let class_name = get_type (expr) c_class in
-        let m_id, m_formals, m_type, m_exp =
-            unpack_method ((get_method_if_exists (type_to_str class_name, meth.name)))
-          in
-      if List.length exprlist <> List.length m_formals then 
-            print_typecheck_error expr.id.line_num
-              (Printf.sprintf
-            "Argument mismatch, expected %d args, recieved %d" (List.length m_formals) (List.length exprlist));
-      List.iter2 (fun i (j: formal) -> (
+  | Dynamic_Dispatch (exp, meth, exprlist) ->
+      (* e, method, args*)
+      let class_name = get_type exp c_class in
+      let m_id, m_formals, m_type, m_exp =
+        unpack_method
+          (get_method_if_exists (type_to_str class_name, meth.name) meth)
+      in
+      if List.length exprlist <> List.length m_formals then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Argument mismatch, expected %d args, recieved %d"
+             (List.length m_formals) (List.length exprlist));
+      List.iter2
+        (fun i (j : formal) ->
           let t1 = Class j.typename.name in
-let t2 =get_type i c_class in
-          if (t1 == t2) then
+          let t2 = get_type i c_class in
+          if t1 == t2 then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
-            "Argument mismatch for argument %s, expected type %s, recieved type %s" j.name.name j.typename.name (type_to_str t2));
-        )) exprlist m_formals;
+                 "Argument mismatch for argument %s, expected type %s, \
+                  recieved type %s"
+                 j.name.name j.typename.name (type_to_str t2)))
+        exprlist m_formals;
       (*
         O, M, C |- e0 : T0
         O, M, C |- e1 : T1
@@ -1192,22 +1316,62 @@ let t2 =get_type i c_class in
                { T(n+1)' otherwise 
         O, M, C |- e0.f (e1,.., en) : Tn+1
       *)
-      Class m_type.name
-      )
-  | Static_Dispatch (expr, typename, meth, args) ->
-      ( let class_name = get_type (expr) c_class in
-        let m_id, m_formals, m_type, m_exp =
-            unpack_method ((get_method_if_exists (type_to_str class_name, meth.name)))
-          in      if List.length args <> List.length m_formals then assert false;
- (* TODO: Static_Dispatch *)
-      Class m_type.name)
-  | Self_Dispatch (meth, args) ->  (* TODO: Self_Dispatch *)
-    ( let class_name = get_type (expr) c_class in
-        let m_id, m_formals, m_type, m_exp =
-            unpack_method ((get_method_if_exists (type_to_str class_name, meth.name)))
-          in      if List.length args <> List.length m_formals then assert false;
- (* TODO: Static_Dispatch *)
-      Class m_type.name)
+      if m_type.name <> "SELF_TYPE" then Class m_type.name
+      else SELF_TYPE (type_to_str class_name)
+  | Static_Dispatch (exp, typename, meth, args) ->
+      let class_name = type_to_str (get_type exp c_class) in
+      let m_id, m_formals, m_type, m_exp =
+        unpack_method (get_method_if_exists (class_name, meth.name) meth)
+      in
+      if not (is_subtype class_name typename.name) then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf
+             "Static_Dispatch error: Class %s cannot call upon method of class \
+              %s\n"
+             class_name typename.name)
+      else if List.length args <> List.length m_formals then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "wrong number of actual arguments (%d vs %d)"
+             (List.length m_formals) (List.length args));
+      List.iter2
+        (fun i (j : formal) ->
+          let t1 = Class j.typename.name in
+          let t2 = get_type i c_class in
+          if t1 == t2 then
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf
+                 "Argument mismatch for argument %s, expected type %s, \
+                  recieved type %s"
+                 j.name.name j.typename.name (type_to_str t2)))
+        args m_formals;
+      if m_type.name <> "SELF_TYPE" then Class m_type.name
+      else SELF_TYPE class_name
+  | Self_Dispatch (meth, args) ->
+      (* TODO: Self_Dispatch *)
+      (*let class_name = get_type expr c_class in*)
+      let m_id, m_formals, m_type, m_exp =
+        unpack_method
+          (get_method_if_exists (c_class.typename.name, meth.name) meth)
+      in
+      if List.length args <> List.length m_formals then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "wrong number of actual arguments (%d vs %d)"
+             (List.length m_formals) (List.length args));
+      List.iter2
+        (fun i (j : formal) ->
+          let t1 = Class j.typename.name in
+          let t2 = get_type i c_class in
+          if t1 == t2 then
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf
+                 "Argument mismatch for argument %s, expected type %s, \
+                  recieved type %s"
+                 j.name.name j.typename.name (type_to_str t2)))
+        args m_formals;
+      (* TODO: Static_Dispatch *)
+      (*Class m_type.name*)
+      if m_type.name <> "SELF_TYPE" then Class m_type.name
+      else SELF_TYPE c_class.typename.name
   | If (pred, thn, els) ->
       let t1 = get_type pred c_class in
       (* O, M, C |- e1 : Bool *)
@@ -1221,7 +1385,7 @@ let t2 =get_type i c_class in
         let t2 = get_type thn c_class in
         let t3 = get_type els c_class in
         (* O, M, C |- if e1 then e2 else e3 fi : T2 U T3 *)
-      get_join [ (type_to_str t2); (type_to_str t3) ]
+        lub [ type_to_str t2; type_to_str t3 ]
   | While (cond, body) ->
       (* O,M,C |- e1 : Bool *)
       (* O,M,C |- e2 : Type2 *)
@@ -1232,22 +1396,29 @@ let t2 =get_type i c_class in
              (type_to_str (get_type cond c_class)))
       else Class "Object"
   | Block exps ->
-      Class "Object"
+      (*Class "Object"*)
       (* TODO: Confirms all Block expressions are objects I can't find a source in the CRM *)
+      (*List.iter (fun x -> get_type x c_class) exps*)
+      let rec check_block exprs class_context prev_type =
+        match exprs with
+        | [] -> prev_type
+        | hd :: tl -> check_block tl class_context (get_type hd class_context)
+      in
+      check_block exps c_class (Class "Object")
   | New id -> (
       if
         (* T' = { SELF_TYPEc if T = SELF_TYPE*)
         (*      {         T otherwise        *)
         id.name = "SELF_TYPE"
-      then SELF_TYPE "FIX ME: Get class name"
+      then SELF_TYPE c_class.typename.name
       else
-        let var_opt = Hashtbl.find_opt objEnv id.name in
+        let var_opt = Hashtbl.find_opt class_map id.name in
         match var_opt with
         | None ->
             print_typecheck_error expr.id.line_num
               (Printf.sprintf "Cannot create new variable of undeclared type %s"
                  id.name)
-        | Some v -> v (* O, M, C |- new T : T' *))
+        | Some v -> Class v.typename.name (* O, M, C |- new T : T' *))
   | Isvoid exp -> Class "Bool"
   | Plus (x, y) | Minus (x, y) | Divide (x, y) | Times (x, y) ->
       let xtype = get_type x c_class in
@@ -1272,15 +1443,19 @@ let t2 =get_type i c_class in
       Class "Bool"
   | LessThan (x, y) | LessEqual (x, y) ->
       let xtype = get_type x c_class in
-      if xtype <> Class "Int" then
+      let ytype = get_type y c_class in
+      if xtype = Class "Int" && ytype <> Class "Int" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform comparison with type %s"
+             (type_to_str xtype))
+      else if xtype = Class "String" && ytype <> Class "String" then
+        print_typecheck_error expr.id.line_num
+          (Printf.sprintf "Cannot perform comparison with type %s"
+             (type_to_str xtype))
+      else if xtype = Class "Bool" && ytype <> Class "Bool" then
         print_typecheck_error expr.id.line_num
           (Printf.sprintf "Cannot perform comparison with type %s"
              (type_to_str xtype));
-      let ytype = get_type y c_class in
-      if ytype <> Class "Int" then
-        print_typecheck_error expr.id.line_num
-          (Printf.sprintf "Cannot perform comparison with type %s"
-             (type_to_str ytype));
       Class "Bool"
   | Not x ->
       let xtype = get_type x c_class in
@@ -1297,13 +1472,14 @@ let t2 =get_type i c_class in
              (type_to_str xtype))
       else Class "Int"
   | Ident_Expr id -> (
-    let typename = if (id.name = "self") then c_class.typename.name else id.name in
-      let ident = Hashtbl.find_opt objEnv typename in
-      match ident with
-      | None ->
-          print_typecheck_error expr.id.line_num
-            (Printf.sprintf "Undeclared variable %s" id.name)
-      | Some v -> v)
+      if id.name = "self" then Class c_class.typename.name
+      else
+        let ident = Hashtbl.find_opt objEnv id.name in
+        match ident with
+        | None ->
+            print_typecheck_error expr.id.line_num
+              (Printf.sprintf "Undeclared variable %s" id.name)
+        | Some v -> v)
   | Let_Expr (letlist, expr) -> (
       (* COOL REFERENCE MANUAL: 
          Typing a multiple let
@@ -1354,11 +1530,10 @@ let t2 =get_type i c_class in
                 else Class typename.name
               in
               let t1 = get_type inner_expr c_class in
-              if not (lub (type_to_str t1) (type_to_str t0)) then
+              if not (is_subtype (type_to_str t1) (type_to_str t0)) then
                 print_typecheck_error expr.id.line_num
                   (Printf.sprintf
-                     "Variable %s of type %s cannot have type %s assigned \
-                      to it"
+                     "Variable %s of type %s cannot have type %s assigned to it"
                      varname.name typename.name (type_to_str t1))
               else (
                 Hashtbl.add objEnv varname.name t0;
@@ -1401,47 +1576,22 @@ let t2 =get_type i c_class in
       (* Typecheck each expr *)
       List.iter
         (fun (case_element : case_el) ->
-          let t1 = get_type case_element.elem_body c_class in
-          if t1 <> Class case_element.typename.name then
-            print_typecheck_error expr.id.line_num
-              (Printf.sprintf
-                 "Case element must return type %s, returns type %s"
-                 case_element.typename.name (type_to_str t1)))
+          Hashtbl.add objEnv case_element.variable.name
+            (Class case_element.typename.name);
+          Hashtbl.remove objEnv case_element.variable.name)
         case_el_list;
-      let (static_type_list : string list) =
+      let static_type_list =
         List.map
-          (fun (case_element : case_el) -> case_element.typename.name)
+          (fun (case_element : case_el) ->
+            get_type case_element.elem_body c_class)
           case_el_list
       in
-
       (* Return join of all types *)
-      get_join static_type_list
+      lub (List.map (fun f -> type_to_str f) static_type_list)
       (* These three should be fine as we type check them on initial parsing *)
   | Int_Constant int_val -> Class "Int"
-  | Boolean_Constant bool_val -> Class "String"
-  | String_Constant str_val -> Class "Bool"
-
-and process_caselist ellist cur_class =
-  List.iter
-    (fun el ->
-      if el.variable.name = "self" then self_bad el.variable.line_num;
-      let res = Hashtbl.find_opt class_map el.typename.name in
-      (match res with
-      | None ->
-          print_typecheck_error el.typename.line_num "bad type name in let :("
-      | Some _ -> ());
-      check_expr el.elem_body cur_class)
-    ellist
-
-and check_expr_opt expropt cur_class =
-  match expropt with None -> () | Some expr -> check_expr expr cur_class
-
-let check_feature feat cur_class =
-  match feat with
-  | Attribute (_, tp, assign) ->
-      (*check_attr_type tp;*)
-      check_expr_opt assign cur_class
-  | Method (_, _, _, body) -> check_expr body cur_class
+  | Boolean_Constant bool_val -> Class "Bool"
+  | String_Constant str_val -> Class "String"
 
 let traverse_tree_for_errors ast =
   check_class_cycle ();
@@ -1457,35 +1607,35 @@ let traverse_tree_for_errors ast =
     ast;
   List.iter
     (fun cls ->
-      add_all_attributes cls.features cls;
+      add_all_attributes cls;
       List.iter
         (fun feat ->
           match feat with
           | Attribute (id, cool_type, Some init_expr) ->
               let t1 = get_type init_expr cls in
-              if lub (type_to_str t1) cool_type.name then assert true
-              else
+              if not (is_subtype (type_to_str t1) cool_type.name) then
                 print_typecheck_error id.line_num
                   (Printf.sprintf
                      "Attribute assignment %s does not conform to attribute \
                       type %s"
                      (type_to_str t1) cool_type.name)
           | Attribute (id, cool_type, _) -> ()
-          | Method(id, formal_list, typename, expr) -> 
-            add_all_formals formal_list cls;
+          | Method (id, formal_list, typename, expr) ->
+              add_all_formals formal_list cls;
               let t1 = get_type expr cls in
-              if lub (type_to_str t1) typename.name || typename.name != "SELF_TYPE" then assert true
-              else
+              if
+                not
+                  (is_subtype (type_to_str t1) typename.name
+                  || typename.name != "SELF_TYPE")
+              then
                 print_typecheck_error id.line_num
                   (Printf.sprintf
-                     "Method return %s does not conform to method type %s for method %s"
-                     (type_to_str t1) typename.name id.name)
-            ;
-            remove_all_formals formal_list cls;
-        )
-      cls.features;
-      remove_all_attributes(cls.features)
-    )
+                     "Method return %s does not conform to method type %s for \
+                      method %s"
+                     (type_to_str t1) typename.name id.name);
+              remove_all_formals formal_list cls)
+        cls.features;
+      remove_all_attributes cls)
     ast
 (* Step 1: Get all function dispatches by parsing ast*)
 (* let classes = Hashtbl.fold (fun _ v acc -> v :: acc) class_map [] in *)
@@ -1501,6 +1651,10 @@ let ast =
       String.compare c_class1.typename.name c_class2.typename.name)
     (user_classes @ default_classes)
 in
-(* check_dispatches (); *)
+(* check_ispatches (); *)
 traverse_tree_for_errors ast;
-print_class_map ast
+(* print_class_map ast; *)
+print_class_map ast;
+print_implementation_map ast;
+print_parent_map ast;
+print_annotated_ast ast
