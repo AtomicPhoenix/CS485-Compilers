@@ -20,18 +20,20 @@ for file in ./good_tests/*.cl; do
 	mv "$file-type" "$file-ref"
 	OUTPUT2=$(./a.out "$file-ast")
 	if [ $? -ne 0 ]; then
-		echo "$file FAILED where it should have SUCCEEDED"
+		printf "%s FAILED where it should have SUCCEEDED" "$file"
+		if [ "$OUTPUT" != "$OUTPUT2" ]; then
+			printf ": Output is incorrect:\n\t%s\n\n" "$OUTPUT2"
+		fi
+	else
+		OUTPUTDIFF=$(diff "$file-ref" "$file-type")
+		if [ "$OUTPUTDIFF" ]; then
+			echo "$file has wrong output file"
+			#		echo "$OUTPUTDIFF"
+		fi
 	fi
+
 	# OUTPUTDATA=$(cat "$file-ref")
 	# OUTPUTDATA2=$(cat "$file-type")
-	OUTPUTDIFF=$(diff "$file-ref" "$file-type")
-	if [ "$OUTPUTDIFF" ]; then
-		echo "$file has wrong output file"
-		#		echo "$OUTPUTDIFF"
-	fi
-	if [ "$OUTPUT" != "$OUTPUT2" ]; then
-		printf "$file's output is incorrect:\n\t%s\n\n" "$OUTPUT2"
-	fi
 
 done
 

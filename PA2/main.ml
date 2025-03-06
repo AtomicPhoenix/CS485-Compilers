@@ -180,14 +180,16 @@ let rec get_ancestors (name : string) acc =
   | None -> []
 
 let is_child child parent =
-  let parent_ancestors = get_ancestors parent [] in
-  let child_ancestors = get_ancestors child [] in
-  match
-    (* returns the first element of the list child_ancestors that is also in parent_ancestors *)
-    List.find_opt (fun x -> List.mem x parent_ancestors) child_ancestors
-  with
-  | Some lca -> true
-  | None -> false
+  let rec contains_string value str_list =
+    match str_list with
+    | [] -> false
+    | head :: tail -> if head = value then true else contains_string value tail
+  in
+
+  let child_ancestors =
+    List.map (fun f -> f.typename.name) (get_ancestors child [])
+  in
+  contains_string parent child_ancestors
 
 let is_subtype (child : static_type) (parent : static_type) =
   match (child, parent) with
@@ -1786,7 +1788,7 @@ let traverse_tree_for_errors ast =
               let t2 =
                 match typename.name with
                 | "SELF_TYPE" -> SELF_TYPE cls.typename.name
-                | _ -> Class cls.typename.name
+                | _ -> Class typename.name
               in
               if not (is_subtype t1 t2) then (
                 let get_typename t =
