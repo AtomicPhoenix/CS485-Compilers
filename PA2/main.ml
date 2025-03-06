@@ -977,17 +977,18 @@ and print_methods (c_class : cool_class) =
   in
   let all_methods =
     remove_duplicates
-      (List.flatten
-         (List.map
-            (fun c_class ->
-              List.filter_map
-                (fun feat ->
-                  match feat with
-                  | Method (id, fl, id2, exp) ->
-                      Some (Method (id, fl, id2, exp), c_class)
-                  | _ -> None)
-                c_class.features)
-            ancestors))
+      (List.rev
+         (List.flatten
+            (List.map
+               (fun c_class ->
+                 List.filter_map
+                   (fun feat ->
+                     match feat with
+                     | Method (id, fl, id2, exp) ->
+                         Some (Method (id, fl, id2, exp), c_class)
+                     | _ -> None)
+                   c_class.features)
+               ancestors)))
   in
   let print_method (meth, c_class) =
     match meth with
@@ -1011,7 +1012,7 @@ and print_methods (c_class : cool_class) =
     | _ -> ()
   in
   Printf.fprintf out_file "%d\n" (List.length all_methods);
-  List.iter print_method all_methods
+  List.iter print_method (List.rev all_methods)
 
 and print_attributes (c_class : cool_class) =
   let attrs = get_all_attributes c_class in
