@@ -140,15 +140,20 @@ let check_redefined (method_signature, parent_name, method_name, class_name) =
 
       (* Checks if type of formals is the same *)
       let p_formal_types =
-        List.map (fun (form : formal) -> form.typename.name) p_formals
+        List.sort compare
+          (List.map (fun (form : formal) -> form.typename.name) p_formals)
       in
       let c_formal_types =
-        List.map (fun (form : formal) -> form.typename.name) c_formals
+        List.sort compare
+          (List.map (fun (form : formal) -> form.typename.name) c_formals)
       in
       (*assert (p_formal_types = c_formal_types)*)
       if p_formal_types <> c_formal_types then
         print_typecheck_error c_name.line_num
-          (Printf.sprintf "Method %s redefined in %s" method_name class_name)
+          (Printf.sprintf
+             "Arguments do not match up to formals for method \"%s\" in Class \
+              \"%s\""
+             method_name class_name)
 
 let rec get_ancestors (name : string) acc =
   let c = Hashtbl.find_opt class_map name in
@@ -948,13 +953,13 @@ and print_methods (c_class : cool_class) =
   let ancestors = get_ancestors c_class.typename.name [] in
   (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
   (* Compare features sorts all methods first by class (starting with inherited methods) then alphabetically within each class *)
-  let compare_features (f1, _) (f2, _) =
+  (* let compare_features (f1, _) (f2, _) =
     let get_name = function
       | Attribute (id, _, _) -> id.name
       | Method (id, _, _, _) -> id.name
     in
-    String.compare (get_name f1) (get_name f2)
-  in
+    String.compare (get_name f1) (get_name f2) 
+  in *)
   let all_methods =
     List.flatten
       (List.map
@@ -1391,7 +1396,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         (fun i (j : formal) ->
           let t1 = Class j.typename.name in
           let t2 = get_type i c_class in
-          if type_to_str t1 <> type_to_str t2 then
+          if not (is_subtype t2 t1) then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Argument mismatch for argument %s, expected type %s, \
@@ -1441,7 +1446,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         (fun i (j : formal) ->
           let t1 = Class j.typename.name in
           let t2 = get_type i c_class in
-          if t1 == t2 then
+          if not (is_subtype t2 t1) then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Argument mismatch for argument %s, expected type %s, \
@@ -1469,7 +1474,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
         (fun i (j : formal) ->
           let t1 = Class j.typename.name in
           let t2 = get_type i c_class in
-          if t1 == t2 then
+          if not (is_subtype t2 t1) then
             print_typecheck_error expr.id.line_num
               (Printf.sprintf
                  "Argument mismatch for argument %s, expected type %s, \
@@ -1509,6 +1514,7 @@ let rec get_type expr (c_class : cool_class) : static_type =
           (Printf.sprintf "Loop conditional must be of type Bool, not type %s"
              (type_to_str (get_type cond c_class)))
       else
+        let _ = get_type body c_class in
         let t = Class "Object" in
         expr.static_type <- Some t;
         t
@@ -1563,13 +1569,13 @@ let rec get_type expr (c_class : cool_class) : static_type =
       expr.static_type <- Some t;
       t
   | Equal (x, y) ->
-      let xtype = get_type x c_class in
-      let ytype = get_type y c_class in
+      let xtype = type_to_str (get_type x c_class) in
+      let ytype = type_to_str (get_type y c_class) in
       if ytype <> xtype then
         print_typecheck_error expr.id.line_num
           (Printf.sprintf
              "Cannot perform equality comparison with varying types %s and %s"
-             (type_to_str xtype) (type_to_str ytype));
+             xtype ytype);
       let t = Class "Bool" in
       expr.static_type <- Some t;
       t
