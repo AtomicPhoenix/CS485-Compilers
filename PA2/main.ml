@@ -85,10 +85,6 @@ and let_exp =
   | No_init of identifier * identifier
   | Yes_init of identifier * identifier * expr
 
-and case = { lnum : identifier; case_exp : expr; elements : case_el list }
-(** line number & "case" (identifier), case expression (exp) and case-elements
-    (case_el list) *)
-
 and case_el = { variable : identifier; typename : identifier; elem_body : expr }
 (** variable (identifier), type (identifier), and case-element-body (exp) *)
 
