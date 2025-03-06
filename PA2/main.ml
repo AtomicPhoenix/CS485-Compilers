@@ -839,7 +839,7 @@ and print_parent_map ast =
       Printf.fprintf out_file "%s\n" c_class.typename.name;
       match c_class.inherits with
       | Some inhrt -> Printf.fprintf out_file "%s\n" inhrt.name
-      | None -> Printf.fprintf out_file "Object")
+      | None -> Printf.fprintf out_file "Object\n")
     no_object_ast
 
 and print_annotated_ast ast =
@@ -1830,8 +1830,7 @@ let ast =
 in
 (* check_ispatches (); *)
 traverse_tree_for_errors ast;
-(* print_class_map ast; *)
-(* print_class_map ast; *)
-print_implementation_map ast
-(* print_parent_map ast; 
-print_annotated_ast ast *)
+print_class_map ast
+(* print_implementation_map ast *)
+(* print_parent_map ast*)
+(* print_annotated_ast ast *)
