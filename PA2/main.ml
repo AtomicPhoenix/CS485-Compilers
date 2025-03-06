@@ -453,18 +453,24 @@ let default_classes =
       features =
         [
           Method
-            ( { line_num = 0; name = "out_string" },
-              [
-                {
-                  name = { name = "x"; line_num = 0 };
-                  typename = { name = "String"; line_num = 0 };
-                };
-              ],
-              { line_num = 0; name = "SELF_TYPE" },
+            ( { line_num = 0; name = "in_int" },
+              [],
+              { line_num = 0; name = "Int" },
               {
-                id = { name = "SELF_TYPE"; line_num = 0 };
-                sub_expr = Internal ("IO", "out_string", SELF_TYPE "IO");
-                static_type = Some (SELF_TYPE "IO");
+                id = { name = "Int"; line_num = 0 };
+                sub_expr = Internal ("IO", "in_int", Class "Int");
+                (*static_type = Some (Class "Int");*)
+                static_type = None;
+              } );
+          Method
+            ( { line_num = 0; name = "in_string" },
+              [],
+              { line_num = 0; name = "String" },
+              {
+                id = { name = "String"; line_num = 0 };
+                sub_expr = Internal ("IO", "in_string", Class "String");
+                (*static_type = Some (Class "String");*)
+                static_type = None;
               } );
           Method
             ( { line_num = 0; name = "out_int" },
@@ -478,25 +484,23 @@ let default_classes =
               {
                 id = { name = "SELF_TYPE"; line_num = 0 };
                 sub_expr = Internal ("IO", "out_int", SELF_TYPE "IO");
-                static_type = Some (SELF_TYPE "IO");
+                (*static_type = Some (SELF_TYPE "IO");*)
+                static_type = None;
               } );
           Method
-            ( { line_num = 0; name = "in_string" },
-              [],
-              { line_num = 0; name = "String" },
+            ( { line_num = 0; name = "out_string" },
+              [
+                {
+                  name = { name = "x"; line_num = 0 };
+                  typename = { name = "String"; line_num = 0 };
+                };
+              ],
+              { line_num = 0; name = "SELF_TYPE" },
               {
-                id = { name = "String"; line_num = 0 };
-                sub_expr = Internal ("IO", "in_string", Class "String");
-                static_type = Some (Class "String");
-              } );
-          Method
-            ( { line_num = 0; name = "in_int" },
-              [],
-              { line_num = 0; name = "Int" },
-              {
-                id = { name = "Int"; line_num = 0 };
-                sub_expr = Internal ("IO", "in_int", Class "Int");
-                static_type = Some (Class "Int");
+                id = { name = "SELF_TYPE"; line_num = 0 };
+                sub_expr = Internal ("IO", "out_string", SELF_TYPE "IO");
+                (*static_type = Some (SELF_TYPE "IO");*)
+                static_type = None;
               } );
         ];
     };
@@ -1031,7 +1035,7 @@ and print_identifier (id : identifier) =
   Printf.fprintf out_file "%d\n%s\n" id.line_num id.name
 
 and print_identifier_with_type (id : identifier) s_type =
-  let typename = match s_type with SELF_TYPE v -> v | Class v -> v in
+  let typename = match s_type with SELF_TYPE v -> "SELF_TYPE" | Class v -> v in
   Printf.fprintf out_file "%d\n%s\n%s\n" id.line_num typename id.name
 
 and print_identifier_without_type (id : identifier) =
@@ -1830,7 +1834,7 @@ let ast =
 in
 (* check_ispatches (); *)
 traverse_tree_for_errors ast;
-print_class_map ast
-(* print_implementation_map ast *)
-(* print_parent_map ast*)
+print_class_map ast;
+print_implementation_map ast;
+print_parent_map ast
 (* print_annotated_ast ast *)
