@@ -1589,11 +1589,8 @@ let rec get_type expr (c_class : cool_class) : static_type =
             expr.static_type <- Some t;
             t (* O, M, C |- new T : T' *))
   | Isvoid exp ->
-<<<<<<< HEAD
       let _ = get_type exp c_class in
-=======
       ignore (get_type exp c_class);
->>>>>>> 4621e1e3d0b45a9eb59fa3e4396b7d3bb734368c
       let t = Class "Bool" in
       expr.static_type <- Some t;
       t
