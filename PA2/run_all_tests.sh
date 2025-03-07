@@ -38,5 +38,5 @@ for file in ./good_tests/*.cl; do
 
 done
 
-rm ./good_tests/*.cl-*
-rm ./bad_tests/*.cl-*
+rm ./good_tests/*.cl-* 2>/dev/null
+rm ./bad_tests/*.cl-* 2>/dev/null
