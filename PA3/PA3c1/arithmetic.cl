@@ -1,0 +1,11 @@
+class Main inherits IO {
+  main() : Object {
+    {
+        out_int(999999999+999999999);
+        out_int(1-999999999);
+        out_int(999999999*999999999);
+        out_int((0-1)/999999999);
+        out_int(~999999999);
+    }
+  };
+};
