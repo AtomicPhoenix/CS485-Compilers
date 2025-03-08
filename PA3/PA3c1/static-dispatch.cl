@@ -12,7 +12,13 @@ class C inherits B {
 
 class D inherits C {
     d: Int;
-    cfun() : Object {{ out_string("Hello\n"); out_int(c); }};
+    cfun() : Object {
+        { 
+            out_string("Hello\n"); 
+            out_int(c); 
+            self@C.cfun();
+        }
+    };
 };
 
 class Main {
