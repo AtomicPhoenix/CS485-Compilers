@@ -12,7 +12,7 @@ for file in ./PA3c1/*; do
 		# echo "Running: $file"
 		output=$(./cool "$file" | grep -i "ERROR")
 		if [ -n "$output" ]; then
-			printf "%s\n" "$output"
+			printf "%s\n" "$file: $output"
 		fi
 		# else
 		# Debugging output: if the file has a matching .cl-input file
