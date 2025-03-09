@@ -3,7 +3,14 @@ class Main inherits IO {
   main() : SELF_TYPE  {
     {
       let p : Plane <- (new Plane).init(2,4,6) in
+        {
         p.print().triple().print().init(5,6,7).print().triple().print().init(5,6,7).print().triple().print().init(5,6,7).print().triple().print().init(5,6,7).print().triple().print().init(5,6,7).print().triple().print().init(5,6,7).print().triple().print().init(5,6,7).print().triple().print();
+      if p.triple() = p.init(1,2,3)
+        then p.print()
+      else
+        out_string("not equal")
+      fi;
+      };
       self;
     }
   };
