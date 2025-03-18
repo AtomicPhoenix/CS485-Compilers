@@ -499,39 +499,18 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       @ [
           { operand = ""; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
         ]
-  | Dynamic_Dispatch (exp, id, el) ->
-      (*let arg2 = get_id (!var_ctr + 1) in*)
-      let tac_args = (List.map
-         (fun elem ->
-            (*Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
-           var_ctr := !var_ctr + 1;
-           exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
-         el
-      ) in
-      (*List.iter (fun t -> Printf.printf "%s, %s, %s, %s\n" t.operand t.arg1 t.arg2 t.result) (List.flatten tac_args);*)
-      var_ctr := !var_ctr + 1;
-      (*let args = String.concat " " (List.map (fun elem -> elem.result) tac_args) in*)
-      let args = String.concat " " (List.map (fun elem -> (List.hd (List.rev elem)).result) tac_args) in
-      let exp_tac = exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname in
-      List.flatten tac_args
-      @ exp_tac
-      @ [ { operand = "call"; arg1 = id.name; arg2 = args; result } ]
-    
-  (*| Static_Dispatch (exp, id1, id2, el) -> ()*)
+  (* | Dynamic_Dispatch (exp, id, el) -> ()
+  | Static_Dispatch (exp, id1, id2, el) -> () *)
   | Self_Dispatch (id, exp_list) ->
-      (*let arg2 = get_id (!var_ctr + 1) in*)
-      let tac_args = (List.map
+      let arg2 = get_id (!var_ctr + 1) in
+      (List.map
          (fun elem ->
-            (*Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
+           (* Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
            var_ctr := !var_ctr + 1;
            exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
          exp_list
-       ) in
-      (*List.iter (fun t -> Printf.printf "%s, %s, %s, %s\n" t.operand t.arg1 t.arg2 t.result) (List.flatten tac_args);*)
-      var_ctr := !var_ctr + 1;
-      let args = String.concat " " (List.map (fun elem -> (List.hd (List.rev elem)).result) tac_args) in
-      List.flatten tac_args
-      @ [ { operand = "call"; arg1 = id.name; arg2 = args; result } ]
+      |> List.flatten)
+      @ [ { operand = "call"; arg1 = id.name; arg2; result } ]
   | If (pred_exp, then_exp, else_exp) ->
       (* 
         NOTE: Control-Flow to Three-Address Code
@@ -623,13 +602,17 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       @ [ { operand = "comment"; arg1 = "while-join"; arg2 = ""; result } ]
       @ [ { operand = "label"; arg1 = join_label; arg2 = ""; result } ]
   | Block exp_list ->
-      List.map
-        (fun elem ->
-          (* Printf.fprintf out_file "Parsing expression: %s for method %s\n"
-            elem.id.name mname; *)
-          exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
-        (List.rev exp_list)
-      |> List.rev |> List.flatten
+      List.mapi
+        (fun i elem ->
+          (* Printf.fprintf out_file
+            "Parsing expression: %s for method %s in class %s; var_ctr = %d\n"
+            elem.id.name mname cname !var_ctr; *)
+          let elem_result =
+            if i = List.length exp_list - 1 then result else get_id !var_ctr
+          in
+          exp_to_tac elem.sub_expr elem_result cname mname)
+        exp_list
+      |> List.flatten
   | New id ->
       [
         { operand = "new"; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
