@@ -499,18 +499,39 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       @ [
           { operand = ""; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
         ]
-  (* | Dynamic_Dispatch (exp, id, el) -> ()
-  | Static_Dispatch (exp, id1, id2, el) -> () *)
-  | Self_Dispatch (id, exp_list) ->
-      let arg2 = get_id (!var_ctr + 1) in
-      (List.map
+  | Dynamic_Dispatch (exp, id, el) ->
+      (*let arg2 = get_id (!var_ctr + 1) in*)
+      let tac_args = (List.map
          (fun elem ->
-           (* Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
+            (*Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
+           var_ctr := !var_ctr + 1;
+           exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
+         el
+      ) in
+      (*List.iter (fun t -> Printf.printf "%s, %s, %s, %s\n" t.operand t.arg1 t.arg2 t.result) (List.flatten tac_args);*)
+      var_ctr := !var_ctr + 1;
+      (*let args = String.concat " " (List.map (fun elem -> elem.result) tac_args) in*)
+      let args = String.concat " " (List.map (fun elem -> (List.hd (List.rev elem)).result) tac_args) in
+      let exp_tac = exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname in
+      List.flatten tac_args
+      @ exp_tac
+      @ [ { operand = "call"; arg1 = id.name; arg2 = args; result } ]
+    
+  (*| Static_Dispatch (exp, id1, id2, el) -> ()*)
+  | Self_Dispatch (id, exp_list) ->
+      (*let arg2 = get_id (!var_ctr + 1) in*)
+      let tac_args = (List.map
+         (fun elem ->
+            (*Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
            var_ctr := !var_ctr + 1;
            exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
          exp_list
-      |> List.flatten)
-      @ [ { operand = "call"; arg1 = id.name; arg2; result } ]
+       ) in
+      (*List.iter (fun t -> Printf.printf "%s, %s, %s, %s\n" t.operand t.arg1 t.arg2 t.result) (List.flatten tac_args);*)
+      var_ctr := !var_ctr + 1;
+      let args = String.concat " " (List.map (fun elem -> (List.hd (List.rev elem)).result) tac_args) in
+      List.flatten tac_args
+      @ [ { operand = "call"; arg1 = id.name; arg2 = args; result } ]
   | If (pred_exp, then_exp, else_exp) ->
       (* 
         NOTE: Control-Flow to Three-Address Code
