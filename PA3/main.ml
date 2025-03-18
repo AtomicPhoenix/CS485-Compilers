@@ -401,37 +401,87 @@ NOTE: Expression to Three-Address Code
 let var_ctr = ref 0
 let label_ctr = ref 0
 let ret = ref 0
+let class_map = Hashtbl.create 32
+let letTable = Hashtbl.create 10
 
-let rec parse_tac_expressions (ast_list : annotated_ast_elem list) =
-  (* Since we only return first method parse through all the of the list and get the first method *)
-  (* The reason we do this is because if we encounter a Case statement in the first method we dont print anything, so our exp_to_tac method exits on a case statement *)
-  (* This insures that if a case statement is found in a later method we dont exit. *)
-  (* Realizing now this is so overengineered *)
-  (* I could have just exited during the print *)
-  (* I'm so tired and I want to throw up I hate Ramadan *)
-  let get_first_method (ast_elem : annotated_ast_elem) =
-    let rec find_first features =
-      match features with
-      | [] -> None
-      | Method (id1, f1, id2, exp) :: _ ->
-          var_ctr := 0;
-          Some
-            ( "label " ^ ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0",
-              exp_to_tac exp.sub_expr (get_id !var_ctr) ast_elem.class_name.name
-                id1.name )
-      | _ :: rest -> find_first rest
-    in
-    find_first ast_elem.features
+(** Creates a list of all ancestors of a cool class*)
+let rec get_ancestors (name : string) acc =
+  let c = Hashtbl.find_opt class_map name in
+  match c with
+  | Some ast_elem -> (
+      let acc = ast_elem :: acc in
+      match ast_elem.inherits with
+      | Some parent -> get_ancestors parent.name acc
+      | None -> acc)
+  | None -> []
+
+(** Add a class to the class map *)
+and add_class (ast_elem : annotated_ast_elem) =
+  let name = ast_elem.class_name.name in
+  match Hashtbl.find_opt class_map name with
+  | None -> Hashtbl.add class_map name ast_elem
+  | Some _ -> ()
+
+let get_all_methods (ast_elem : annotated_ast_elem) =
+  let ancestors = get_ancestors ast_elem.class_name.name [] in
+  (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
+  (* Compare features sorts all methods first by class (starting with inherited methods) then alphabetically within each class *)
+  let get_feature_name feat =
+    match feat with Attribute (id, _, _) | Method (id, _, _, _) -> id.name
   in
-  let rec find_in_ast_list asts =
-    match asts with
-    | [] -> []
-    | ast :: rest -> (
-        match get_first_method ast with
-        | Some tac -> [ tac ]
-        | None -> find_in_ast_list rest)
+  let remove_duplicates lst =
+    let latest_feature_map = Hashtbl.create (List.length lst) in
+    List.iter
+      (fun pair ->
+        let feat, _ = pair in
+        let name = get_feature_name feat in
+        Hashtbl.replace latest_feature_map name pair)
+      lst;
+    let filtered_list = ref [] in
+    let seen_names_in_order = Hashtbl.create (List.length lst) in
+    List.iter
+      (fun pair ->
+        let feat, _ = pair in
+        let name = get_feature_name feat in
+        if not (Hashtbl.mem seen_names_in_order name) then
+          match Hashtbl.find_opt latest_feature_map name with
+          | Some latest_pair ->
+              filtered_list := latest_pair :: !filtered_list;
+              Hashtbl.add seen_names_in_order name true
+          | None -> () (* Should not happen, but just in case *))
+      lst;
+    List.rev !filtered_list (* Reverse to maintain original first-seen order *)
   in
-  find_in_ast_list ast_list
+  List.map
+    (fun ast_elem ->
+      List.filter_map
+        (fun feat ->
+          match feat with
+          | Method (id, f1, id2, exp) ->
+              Some (Method (id, f1, id2, exp), ast_elem)
+          | _ -> None)
+        ast_elem.features)
+    ancestors
+  |> List.flatten |> remove_duplicates
+
+let rec parse_tac_expressions (ast : annotated_ast_elem list) =
+  let get_tac_elem (ast_elem : annotated_ast_elem) =
+    List.filter_map
+      (fun (feat, orig_ast_elem) ->
+        match feat with
+        | Method (id1, fl, id2, exp) ->
+            (* Printf.printf "Parsing expression: %s in method %s in class %s\n"
+              exp.id.name id1.name ast_elem.class_name.name;  *)
+            var_ctr := 0;
+            label_ctr := 0;
+            Some
+              ( "label " ^ ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0",
+                exp_to_tac exp.sub_expr (get_id !var_ctr)
+                  ast_elem.class_name.name id1.name )
+        | Attribute (id1, id2, exp) -> None)
+      (get_all_methods ast_elem)
+  in
+  List.map get_tac_elem ast |> List.flatten
 
 and get_bool bool_val = match bool_val with True -> "true" | False -> "false"
 and get_id n = "t$" ^ string_of_int n
@@ -452,8 +502,6 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
   (* | Dynamic_Dispatch (exp, id, el) -> ()
   | Static_Dispatch (exp, id1, id2, el) -> () *)
   | Self_Dispatch (id, exp_list) ->
-      let result = get_id !ret in
-      var_ctr := !var_ctr + 1;
       let arg2 = get_id (!var_ctr + 1) in
       (List.map
          (fun elem ->
@@ -646,21 +694,41 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
           result;
         };
       ]
-  | Ident_Expr s -> [ { operand = s.name; arg1 = ""; arg2 = ""; result } ]
+  | Ident_Expr s -> (
+      match Hashtbl.find_opt letTable s.name with
+      | Some t ->
+          (* Printf.fprintf out_file "Retrieved variable %s as temp %s\n" s.name t; *)
+          [ { operand = t; arg1 = ""; arg2 = ""; result } ]
+      | None -> [ { operand = s.name; arg1 = ""; arg2 = ""; result } ])
   | Boolean_Constant v ->
-      [
-        {
-          operand = "bool";
-          arg1 = get_bool v;
-          arg2 = "";
-          result = get_id !var_ctr;
-        };
-      ]
-  (* | Let_Expr (binding_list, exp2) -> ()
-  | Internal (classname, methodname, methodreturn) -> () *)
+      [ { operand = "bool"; arg1 = get_bool v; arg2 = ""; result } ]
+  | Let_Expr (binding_list, exp) ->
+      let b =
+        List.map
+          (fun (var, let_type, value) ->
+            var_ctr := !var_ctr + 1;
+            let result = get_id !var_ctr in
+            (* Printf.fprintf out_file "Adding variable %s as temp %s\n" var.name
+              result; *)
+            Hashtbl.add letTable var.name result;
+            match value with
+            | Some value -> exp_to_tac value.sub_expr result cname mname
+            | None ->
+                [
+                  {
+                    operand = "let-no-init";
+                    arg1 = "default";
+                    arg2 = let_type.name;
+                    result;
+                  };
+                ])
+          binding_list
+        |> List.flatten
+      in
+      b @ exp_to_tac exp.sub_expr result cname mname
+  (* | Internal (classname, methodname, methodreturn) -> () *)
   | Case (exp, elems) ->
-      Printf.fprintf out_file "";
-      exit 1
+      [ { operand = "case"; arg1 = ""; arg2 = ""; result = "" } ]
   | _ ->
       [
         {
@@ -681,6 +749,8 @@ let print_tac_elems ((s, t) : string * tac_elem list) =
       Printf.fprintf out_file "bt %s %s\n" t.arg1 t.arg2
     else if t.operand = "" then
       Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
+    else if t.operand = "let-no-init" then
+      Printf.fprintf out_file "%s <- %s %s\n" t.result t.arg1 t.arg2
     else if t.arg2 = "" && t.arg1 = "" then
       Printf.fprintf out_file "%s <- %s\n" t.result t.operand
     else if t.arg2 = "" then
@@ -689,10 +759,18 @@ let print_tac_elems ((s, t) : string * tac_elem list) =
       Printf.fprintf out_file "%s <- %s %s %s\n" t.result t.operand t.arg1
         t.arg2
   in
+  List.iter
+    (fun t ->
+      if t.operand = "case" then (
+        Printf.fprintf out_file "";
+        exit 1))
+    t;
   Printf.fprintf out_file "comment start\n";
   Printf.fprintf out_file "%s\n" s;
   List.iter print_tac_elem t;
-  Printf.fprintf out_file "return %s\n" (get_id !ret)
+  (* This is right but it doesn't work rn *)
+  (* Printf.fprintf out_file "return %s\n" (get_id !ret)*)
+  Printf.fprintf out_file "return t$0\n"
 
 (* 
 NOTE: Control-Flow to Three-Address Code
@@ -706,6 +784,45 @@ label then_label
 label end_label
 *)
 
+let print_methods (ast_elem : annotated_ast_elem) =
+  Printf.printf "%s\n" ast_elem.class_name.name;
+  List.iter
+    (fun (feat, _) ->
+      match feat with
+      | Method (name, formals, typename, expr) ->
+          Printf.printf "\t%s\n" name.name
+      | Attribute _ -> ())
+    (get_all_methods ast_elem)
+
+let default_classes : annotated_ast_elem list =
+  [
+    {
+      class_name = { line_num = 0; name = "Object" };
+      inherits = None;
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "Bool" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "String" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "Int" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "IO" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+  ]
+
 let () =
   (* let class_map = parse_class_map () in
   let implementation_map = parse_implementation_map () in
@@ -713,6 +830,15 @@ let () =
   let _ = parse_class_map () in
   let _ = parse_implementation_map () in
   let _ = parse_parent_map () in
-  let annotated_ast = parse_annotated_ast () in
+  let annotated_ast =
+    parse_annotated_ast ()
+    |> List.sort (fun el1 el2 ->
+           String.compare el1.class_name.name el2.class_name.name)
+  in
+  List.iter add_class default_classes;
+  List.iter add_class annotated_ast;
   let tacs = parse_tac_expressions annotated_ast in
+
+  (* List.iter print_methods annotated_ast;
+  List.iter (fun (s, tacs) -> Printf.printf "%s\n" s) tacs; *)
   print_tac_elems (List.hd tacs)

@@ -1,5 +1,6 @@
 comment start
-label List_isNil_0
-t$0 <- call abort t$1
-t$0 <- bool true
+label Bar_printh_0
+t$1 <- h
+t$0 <- call out_int t$1
+t$0 <- int 0
 return t$0
