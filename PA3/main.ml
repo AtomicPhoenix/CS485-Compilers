@@ -402,21 +402,36 @@ let var_ctr = ref 0
 let label_ctr = ref 0
 let ret = ref 0
 
-let rec tac_parse_expressions (ast : annotated_ast_elem list) =
-  let get_tac_elem (ast_elem : annotated_ast_elem) =
-    List.filter_map
-      (fun feat ->
-        match feat with
-        | Method (id1, fl, id2, exp) ->
-            (* Printf.fprintf out_file "Parsing expression: %s\n" exp.id.name; *)
-            var_ctr := 0;
-            Some
-              ( "label " ^ ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0",
-                exp_to_tac exp.sub_expr (get_id !var_ctr) ast_elem.class_name.name id1.name)
-        | Attribute (id1, id2, exp) -> None)
-      ast_elem.features
+let rec parse_tac_expressions (ast_list : annotated_ast_elem list) =
+  (* Since we only return first method parse through all the of the list and get the first method *)
+  (* The reason we do this is because if we encounter a Case statement in the first method we dont print anything, so our exp_to_tac method exits on a case statement *)
+  (* This insures that if a case statement is found in a later method we dont exit. *)
+  (* Realizing now this is so overengineered *)
+  (* I could have just exited during the print *)
+  (* I'm so tired and I want to throw up I hate Ramadan *)
+  let get_first_method (ast_elem : annotated_ast_elem) =
+    let rec find_first features =
+      match features with
+      | [] -> None
+      | Method (id1, f1, id2, exp) :: _ ->
+          var_ctr := 0;
+          Some
+            ( "label " ^ ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0",
+              exp_to_tac exp.sub_expr (get_id !var_ctr) ast_elem.class_name.name
+                id1.name )
+      | _ :: rest -> find_first rest
+    in
+    find_first ast_elem.features
   in
-  List.map get_tac_elem ast |> List.flatten
+  let rec find_in_ast_list asts =
+    match asts with
+    | [] -> []
+    | ast :: rest -> (
+        match get_first_method ast with
+        | Some tac -> [ tac ]
+        | None -> find_in_ast_list rest)
+  in
+  find_in_ast_list ast_list
 
 and get_bool bool_val = match bool_val with True -> "true" | False -> "false"
 and get_id n = "t$" ^ string_of_int n
@@ -427,11 +442,13 @@ and get_label n class_name method_name =
 and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
   match exp with
   | Assignment (id, exp) ->
-      let result = get_id !var_ctr in
+      (* Printf.fprintf out_file "Assigning result of %s to %s\n" exp.id.name
+        id.name; *)
       var_ctr := !var_ctr + 1;
-      let arg2 = get_id !var_ctr in
-      exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = "="; arg1 = id.name; arg2; result } ]
+      exp_to_tac exp.sub_expr id.name cname mname
+      @ [
+          { operand = ""; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
+        ]
   (* | Dynamic_Dispatch (exp, id, el) -> ()
   | Static_Dispatch (exp, id1, id2, el) -> () *)
   | Self_Dispatch (id, exp_list) ->
@@ -467,7 +484,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let jump_else_value = get_id !var_ctr in
       label_ctr := !label_ctr + 1;
-      let then_label= get_label !label_ctr mname cname in
+      let then_label = get_label !label_ctr mname cname in
       label_ctr := !label_ctr + 1;
       let else_label = get_label !label_ctr mname cname in
       label_ctr := !label_ctr + 1;
@@ -475,8 +492,17 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let true_location = (List.hd (List.rev cond_tac)).result in
       cond_tac
       (* may be possible bug, may need to get the last value of cond_tac instead of result *)
-      @ [ { operand = "not"; arg1 = true_location; arg2 = ""; result = jump_else_value } ]
-      @ [ { operand = "bt"; arg1 = jump_else_value; arg2 = else_label; result } ]
+      @ [
+          {
+            operand = "not";
+            arg1 = true_location;
+            arg2 = "";
+            result = jump_else_value;
+          };
+        ]
+      @ [
+          { operand = "bt"; arg1 = jump_else_value; arg2 = else_label; result };
+        ]
       @ [ { operand = "bt"; arg1 = true_location; arg2 = then_label; result } ]
       @ [ { operand = "comment"; arg1 = "then branch"; arg2 = ""; result } ]
       @ [ { operand = "label"; arg1 = then_label; arg2 = ""; result } ]
@@ -488,7 +514,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       @ [ { operand = "jmp"; arg1 = join_label; arg2 = ""; result } ]
       @ [ { operand = "comment"; arg1 = "if-join"; arg2 = ""; result } ]
       @ [ { operand = "label"; arg1 = join_label; arg2 = ""; result } ]
-  | While (pred_exp, body_exp) -> 
+  | While (pred_exp, body_exp) ->
       var_ctr := !var_ctr + 1;
       let pred_result = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
@@ -509,8 +535,17 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       @ [ { operand = "comment"; arg1 = "while-pred"; arg2 = ""; result } ]
       @ [ { operand = "label"; arg1 = cond_label; arg2 = ""; result } ]
       @ cond_tac
-      @ [ { operand = "not"; arg1 = true_location; arg2 = ""; result = jump_else_value } ]
-      @ [ { operand = "bt"; arg1 = jump_else_value; arg2 = join_label; result } ]
+      @ [
+          {
+            operand = "not";
+            arg1 = true_location;
+            arg2 = "";
+            result = jump_else_value;
+          };
+        ]
+      @ [
+          { operand = "bt"; arg1 = jump_else_value; arg2 = join_label; result };
+        ]
       @ [ { operand = "bt"; arg1 = true_location; arg2 = body_label; result } ]
       @ [ { operand = "comment"; arg1 = "while-body"; arg2 = ""; result } ]
       @ [ { operand = "label"; arg1 = body_label; arg2 = ""; result } ]
@@ -521,12 +556,15 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
   | Block exp_list ->
       List.map
         (fun elem ->
-          (* Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
+          (* Printf.fprintf out_file "Parsing expression: %s for method %s\n"
+            elem.id.name mname; *)
           exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
-        exp_list
-      |> List.flatten
+        (List.rev exp_list)
+      |> List.rev |> List.flatten
   | New id ->
-      [ { operand = "new"; arg1 = id.name; arg2 = ""; result = get_id !var_ctr } ]
+      [
+        { operand = "new"; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
+      ]
   | Isvoid exp ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -600,9 +638,15 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
   | Int_Constant i ->
       [ { operand = "int"; arg1 = string_of_int i; arg2 = ""; result } ]
   | String_Constant s ->
-      [ { operand = Printf.sprintf "string\n%s" s; arg1 = ""; arg2 = ""; result } ]
-  | Ident_Expr s ->
-      [ { operand = "var"; arg1 = ""; arg2 = ""; result = get_id !var_ctr } ]
+      [
+        {
+          operand = Printf.sprintf "string\n%s" s;
+          arg1 = "";
+          arg2 = "";
+          result;
+        };
+      ]
+  | Ident_Expr s -> [ { operand = s.name; arg1 = ""; arg2 = ""; result } ]
   | Boolean_Constant v ->
       [
         {
@@ -613,8 +657,10 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
         };
       ]
   (* | Let_Expr (binding_list, exp2) -> ()
-  | Internal (classname, methodname, methodreturn) -> ()
-  | Case (exp, elems) -> () *)
+  | Internal (classname, methodname, methodreturn) -> () *)
+  | Case (exp, elems) ->
+      Printf.fprintf out_file "";
+      exit 1
   | _ ->
       [
         {
@@ -627,10 +673,14 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
 
 let print_tac_elems ((s, t) : string * tac_elem list) =
   let print_tac_elem t =
-    if t.operand = "label" || t.operand = "jmp" || t.operand = "return" || t.operand = "comment" then
-      Printf.fprintf out_file "%s %s\n" t.operand t.arg1
+    if
+      t.operand = "label" || t.operand = "jmp" || t.operand = "return"
+      || t.operand = "comment"
+    then Printf.fprintf out_file "%s %s\n" t.operand t.arg1
     else if t.operand = "bt" then
       Printf.fprintf out_file "bt %s %s\n" t.arg1 t.arg2
+    else if t.operand = "" then
+      Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
     else if t.arg2 = "" && t.arg1 = "" then
       Printf.fprintf out_file "%s <- %s\n" t.result t.operand
     else if t.arg2 = "" then
@@ -664,5 +714,5 @@ let () =
   let _ = parse_implementation_map () in
   let _ = parse_parent_map () in
   let annotated_ast = parse_annotated_ast () in
-  let tacs = tac_parse_expressions annotated_ast in
+  let tacs = parse_tac_expressions annotated_ast in
   print_tac_elems (List.hd tacs)

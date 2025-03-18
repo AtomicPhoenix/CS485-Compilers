@@ -1,14 +1,5 @@
 comment start
-label Main_main_0
-t$3 <- bool true
-t$0 <- bt t$1 then_label
-t$5 <- string
- not true
-t$4 <- call out_string t$5
-t$0 <- jmp end_label
-t$0 <- label then_label
-t$4 <- string
- true
-t$3 <- call out_string t$4
-t$0 <- label end_label
+label List_isNil_0
+t$0 <- call abort t$1
+t$0 <- bool true
 return t$0
