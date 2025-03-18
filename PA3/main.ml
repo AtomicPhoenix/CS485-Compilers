@@ -400,6 +400,7 @@ NOTE: Expression to Three-Address Code
 
 let var_ctr = ref 0
 let label_ctr = ref 0
+let ret = ref 0
 
 let rec tac_parse_expressions (ast : annotated_ast_elem list) =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
@@ -434,7 +435,8 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
   (* | Dynamic_Dispatch (exp, id, el) -> ()
   | Static_Dispatch (exp, id1, id2, el) -> () *)
   | Self_Dispatch (id, exp_list) ->
-      let result = get_id !var_ctr in
+      let result = get_id !ret in
+      var_ctr := !var_ctr + 1;
       let arg2 = get_id (!var_ctr + 1) in
       (List.map
          (fun elem ->
@@ -456,15 +458,12 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
         ... code to evaluate THEN_BRACH
         label end_label
       *)
+      ret := !var_ctr;
       var_ctr := !var_ctr + 1;
       let condResult = get_id !var_ctr in
-      var_ctr := !var_ctr + 1;
-      let thenResult = get_id !var_ctr in
-      var_ctr := !var_ctr + 1;
-      let elseResult = get_id !var_ctr in
       let cond_tac = exp_to_tac pred_exp.sub_expr condResult cname mname in
-      let then_tac = exp_to_tac then_exp.sub_expr thenResult cname mname in
-      let else_tac = exp_to_tac else_exp.sub_expr elseResult cname mname in
+      let then_tac = exp_to_tac then_exp.sub_expr (get_id !ret) cname mname in
+      let else_tac = exp_to_tac else_exp.sub_expr (get_id !ret) cname mname in
       var_ctr := !var_ctr + 1;
       let jump_else_value = get_id !var_ctr in
       label_ctr := !label_ctr + 1;
@@ -643,7 +642,7 @@ let print_tac_elems ((s, t) : string * tac_elem list) =
   Printf.fprintf out_file "comment start\n";
   Printf.fprintf out_file "%s\n" s;
   List.iter print_tac_elem t;
-  Printf.fprintf out_file "return t$0\n"
+  Printf.fprintf out_file "return %s\n" (get_id !ret)
 
 (* 
 NOTE: Control-Flow to Three-Address Code
