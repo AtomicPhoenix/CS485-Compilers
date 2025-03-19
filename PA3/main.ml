@@ -601,6 +601,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       @ [ { operand = "jmp"; arg1 = cond_label; arg2 = ""; result } ]
       @ [ { operand = "comment"; arg1 = "while-join"; arg2 = ""; result } ]
       @ [ { operand = "label"; arg1 = join_label; arg2 = ""; result } ]
+      @ [ { operand = "default"; arg1 = "Object"; arg2 = ""; result } ]
   | Block exp_list ->
       List.mapi
         (fun i elem ->
