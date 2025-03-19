@@ -499,16 +499,61 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       @ [
           { operand = ""; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
         ]
-  (* | Dynamic_Dispatch (exp, id, el) -> ()
-  | Static_Dispatch (exp, id1, id2, el) -> () *)
-  | Self_Dispatch (id, exp_list) ->
-      let arg2 = get_id (!var_ctr + 1) in
+  | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
+      let arg2 =
+        if List.length args > 0 then
+          String.concat " "
+            (List.mapi (fun i _ -> get_id (!var_ctr + 1 + i)) args)
+        else ""
+      in
+      let arg_tacs =
+        if List.length args > 0 then
+          List.map
+            (fun arg ->
+              var_ctr := !var_ctr + 1;
+              exp_to_tac arg.sub_expr (get_id !var_ctr) cname mname)
+            args
+          |> List.flatten
+        else []
+      in
+      var_ctr := !var_ctr + 1;
+      arg_tacs
+      @ exp_to_tac dispatch_exp.sub_expr (get_id !var_ctr) cname mname
+      @ [ { operand = "call"; arg1 = method_name.name; arg2; result } ]
+  | Static_Dispatch (dispatch_exp, type_name, method_name, args) ->
+      let arg2 =
+        if List.length args > 0 then
+          String.concat " "
+            (List.mapi (fun i _ -> get_id (!var_ctr + 1 + i)) args)
+        else ""
+      in
+      let arg_tacs =
+        if List.length args > 0 then
+          List.map
+            (fun arg ->
+              var_ctr := !var_ctr + 1;
+              exp_to_tac arg.sub_expr (get_id !var_ctr) cname mname)
+            args
+          |> List.flatten
+        else []
+      in
+      var_ctr := !var_ctr + 1;
+      arg_tacs
+      @ exp_to_tac dispatch_exp.sub_expr (get_id !var_ctr) cname mname
+      @ [ { operand = "call"; arg1 = method_name.name; arg2; result } ]
+  | Self_Dispatch (id, args) ->
+      let arg2 =
+        if List.length args > 0 then
+          String.concat " "
+            (List.mapi (fun i _ -> get_id (!var_ctr + 1 + i)) args)
+        else ""
+      in
       (List.map
          (fun elem ->
            (* Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
            var_ctr := !var_ctr + 1;
            exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
-         exp_list
+         args
       |> List.flatten)
       @ [ { operand = "call"; arg1 = id.name; arg2; result } ]
   | If (pred_exp, then_exp, else_exp) ->
@@ -609,7 +654,10 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             "Parsing expression: %s for method %s in class %s; var_ctr = %d\n"
             elem.id.name mname cname !var_ctr; *)
           let elem_result =
-            if i = List.length exp_list - 1 then result else get_id !var_ctr
+            if i = List.length exp_list - 1 then result
+            else (
+              var_ctr := !var_ctr + 1;
+              get_id !var_ctr)
           in
           exp_to_tac elem.sub_expr elem_result cname mname)
         exp_list
