@@ -487,17 +487,20 @@ and get_bool bool_val = match bool_val with True -> "true" | False -> "false"
 and get_id n = "t$" ^ string_of_int n
 
 and get_label n class_name method_name =
-  method_name ^ "_" ^ class_name ^ "_" ^ string_of_int n
+  class_name ^ "_" ^ method_name ^ "_" ^ string_of_int n
 
 and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
   match exp with
   | Assignment (id, exp) ->
       (* Printf.fprintf out_file "Assigning result of %s to %s\n" exp.id.name
         id.name; *)
+      let var_id = Hashtbl.find letTable id.name in
       var_ctr := !var_ctr + 1;
-      exp_to_tac exp.sub_expr id.name cname mname
+      let last_var =exp_to_tac exp.sub_expr var_id cname mname in
+      var_ctr := !var_ctr + 1;
+      last_var
       @ [
-          { operand = ""; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
+          { operand = ""; arg1 = var_id; arg2 = ""; result = get_id !var_ctr };
         ]
   | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
       let arg2 =
@@ -620,9 +623,9 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       label_ctr := !label_ctr + 1;
       let cond_label = get_label !label_ctr cname mname in
       label_ctr := !label_ctr + 1;
-      let body_label = get_label !label_ctr cname mname in
-      label_ctr := !label_ctr + 1;
       let join_label = get_label !label_ctr cname mname in
+      label_ctr := !label_ctr + 1;
+      let body_label = get_label !label_ctr cname mname in
       let true_location = (List.hd (List.rev cond_tac)).result in
       [ { operand = "jmp"; arg1 = cond_label; arg2 = ""; result } ]
       @ [ { operand = "comment"; arg1 = "while-pred"; arg2 = ""; result } ]
