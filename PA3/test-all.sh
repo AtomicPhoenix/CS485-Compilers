@@ -1,7 +1,6 @@
 #1/bin/bash
 
 ocamlc ./main.ml
-
 corr=0
 incorr=0
 for file in ./test_cases/*; do

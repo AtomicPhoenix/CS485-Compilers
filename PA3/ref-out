@@ -1,12 +1,6 @@
 comment start
 label Main_main_0
 t$1 <- new X
-t$2 <- string
-hi
-t$3 <- string
-bye
-t$4 <- string
-third greeting
-t$5 <- t$1
-t$0 <- call exec t$2 t$3 t$4
+t$2 <- t$1
+t$0 <- call exec
 return t$0

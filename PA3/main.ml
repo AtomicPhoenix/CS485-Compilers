@@ -15,11 +15,38 @@ let read_int () : int =
 let rec parse_ast () = ()
 
 type tac_elem = {
-  operand : string;
+  operand : tac_operand;
   arg1 : string;
   arg2 : string;
   result : string;
 }
+
+and tac_operand =
+  | Assignment
+  | Bt
+  | Call
+  | Comment
+  | Label
+  | Jmp
+  | Case
+  | Default
+  | Return
+  | LetNoInit
+  | Ident_Expr of string
+  | New
+  | Isvoid
+  | Plus
+  | Minus
+  | Divide
+  | Times
+  | LessThan
+  | LessEqual
+  | Equal
+  | Not
+  | Negate
+  | Int_Constant
+  | String_Constant
+  | Boolean_Constant
 
 and static_type =
   | Class of string (* "Int" or "Object" *)
@@ -464,6 +491,71 @@ let get_all_methods (ast_elem : annotated_ast_elem) =
     ancestors
   |> List.flatten |> remove_duplicates
 
+let operand_to_string (operand : tac_operand) : string =
+  match operand with
+  | Assignment -> "assignment"
+  | Bt -> "bt"
+  | Call -> "call"
+  | Comment -> "comment"
+  | Label -> "label"
+  | Jmp -> "jmp"
+  | Case -> "case"
+  | Default -> "default"
+  | Return -> "return"
+  | LetNoInit -> "letnoinit"
+  | Ident_Expr v -> v
+  | New -> "new"
+  | Isvoid -> "isvoid"
+  | Plus -> "+"
+  | Minus -> "-"
+  | Divide -> "/"
+  | Times -> "*"
+  | LessThan -> "<"
+  | LessEqual -> "<="
+  | Equal -> "equal"
+  | Not -> "not"
+  | Negate -> "negate"
+  | Int_Constant -> "int"
+  | String_Constant -> "string"
+  | Boolean_Constant -> "bool"
+
+let print_tac_elem t =
+  match t.operand with
+  | Label -> Printf.fprintf out_file "label %s\n" t.arg1
+  | Jmp -> Printf.fprintf out_file "jmp %s\n" t.arg1
+  | Return -> Printf.fprintf out_file "return %s\n" t.arg1
+  | Comment -> Printf.fprintf out_file "comment %s\n" t.arg1
+  | Bt -> Printf.fprintf out_file "bt %s %s\n" t.arg1 t.arg2
+  | Assignment -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
+  | LetNoInit -> Printf.fprintf out_file "%s <- %s %s\n" t.result t.arg1 t.arg2
+  | String_Constant -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
+  | _ ->
+      if t.arg2 = "" && t.arg1 = "" then
+        Printf.fprintf out_file "%s <- %s\n" t.result
+          (operand_to_string t.operand)
+      else if t.arg2 = "" then
+        Printf.fprintf out_file "%s <- %s %s\n" t.result
+          (operand_to_string t.operand)
+          t.arg1
+      else
+        Printf.fprintf out_file "%s <- %s %s %s\n" t.result
+          (operand_to_string t.operand)
+          t.arg1 t.arg2
+
+let print_tac_elems ((s, t) : string * tac_elem list) =
+  List.iter
+    (fun t ->
+      if t.operand = Case then (
+        Printf.fprintf out_file "";
+        exit 1))
+    t;
+  Printf.fprintf out_file "comment start\n";
+  Printf.fprintf out_file "%s\n" s;
+  List.iter print_tac_elem t;
+  (* This is right but it doesn't work rn *)
+  (* Printf.fprintf out_file "return %s\n" (get_id !ret)*)
+  Printf.fprintf out_file "return t$0\n"
+
 let rec parse_tac_expressions (ast : annotated_ast_elem list) =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
     List.filter_map
@@ -494,14 +586,13 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
   | Assignment (id, exp) ->
       (* Printf.fprintf out_file "Assigning result of %s to %s\n" exp.id.name
         id.name; *)
-      let var_id = Hashtbl.find letTable id.name in
+      let var_id = Hashtbl.find_opt letTable id.name in
+      let arg1 = match var_id with Some v -> v | None -> id.name in
       var_ctr := !var_ctr + 1;
-      let last_var =exp_to_tac exp.sub_expr var_id cname mname in
+      let last_var = exp_to_tac exp.sub_expr arg1 cname mname in
       var_ctr := !var_ctr + 1;
       last_var
-      @ [
-          { operand = ""; arg1 = var_id; arg2 = ""; result = get_id !var_ctr };
-        ]
+      @ [ { operand = Assignment; arg1; arg2 = ""; result = get_id !var_ctr } ]
   | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
       let arg2 =
         if List.length args > 0 then
@@ -522,7 +613,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       arg_tacs
       @ exp_to_tac dispatch_exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = "call"; arg1 = method_name.name; arg2; result } ]
+      @ [ { operand = Call; arg1 = method_name.name; arg2; result } ]
   | Static_Dispatch (dispatch_exp, type_name, method_name, args) ->
       let arg2 =
         if List.length args > 0 then
@@ -543,7 +634,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       arg_tacs
       @ exp_to_tac dispatch_exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = "call"; arg1 = method_name.name; arg2; result } ]
+      @ [ { operand = Call; arg1 = method_name.name; arg2; result } ]
   | Self_Dispatch (id, args) ->
       let arg2 =
         if List.length args > 0 then
@@ -558,7 +649,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
            exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
          args
       |> List.flatten)
-      @ [ { operand = "call"; arg1 = id.name; arg2; result } ]
+      @ [ { operand = Call; arg1 = id.name; arg2; result } ]
   | If (pred_exp, then_exp, else_exp) ->
       (* 
         NOTE: Control-Flow to Three-Address Code
@@ -590,26 +681,24 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       (* may be possible bug, may need to get the last value of cond_tac instead of result *)
       @ [
           {
-            operand = "not";
+            operand = Not;
             arg1 = true_location;
             arg2 = "";
             result = jump_else_value;
           };
         ]
-      @ [
-          { operand = "bt"; arg1 = jump_else_value; arg2 = else_label; result };
-        ]
-      @ [ { operand = "bt"; arg1 = true_location; arg2 = then_label; result } ]
-      @ [ { operand = "comment"; arg1 = "then branch"; arg2 = ""; result } ]
-      @ [ { operand = "label"; arg1 = then_label; arg2 = ""; result } ]
+      @ [ { operand = Bt; arg1 = jump_else_value; arg2 = else_label; result } ]
+      @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result } ]
+      @ [ { operand = Comment; arg1 = "then branch"; arg2 = ""; result } ]
+      @ [ { operand = Label; arg1 = then_label; arg2 = ""; result } ]
       @ then_tac
-      @ [ { operand = "jmp"; arg1 = join_label; arg2 = ""; result } ]
-      @ [ { operand = "comment"; arg1 = "else branch"; arg2 = ""; result } ]
-      @ [ { operand = "label"; arg1 = else_label; arg2 = ""; result } ]
+      @ [ { operand = Jmp; arg1 = join_label; arg2 = ""; result } ]
+      @ [ { operand = Comment; arg1 = "else branch"; arg2 = ""; result } ]
+      @ [ { operand = Label; arg1 = else_label; arg2 = ""; result } ]
       @ else_tac
-      @ [ { operand = "jmp"; arg1 = join_label; arg2 = ""; result } ]
-      @ [ { operand = "comment"; arg1 = "if-join"; arg2 = ""; result } ]
-      @ [ { operand = "label"; arg1 = join_label; arg2 = ""; result } ]
+      @ [ { operand = Jmp; arg1 = join_label; arg2 = ""; result } ]
+      @ [ { operand = Comment; arg1 = "if-join"; arg2 = ""; result } ]
+      @ [ { operand = Label; arg1 = join_label; arg2 = ""; result } ]
   | While (pred_exp, body_exp) ->
       var_ctr := !var_ctr + 1;
       let pred_result = get_id !var_ctr in
@@ -627,29 +716,27 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       label_ctr := !label_ctr + 1;
       let body_label = get_label !label_ctr cname mname in
       let true_location = (List.hd (List.rev cond_tac)).result in
-      [ { operand = "jmp"; arg1 = cond_label; arg2 = ""; result } ]
-      @ [ { operand = "comment"; arg1 = "while-pred"; arg2 = ""; result } ]
-      @ [ { operand = "label"; arg1 = cond_label; arg2 = ""; result } ]
+      [ { operand = Jmp; arg1 = cond_label; arg2 = ""; result } ]
+      @ [ { operand = Comment; arg1 = "while-pred"; arg2 = ""; result } ]
+      @ [ { operand = Label; arg1 = cond_label; arg2 = ""; result } ]
       @ cond_tac
       @ [
           {
-            operand = "not";
+            operand = Not;
             arg1 = true_location;
             arg2 = "";
             result = jump_else_value;
           };
         ]
-      @ [
-          { operand = "bt"; arg1 = jump_else_value; arg2 = join_label; result };
-        ]
-      @ [ { operand = "bt"; arg1 = true_location; arg2 = body_label; result } ]
-      @ [ { operand = "comment"; arg1 = "while-body"; arg2 = ""; result } ]
-      @ [ { operand = "label"; arg1 = body_label; arg2 = ""; result } ]
+      @ [ { operand = Bt; arg1 = jump_else_value; arg2 = join_label; result } ]
+      @ [ { operand = Bt; arg1 = true_location; arg2 = body_label; result } ]
+      @ [ { operand = Comment; arg1 = "while-body"; arg2 = ""; result } ]
+      @ [ { operand = Label; arg1 = body_label; arg2 = ""; result } ]
       @ body_tac
-      @ [ { operand = "jmp"; arg1 = cond_label; arg2 = ""; result } ]
-      @ [ { operand = "comment"; arg1 = "while-join"; arg2 = ""; result } ]
-      @ [ { operand = "label"; arg1 = join_label; arg2 = ""; result } ]
-      @ [ { operand = "default"; arg1 = "Object"; arg2 = ""; result } ]
+      @ [ { operand = Jmp; arg1 = cond_label; arg2 = ""; result } ]
+      @ [ { operand = Comment; arg1 = "while-join"; arg2 = ""; result } ]
+      @ [ { operand = Label; arg1 = join_label; arg2 = ""; result } ]
+      @ [ { operand = Default; arg1 = "Object"; arg2 = ""; result } ]
   | Block exp_list ->
       List.mapi
         (fun i elem ->
@@ -666,14 +753,12 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
         exp_list
       |> List.flatten
   | New id ->
-      [
-        { operand = "new"; arg1 = id.name; arg2 = ""; result = get_id !var_ctr };
-      ]
+      [ { operand = New; arg1 = id.name; arg2 = ""; result = get_id !var_ctr } ]
   | Isvoid exp ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       exp_to_tac exp.sub_expr arg1 cname mname
-      @ [ { operand = "isvoid"; arg1; arg2 = ""; result } ]
+      @ [ { operand = Isvoid; arg1; arg2 = ""; result } ]
   | Minus (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -681,7 +766,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let arg2 = get_id !var_ctr in
       let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
       let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = "-"; arg1; arg2; result } ]
+      exp1 @ exp2 @ [ { operand = Minus; arg1; arg2; result } ]
   | Divide (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -689,7 +774,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let arg2 = get_id !var_ctr in
       let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
       let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = "/"; arg1; arg2; result } ]
+      exp1 @ exp2 @ [ { operand = Divide; arg1; arg2; result } ]
   | Plus (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -697,7 +782,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let arg2 = get_id !var_ctr in
       let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
       let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = "+"; arg1; arg2; result } ]
+      exp1 @ exp2 @ [ { operand = Plus; arg1; arg2; result } ]
   | Times (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -705,7 +790,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let arg2 = get_id !var_ctr in
       let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
       let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = "*"; arg1; arg2; result } ]
+      exp1 @ exp2 @ [ { operand = Times; arg1; arg2; result } ]
   | Equal (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -713,7 +798,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let arg2 = get_id !var_ctr in
       let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
       let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = "="; arg1; arg2; result } ]
+      exp1 @ exp2 @ [ { operand = Equal; arg1; arg2; result } ]
   | LessEqual (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -721,7 +806,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let arg2 = get_id !var_ctr in
       let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
       let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = "<="; arg1; arg2; result } ]
+      exp1 @ exp2 @ [ { operand = LessEqual; arg1; arg2; result } ]
   | LessThan (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
@@ -729,23 +814,23 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let arg2 = get_id !var_ctr in
       let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
       let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = "<"; arg1; arg2; result } ]
+      exp1 @ exp2 @ [ { operand = LessThan; arg1; arg2; result } ]
   | Not exp ->
       var_ctr := !var_ctr + 1;
       exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = "not"; arg1 = get_id !var_ctr; arg2 = ""; result } ]
+      @ [ { operand = Not; arg1 = get_id !var_ctr; arg2 = ""; result } ]
   | Negate exp ->
       let result = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = "~"; arg1 = get_id !var_ctr; arg2 = ""; result } ]
+      @ [ { operand = Negate; arg1 = get_id !var_ctr; arg2 = ""; result } ]
   | Int_Constant i ->
-      [ { operand = "int"; arg1 = string_of_int i; arg2 = ""; result } ]
+      [ { operand = Int_Constant; arg1 = string_of_int i; arg2 = ""; result } ]
   | String_Constant s ->
       [
         {
-          operand = Printf.sprintf "string\n%s" s;
-          arg1 = "";
+          operand = String_Constant;
+          arg1 = Printf.sprintf "string\n%s" s;
           arg2 = "";
           result;
         };
@@ -754,10 +839,11 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       match Hashtbl.find_opt letTable s.name with
       | Some t ->
           (* Printf.fprintf out_file "Retrieved variable %s as temp %s\n" s.name t; *)
-          [ { operand = t; arg1 = ""; arg2 = ""; result } ]
-      | None -> [ { operand = s.name; arg1 = ""; arg2 = ""; result } ])
+          [ { operand = Ident_Expr t; arg1 = ""; arg2 = ""; result } ]
+      | None ->
+          [ { operand = Ident_Expr s.name; arg1 = ""; arg2 = ""; result } ])
   | Boolean_Constant v ->
-      [ { operand = "bool"; arg1 = get_bool v; arg2 = ""; result } ]
+      [ { operand = Boolean_Constant; arg1 = get_bool v; arg2 = ""; result } ]
   | Let_Expr (binding_list, exp) ->
       let b =
         List.map
@@ -772,7 +858,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             | None ->
                 [
                   {
-                    operand = "let-no-init";
+                    operand = LetNoInit;
                     arg1 = "default";
                     arg2 = let_type.name;
                     result;
@@ -782,52 +868,13 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
         |> List.flatten
       in
       b @ exp_to_tac exp.sub_expr result cname mname
-  (* | Internal (classname, methodname, methodreturn) -> () *)
   | Case (exp, elems) ->
-      [ { operand = "case"; arg1 = ""; arg2 = ""; result = "" } ]
-  | _ ->
-      [
-        {
-          operand = "placeholder";
-          arg1 = "placeholder";
-          arg2 = "placeholder";
-          result = "t9999";
-        };
-      ]
-
-let print_tac_elems ((s, t) : string * tac_elem list) =
-  let print_tac_elem t =
-    if
-      t.operand = "label" || t.operand = "jmp" || t.operand = "return"
-      || t.operand = "comment"
-    then Printf.fprintf out_file "%s %s\n" t.operand t.arg1
-    else if t.operand = "bt" then
-      Printf.fprintf out_file "bt %s %s\n" t.arg1 t.arg2
-    else if t.operand = "" then
-      Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
-    else if t.operand = "let-no-init" then
-      Printf.fprintf out_file "%s <- %s %s\n" t.result t.arg1 t.arg2
-    else if t.arg2 = "" && t.arg1 = "" then
-      Printf.fprintf out_file "%s <- %s\n" t.result t.operand
-    else if t.arg2 = "" then
-      Printf.fprintf out_file "%s <- %s %s\n" t.result t.operand t.arg1
-    else
-      Printf.fprintf out_file "%s <- %s %s %s\n" t.result t.operand t.arg1
-        t.arg2
-  in
-  List.iter
-    (fun t ->
-      if t.operand = "case" then (
-        Printf.fprintf out_file "";
-        exit 1))
-    t;
-  Printf.fprintf out_file "comment start\n";
-  Printf.fprintf out_file "%s\n" s;
-  List.iter print_tac_elem t;
-  (* This is right but it doesn't work rn *)
-  (* Printf.fprintf out_file "return %s\n" (get_id !ret)*)
-  Printf.fprintf out_file "return t$0\n"
-
+      [ { operand = Case; arg1 = ""; arg2 = ""; result = "" } ]
+  | Internal (classname, methodname, methodreturn) ->
+      Printf.fprintf out_file
+        "Something is fundamentally wrong (We should not be parsing Internal \
+         to TAC)";
+      assert false
 (* 
 NOTE: Control-Flow to Three-Address Code
 The traditional approach to converting control-flow statements to three-address code involves a recursive descent traversal of the abstract syntax tree. The recursive descent traversal returns a list of three-address code instructions.
@@ -880,12 +927,9 @@ let default_classes : annotated_ast_elem list =
   ]
 
 let () =
-  (* let class_map = parse_class_map () in
+  let class_map = parse_class_map () in
   let implementation_map = parse_implementation_map () in
-  let parent_map = parse_parent_map () in *)
-  let _ = parse_class_map () in
-  let _ = parse_implementation_map () in
-  let _ = parse_parent_map () in
+  let parent_map = parse_parent_map () in
   let annotated_ast =
     parse_annotated_ast ()
     |> List.sort (fun el1 el2 ->
@@ -894,7 +938,36 @@ let () =
   List.iter add_class default_classes;
   List.iter add_class annotated_ast;
   let tacs = parse_tac_expressions annotated_ast in
-
-  (* List.iter print_methods annotated_ast;
-  List.iter (fun (s, tacs) -> Printf.printf "%s\n" s) tacs; *)
   print_tac_elems (List.hd tacs)
+
+(* -------------------------------------------------------------------CODE GEN CODE----------------------------------------------------------------------- *)
+
+(*NOTE: Write a program that generates assembly instructions for certain simple Cool programs.
+    - Write a correct code generator for a subset of Cool. 
+    - This involves implementing the operational semantics specification of Cool. 
+    - You do not have to track information to generate run-time errors (e.g., division by zero, dispatch on void) for this checkpoint. 
+    - You do not have to worry about “malformed input” because the semantic analyzer (from PA2) will rule out bad programs.
+    - No Error reporting for this checkpoint BUT KEEP LINE INFO FOR LATER
+    - The input program will introduce only one class, Main, with only one method, main. 
+    - The following AST or language elements will NOT appear:
+        - attribute_*
+        - self_dispatch — except IO (e.g., in_out, out_int)
+        - static_dispatch
+        - dynamic_dispatch
+        - internal functions
+        - while
+        - isvoid
+        - case
+        - new
+        - let_binding_init
+        - any novel class/method — except “Main.main”
+        - run-time errors (e.g., division by zero)
+        - strings — programs will largely involve integers and booleans
+    - This results in single-class, single-method Cool programs focusing on integer and boolean manipulation.
+    - Need to convert internal functions that are defined in the CRM. Look at the assembly code that the reference compiler emits for them.
+    - Highly recommended to convert to control-flow graph where basic blocks are TAC, then convert TAC to assembly
+    - "Whitespace and newlines do not matter in your file.s assembly code. However, whitespace and newlines do matter for the output of your generated assembly! This is because you are specifically being asked to implement IO (and, later, substring) functions." -- I don't know what this means 
+    - Implment all relevant operational semantics rules in the Reference Manual including all of the relevant built-in functions on the IO class.*)
+
+(* Highly recommended to convert to control-flow graph where basic blocks are TAC, then convert TAC to assembly *)
+let tac_to_as (tac : tac_elem) = ()
