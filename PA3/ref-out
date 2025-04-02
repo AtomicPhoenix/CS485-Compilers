@@ -1,6 +1,0 @@
-comment start
-label Main_main_0
-t$1 <- new X
-t$2 <- t$1
-t$0 <- call exec
-return t$0
