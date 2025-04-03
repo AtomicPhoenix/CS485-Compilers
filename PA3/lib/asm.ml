@@ -30,6 +30,69 @@ open Parser
     - Implment all relevant operational semantics rules in the Reference Manual including all of the relevant built-in functions on the IO class.*)
 
 (* We store the memory addresses of each variable as we parse them *)
+
+type asm_instruction = {
+    instruction: string;
+    arg1: string option;
+    arg2: string option;
+    arg3: string option;
+}
+and asm_line =
+    | Instruction of asm_instruction
+    | Line of string
+
+and asm = asm_line list
+
+and vtable = {
+    name_id: string;
+    methods: string list;
+}
+
+and attribute = {
+    field_name: string;
+    index: int;
+    size: int;
+    type_name: string;
+}
+
+and asm_class = {
+    class_tag: int;
+    object_size: int;
+    vtable: vtable;
+    attributes: attribute;
+}
+
+let class_map = Parser.parse_class_map ()
+let implementation_map = Parser.parse_implementation_map ()
+let parent_map = Parser.parse_parent_map ()
+
+(*TODO: make this make and return an int object*)
+let in_int = "
+in_int:\n
+\tpushq\t%%rbx\n
+\tmovl\t$4096, %%esi\n
+\tsubq\t$4112, %%rsp\n
+\tmovq\tstdin(%%rip), %%rdx\n
+\tleaq\t16(%%rsp), %%rbx\n
+\tmovq\t%%rbx, %%rdi\n
+\tcall\tfgets\n
+\tleaq\t8(%%rsp), %%rdx\n
+\tmovq\t%%rbx, %%rdi\n
+\txorl\t%%eax, %%eax\n
+\tmovq\t$percent.ld, %%rsi\n
+\tcall\tsscanf\n
+\tmovq\t8(%%rsp), %%rax\n
+\tmovl\t$2147483648, %%edx\n
+\tmovl\t$4294967295, %%ecx\n
+\taddq\t%%rax, %%rdx\n
+\tcmpq\t%%rdx, %%rcx\n
+\tmovl\t$0, %%edx\n
+\tcmovb\t%%rdx, %%rax\n
+\taddq\t$4112, %%rsp\n
+\tpopq\t%%rbx\n
+\tret\n"
+
+
 let var_locations = Hashtbl.create 32
 
 let add_var_addr (var_name : string) =
@@ -60,7 +123,7 @@ let tac_to_as (tac : tac_elem) =
   (* | Return *)
   (* | LetNoInit *)
   (* | Ident_Expr of string *)
-  (* | New *)
+   | New 
   (* | Isvoid *)
   | Plus ->
       let arg1 = get_var_addr tac.arg1 in
