@@ -108,7 +108,14 @@ let string_counter = ref 0
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) elems =
   match tac.operand with
-  (* | Assignment *)
+  | Assignment ->
+      let result = get_var_addr tac.result in
+      let arg1 = get_var_addr tac.arg1 in
+      elems @ [
+        Instruction ("movq", arg1, "%rax", "");
+        Instruction ("movq", "%rax", result, "")
+      ]
+    
   | Bt ->
       let arg1 = get_var_addr tac.arg1 in
       elems
@@ -163,8 +170,19 @@ let tac_to_as (tac : tac_elem) elems =
           Instruction ("popq", "%rbp", "%rsp", "");
           Instruction ("ret", "", "", "");
         ]
-  (* | LetNoInit *)
-  (* | Ident_Expr of string *)
+  | LetNoInit ->
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      elems @ [
+        Instruction ("movq", "$0", result, "");
+      ]
+    
+  | Ident_Expr s ->
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      elems @ [
+        Instruction ("movq", get_var_addr s, result, "");
+      ]
   (*| New *)
   (* | Isvoid *)
   | Plus ->
@@ -276,7 +294,11 @@ let tac_to_as (tac : tac_elem) elems =
   | Int_Constant ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      elems @ [ Instruction ("movq", tac.arg1, result, "") ]
+      let arg1 = get_var_addr tac.arg1 in
+      elems @ [
+        Instruction ("movq", arg1, "%rax", "");
+        Instruction ("movq", "%rax", result, "")
+      ]
   | String_Constant -> (
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -301,5 +323,17 @@ let tac_to_as (tac : tac_elem) elems =
   (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"");*)
   (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"")*)
 
-  (* | Boolean_Constant *)
+   | Boolean_Constant ->
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      if tac.arg1 = "true" then
+      elems @ [
+        Instruction ("movq", "$1", "%rax", "");
+        Instruction ("movq", "%rax", result, "")
+      ]
+      else
+      elems @ [
+        Instruction ("movq", "$0", "%rax", "");
+        Instruction ("movq", "%rax", result, "")
+      ]
   | _ -> assert false
