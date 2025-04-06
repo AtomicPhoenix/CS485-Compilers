@@ -540,7 +540,7 @@ let print_tac_elems (t : tac_elem list) =
   List.iter print_tac_elem t
 
 let rec parse_tac_expressions (ast : annotated_ast_elem list) :
-    (tac_elem list * string * string) list =
+    (tac_elem list * string * string * int) list =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
     List.filter_map
       (fun (feat, _) ->
@@ -563,8 +563,9 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
                 @ exp_to_tac exp.sub_expr (get_id !var_ctr)
                     ast_elem.class_name.name id1.name
                 @ [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ],
-                "CLASS NAME",
-                id1.name )
+                ast_elem.class_name.name,
+                id1.name,
+                !var_ctr + 1 )
         | Attribute _ -> None)
       (get_all_methods ast_elem)
   in
@@ -929,7 +930,8 @@ let is_break_point (tac : tac_elem) =
   | Bt | Call | Jmp | Case | Default | Return -> true
   | _ -> false
 
-let tac_to_cfg (tacs, class_name, method_name) : cfg * string * string =
+let tac_to_cfg (tacs, class_name, method_name, temp_count) :
+    cfg * string * string * int =
   let rec create_cfg (tac_list : tac_elem list) acc cfg =
     match tac_list with
     | tac :: tail -> (
@@ -938,7 +940,7 @@ let tac_to_cfg (tacs, class_name, method_name) : cfg * string * string =
         | false -> create_cfg tail (tac :: acc) cfg)
     | [] -> [ List.rev acc ] @ cfg
   in
-  (List.rev (create_cfg tacs [] []), class_name, method_name)
+  (List.rev (create_cfg tacs [] []), class_name, method_name, temp_count)
 
 and print_cfg bbl = List.iter (List.iter print_tac_elem) bbl
 (* ------------------------------------------------------------------CODE GEN CODE----------------------------------------------------------------------- *)
@@ -1011,11 +1013,15 @@ and new_func = string * asm
 let print_asm (asm : asm_line) =
   match asm with
   | Instruction (s1, s2, s3, s4) ->
-      if s4 != "" then Printf.fprintf out_file "\t%s %s, %s %s\n" s1 s2 s3 s4
-      else if s3 != "" then Printf.fprintf out_file "\t%s %s, %s\n" s1 s2 s3
-      else if s2 != "" then Printf.fprintf out_file "\t%s %s\n" s1 s2
-      else if s1 != "" then Printf.fprintf out_file "\t%s\n" s1
-  | Line s1 -> Printf.fprintf out_file "%s\n" s1
+      if s4 != "" then (*Printf.printf "\t%s\t%s, %s, %s\n" s1 s2 s3 s4;*)
+        Printf.fprintf out_file "\t%s\t%s, %s, %s\n" s1 s2 s3 s4
+      else if s3 != "" then (*Printf.printf "\t%s\t%s, %s\n" s1 s2 s3;*)
+        Printf.fprintf out_file "\t%s\t%s, %s\n" s1 s2 s3
+      else if s2 != "" then (*Printf.printf "\t%s\t%s\n" s1 s2;*)
+        Printf.fprintf out_file "\t%s\t%s\n" s1 s2
+      else if s1 != "" then (*Printf.printf "\t%s\n" s1;*)
+        Printf.fprintf out_file "\t%s\n" s1
+  | Line s1 -> (*Printf.printf "%s\n" s1;*) Printf.fprintf out_file "%s\n" s1
 
 let var_locations = Hashtbl.create 32
 
@@ -1039,6 +1045,7 @@ let create_vtable (itm : implementation_map_elem) : vtable =
       itm.methods
   in
   string_counter := !string_counter + 1;
+  Hashtbl.add string_map itm.name !string_counter;
   { name_id = name; name_string_id = !string_counter; methods = funcs }
 
 let create_vtables () =
@@ -1050,6 +1057,11 @@ let create_vtables () =
     tables
 
 let create_default_vtables () =
+  Hashtbl.add string_map "Bool" 0;
+  Hashtbl.add string_map "IO" 1;
+  Hashtbl.add string_map "Int" 2;
+  Hashtbl.add string_map "Object" 3;
+  Hashtbl.add string_map "String" 4;
   [
     {
       name_id = "Bool";
@@ -1057,9 +1069,9 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "Bool"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
         ];
     };
     {
@@ -1068,13 +1080,13 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "IO"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
           { type_name = "IO"; method_name = "in_int" };
-          { type_name = "IO"; method_name = "in_string" };
+          (*{ type_name = "IO"; method_name = "in_string" };*)
           { type_name = "IO"; method_name = "out_int" };
-          { type_name = "IO"; method_name = "out_string" };
+          (*{ type_name = "IO"; method_name = "out_string" };*)
         ];
     };
     {
@@ -1083,9 +1095,9 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "Int"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
         ];
     };
     {
@@ -1094,9 +1106,9 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "Object"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
         ];
     };
     {
@@ -1105,12 +1117,12 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "String"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
-          { type_name = "String"; method_name = "concat" };
-          { type_name = "String"; method_name = "length" };
-          { type_name = "String"; method_name = "substr" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
+          (*{ type_name = "String"; method_name = "concat" };*)
+          (*{ type_name = "String"; method_name = "length" };*)
+          (*{ type_name = "String"; method_name = "substr" };*)
         ];
     };
   ]
@@ -1140,14 +1152,85 @@ let make_asm_class (c : class_map_elem) =
     attributes = attrs;
   }
 
+(*let abort =*)
+  (*[*)
+    (*Line "\t.globl\tObject.abort";*)
+    (*Line "Object.abort:";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq", "$16", "%r14", "");*)
+    (*Instruction ("subq", "%r14", "%rsp", "");*)
+    (*Instruction ("movq", "$string8", "%r13", "");*)
+    (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+    (*Instruction ("movq", "%r13", "%rdi", "");*)
+    (*Instruction ("call", "cooloutstr", "", "");*)
+    (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+    (*Instruction ("movl", "$0", "%edi", "");*)
+    (*Instruction ("call", "exit", "", "");*)
+    (*Line "Object.abort.end:";*)
+    (*Instruction ("movq", "%rbp", "%rsp", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
+
+(*let copy =*)
+  (*[*)
+    (*Line "\t.p2align 4";*)
+    (*Line "\t.globl\tObject.copy";*)
+    (*Line "Object.copy:";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq", "$16", "%r14", "");*)
+    (*Instruction ("subq", "%r14", "%rsp", "");*)
+    (*Instruction ("movq", "8(%r12)", "%r14", "");*)
+    (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+    (*Instruction ("movq", "$8", "%rsi", "");*)
+    (*Instruction ("movq", "%r14", "%rdi", "");*)
+    (*Instruction ("call", "calloc", "", "");*)
+    (*Instruction ("movq", "%rax", "%r13", "");*)
+    (*Instruction ("pushq", "%r13", "", "");*)
+    (*Line "\t.globl\tObject.copy.end";*)
+    (*Line "Object.copy.end:";*)
+    (*Instruction ("movq", "%rbp", "%rsp", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
+
+(*let objecttypename =*)
+  (*[*)
+    (*Line "Object.type_name:";*)
+    (*Line "\t.globl\tObject.type_name";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq", "$16", "%r14", "");*)
+    (*Instruction ("subq", "%r14", "%rsp", "");*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("pushq", "%r12", "", "");*)
+    (*Instruction ("movq", "$String..new", "%r14", "");*)
+    (*Instruction ("call", "*%r14", "", "");*)
+    (*Instruction ("popq", "%r12", "", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("movq", "16(%r12)", "%r14", "");*)
+    (*Instruction ("movq", "0(%r14)", "%r14", "");*)
+    (*Instruction ("movq", "%r14", "24(%r13)", "");*)
+    (*Line "Object.type_name.end:";*)
+    (*Instruction ("movq", "%rbp", "%rsp", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
+
 let in_int =
   [
     Line "\t.p2align 4";
     Line "\t.globl\tIO.in_int";
+    Line "\t.type\tIO.in_int, @function";
     Line "IO.in_int:";
     Instruction ("pushq", "%rbp", "", "");
     Instruction ("pushq", "%rbx", "", "");
-    Instruction ("subq", "%4120", "%rsp", "");
+    Instruction ("subq", "$4120", "%rsp", "");
     Instruction ("call", "Int..new", "", "");
     Instruction ("leaq", "16(%rsp)", "%rbp", "");
     Instruction ("movl", "$4096", "%esi", "");
@@ -1173,47 +1256,147 @@ let in_int =
     Instruction ("popq", "%rbx", "", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "IO.in_int", ".-IO.in_int", "");
+    (*Instruction (".size", "IO.in_int", ".-IO.in_int", "");*)
   ]
 
 let out_int =
   [
     Line "\t.p2align 4";
     Line "\t.globl\tIO.out_int";
+    Line "\t.type\tIO.out_int, @function";
     Line "IO.out_int:";
     Instruction ("pushq", "%rbx", "", "");
+    Instruction ("subq", "$8", "%rsp", "");
     Instruction ("movq", "24(%rsi)", "%rsi", "");
     Instruction ("movq", "24(%rdi)", "%rbx", "");
     Instruction ("xorl", "%eax", "%eax", "");
-    Instruction ("movl", "$percent.d", "%rdi", "");
+    Instruction ("movq", "$percent.d", "%rdi", "");
     Instruction ("call", "printf", "", "");
-    Instruction ("movq", "rbx", "%rax", "");
-    Instruction ("popq", "rbx", "", "");
-    Instruction (".size", "IO.out_int", ".-IO.out_int", "");
-  ]
-
-let out_string =
-  [
-    Line "\t.p2align 4";
-    Line "\t.globl\tIO.out_string";
-    Line "IO.out_string:";
-    Instruction ("pushq", "%rbp", "", "");
-    Instruction ("movq", "%rsp", "%rbp", "");
-    Instruction ("movq", "16(%rbp)", "%r12", "");
-    Instruction ("movq $16, %r14", "", "", "");
-    Instruction ("subq %r14, %rsp", "", "", "");
-    Instruction ("movq 24(%rbp), %r14", "", "", "");
-    Instruction ("movq 24(%r14), %r13", "", "", "");
-    Instruction ("andq $0xFFFFFFFFFFFFFFF0, %rsp", "", "", "");
-    Instruction ("movq %r13, %rdi", "", "", "");
-    Instruction ("call cooloutstr", "", "", "");
-    Instruction ("movq %r12, %r13", "", "", "");
-    Instruction ("movq %rbp, %rsp", "", "", "");
-    Instruction ("popq %rbp", "", "", "");
+    Instruction ("movq", "%rbx", "%rax", "");
+    Instruction ("addq", "$8", "%rsp", "");
+    Instruction ("popq", "%rbx", "", "");
     Instruction ("ret", "", "", "");
+    (*Instruction (".size", "IO.out_int", ".-IO.out_int", "");*)
   ]
 
-let intrinsic_funcs = [ in_int; out_int; out_string ]
+(*let out_string =*)
+  (*[*)
+    (*Line "\t.p2align 4";*)
+    (*Line "\t.globl\tIO.out_string";*)
+    (*Line "IO.out_string:";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq $16, %r14", "", "", "");*)
+    (*Instruction ("subq %r14, %rsp", "", "", "");*)
+    (*Instruction ("movq 24(%rbp), %r14", "", "", "");*)
+    (*Instruction ("movq 24(%r14), %r13", "", "", "");*)
+    (*Instruction ("andq $0xFFFFFFFFFFFFFFF0, %rsp", "", "", "");*)
+    (*Instruction ("movq %r13, %rdi", "", "", "");*)
+    (*Instruction ("call cooloutstr", "", "", "");*)
+    (*Instruction ("movq %r12, %r13", "", "", "");*)
+    (*Instruction ("movq %rbp, %rsp", "", "", "");*)
+    (*Instruction ("popq %rbp", "", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
+
+(*let cooloutstr =*)
+  (*[*)
+    (*Instruction (".globl\tcooloutstr", "", "", "");*)
+    (*Instruction (".type\tcooloutstr, @function", "", "", "");*)
+    (*Instruction ("cooloutstr:", "", "", "");*)
+    (*Instruction (".LFB6:", "", "", "");*)
+    (*Instruction (".cfi_startproc", "", "", "");*)
+    (*Instruction ("endbr64", "", "", "");*)
+    (*Instruction ("pushq\t%rbp", "", "", "");*)
+    (*Instruction (".cfi_def_cfa_offset 16", "", "", "");*)
+    (*Instruction (".cfi_offset 6, -16", "", "", "");*)
+    (*Instruction ("movq\t%rsp, %rbp", "", "", "");*)
+    (*Instruction (".cfi_def_cfa_register 6", "", "", "");*)
+    (*Instruction ("subq\t$32, %rsp", "", "", "");*)
+    (*Instruction ("movq\t%rdi, -24(%rbp)", "", "", "");*)
+    (*Instruction ("movl\t$0, -4(%rbp)", "", "", "");*)
+    (*Instruction ("jmp\t.L2", "", "", "");*)
+    (*Instruction (".L5:", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$92, %al", "", "", "");*)
+    (*Instruction ("jne\t.L3", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("cltq", "", "", "");*)
+    (*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$110, %al", "", "", "");*)
+    (*Instruction ("jne\t.L3", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+    (*Instruction ("movq\t%rax, %rsi", "", "", "");*)
+    (*Instruction ("movl\t$10, %edi", "", "", "");*)
+    (*Instruction ("call\tfputc@PLT", "", "", "");*)
+    (*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
+    (*Instruction ("jmp\t.L2", "", "", "");*)
+    (*Instruction (".L3:", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$92, %al", "", "", "");*)
+    (*Instruction ("jne\t.L4", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("cltq", "", "", "");*)
+    (*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$116, %al", "", "", "");*)
+    (*Instruction ("jne\t.L4", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+    (*Instruction ("movq\t%rax, %rsi", "", "", "");*)
+    (*Instruction ("movl\t$9, %edi", "", "", "");*)
+    (*Instruction ("call\tfputc@PLT", "", "", "");*)
+    (*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
+    (*Instruction ("jmp\t.L2", "", "", "");*)
+    (*Instruction (".L4:", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rdx", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rcx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rcx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("movsbl\t%al, %eax", "", "", "");*)
+    (*Instruction ("movq\t%rdx, %rsi", "", "", "");*)
+    (*Instruction ("movl\t%eax, %edi", "", "", "");*)
+    (*Instruction ("call\tfputc@PLT", "", "", "");*)
+    (*Instruction ("addl\t$1, -4(%rbp)", "", "", "");*)
+    (*Instruction (".L2:", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("testb\t%al, %al", "", "", "");*)
+    (*Instruction ("jne\t.L5", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+    (*Instruction ("movq\t%rax, %rdi", "", "", "");*)
+    (*Instruction ("call\tfflush@PLT", "", "", "");*)
+    (*Instruction ("nop", "", "", "");*)
+    (*Instruction ("leave", "", "", "");*)
+    (*Instruction (".cfi_def_cfa 7, 8", "", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+    (*Instruction (".cfi_endproc", "", "", "");*)
+    (*Instruction (".LFE6:", "", "", "");*)
+    (*Instruction (".size\tcooloutstr, .-cooloutstr", "", "", "");*)
+    (*Instruction (".globl\tcoolstrlen", "", "", "");*)
+    (*Instruction (".type\tcoolstrlen, @function", "", "", "");*)
+    (*Instruction ("", "", "", "");*)
+  (*]*)
+
+let intrinsic_funcs = [ in_int; out_int(*; out_string; cooloutstr *)]
 
 (* Bool is class tag 0 *)
 let () = Hashtbl.add class_id_map "Bool" 0
@@ -1233,7 +1416,7 @@ let bool_new =
     Instruction ("movq", "$0", "24(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "Bool..new", ".-Bool..new", "");
+    (*Instruction (".size", "Bool..new", ".-Bool..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "IO" 1
@@ -1252,7 +1435,7 @@ let io_new =
     Instruction ("movq", "%r10", "16(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "IO..new", ".-IO..new", "");
+    (*Instruction (".size", "IO..new", ".-IO..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "Int" 2
@@ -1272,7 +1455,7 @@ let int_new =
     Instruction ("movq", "$0", "24(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "IO..new", ".-IO..new", "");
+    (*Instruction (".size", "Int..new", ".-Int..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "Object" 3
@@ -1291,7 +1474,7 @@ let object_new =
     Instruction ("movq", "%r10", "16(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "Object..new", ".-Object..new", "");
+    (*Instruction (".size", "Object..new", ".-Object..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "String" 4
@@ -1312,7 +1495,7 @@ let string_new =
     Instruction ("movq", "%r10", "24(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "String..new", ".-String..new", "");
+    (*Instruction (".size", "String..new", ".-String..new", "");*)
   ]
 
 let new_funcs =
@@ -1522,43 +1705,45 @@ let add_var_addr (var_name : string) =
 
 let get_var_addr (var_name : string) : string =
   match Hashtbl.find_opt var_locations var_name with
-  | Some addr -> Printf.sprintf "%d(%%rbp)" addr
+  | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
   | None -> var_name
 
 let pusha =
   [
-    Instruction ("push rbx ", "", "", "");
-    Instruction ("push rbp ", "", "", "");
-    Instruction ("push rdi ", "", "", "");
-    Instruction ("push rsi ", "", "", "");
-    Instruction ("push rcx ", "", "", "");
-    Instruction ("push rdx ", "", "", "");
-    Instruction ("push r8 ", "", "", "");
-    Instruction ("push r9 ", "", "", "");
-    Instruction ("push r10 ", "", "", "");
-    Instruction ("push r11 ", "", "", "");
-    Instruction ("push r12 ", "", "", "");
-    Instruction ("push r13 ", "", "", "");
-    Instruction ("push r14 ", "", "", "");
-    Instruction ("push r15 ", "", "", "");
+    Instruction ("pushq", "%rax", "", "");
+    Instruction ("pushq", "%rbx", "", "");
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("pushq", "%rdi", "", "");
+    Instruction ("pushq", "%rsi", "", "");
+    Instruction ("pushq", "%rcx", "", "");
+    Instruction ("pushq", "%rdx", "", "");
+    Instruction ("pushq", "%r8", "", "");
+    Instruction ("pushq", "%r9", "", "");
+    Instruction ("pushq", "%r10", "", "");
+    Instruction ("pushq", "%r11", "", "");
+    Instruction ("pushq", "%r12", "", "");
+    Instruction ("pushq", "%r13", "", "");
+    Instruction ("pushq", "%r14", "", "");
+    Instruction ("pushq", "%r15", "", "");
   ]
 
 let popa =
   [
-    Instruction ("pop rbx ", "", "", "");
-    Instruction ("pop rbp ", "", "", "");
-    Instruction ("pop rdi ", "", "", "");
-    Instruction ("pop rsi ", "", "", "");
-    Instruction ("pop rcx ", "", "", "");
-    Instruction ("pop rdx ", "", "", "");
-    Instruction ("pop r8 ", "", "", "");
-    Instruction ("pop r9 ", "", "", "");
-    Instruction ("pop r10 ", "", "", "");
-    Instruction ("pop r11 ", "", "", "");
-    Instruction ("pop r12 ", "", "", "");
-    Instruction ("pop r13 ", "", "", "");
-    Instruction ("pop r14 ", "", "", "");
-    Instruction ("pop r15 ", "", "", "");
+    Instruction ("popq", "%rax", "", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%rdi", "", "");
+    Instruction ("popq", "%rsi", "", "");
+    Instruction ("popq", "%rcx", "", "");
+    Instruction ("popq", "%rdx", "", "");
+    Instruction ("popq", "%r8", "", "");
+    Instruction ("popq", "%r9", "", "");
+    Instruction ("popq", "%r10", "", "");
+    Instruction ("popq", "%r11", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("popq", "%r13", "", "");
+    Instruction ("popq", "%r14", "", "");
+    Instruction ("popq", "%r15", "", "");
   ]
 
 (** Method to convert a TAC element to assembly code *)
@@ -1585,8 +1770,8 @@ let tac_to_as (tac : tac_elem) cur_method =
       if tac.arg2 = "" then
         pusha
         @ [
-            Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
-            Instruction ("call", tac.arg1, "", "");
+            (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+            Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
         @ popa
@@ -1601,8 +1786,8 @@ let tac_to_as (tac : tac_elem) cur_method =
         in
         pusha @ arglist
         @ [
-            Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
-            Instruction ("call", tac.arg1, "", "");
+            (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+            Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
         @ popa
@@ -1623,7 +1808,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         (*Instruction ("movq", "%rbp", "%rsp", "");*)
         (*Instruction ("popq", "%rbp", "%rsp", "");*)
         (*Instruction ("ret", "", "", "");*)
-        Instruction ("jmp", "$." ^ cur_method ^ ".end", "", "");
+        Instruction ("jmp", "." ^ cur_method ^ ".end", "", "");
       ]
   | LetNoInit ->
       add_var_addr tac.result;
@@ -1682,7 +1867,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("subl", "%edx", "%eax", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("call", "$Int..new", "", "");
+        Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -1701,10 +1886,10 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
         Instruction ("cltd", "", "", "");
-        Instruction ("idivl", "%rcx", "", "");
+        Instruction ("idivl", "%ecx", "", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("call", "$Int..new", "", "");
+        Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -1724,7 +1909,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("imull", "%edx", "%eax", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("call", "$Int..new", "", "");
+        Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -1788,11 +1973,12 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
         Instruction ("testq", "%rax", "%rax", "");
-        Instruction ("movq", "$0", "%rdx", "");
-        Instruction ("cmoveq", "$1", "%rdx", "");
+        Instruction ("movl", "$1", "%eax", "");
+        Instruction ("movl", "$0", "%edx", "");
+        Instruction ("cmovel", "%eax", "%edx", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rdx", "", "");
-        Instruction ("call", "$Bool..new", "", "");
+        Instruction ("call", "Bool..new", "", "");
         Instruction ("popq", "%rdx", "", "");
         Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rdx", "24(%rax)", "");
@@ -1809,7 +1995,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("notq", "%rax", "", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("call", "$Int..new", "", "");
+        Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -1820,7 +2006,7 @@ let tac_to_as (tac : tac_elem) cur_method =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       [
-        Instruction ("call", "$Int..new", "", "");
+        Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "$" ^ tac.arg1, "24(%rax)", "");
         Instruction ("movq", "%rax", result, "");
       ]
@@ -1831,9 +2017,9 @@ let tac_to_as (tac : tac_elem) cur_method =
       match Hashtbl.find_opt string_map tac.arg1 with
       | Some str_id ->
           [
-            Instruction ("call", "$String..new", "", "");
+            Instruction ("call", "String..new", "", "");
             Instruction
-              ("movq", "$.string" ^ string_of_int str_id, "24(%rax)", "");
+              ("movq", "$string" ^ string_of_int str_id, "24(%rax)", "");
             Instruction ("movq", "%rax", result, "");
             (*Instruction ("movq", "$.string" ^ string_of_int str_id, result, "");*)
           ]
@@ -1842,12 +2028,9 @@ let tac_to_as (tac : tac_elem) cur_method =
           Hashtbl.add string_map tac.arg1 !string_counter;
 
           [
-            Instruction ("call", "$String..new", "", "");
+            Instruction ("call", "String..new", "", "");
             Instruction
-              ( "movq",
-                "$.string" ^ string_of_int !string_counter,
-                "24(%rax)",
-                "" );
+              ("movq", "$string" ^ string_of_int !string_counter, "24(%rax)", "");
             Instruction ("movq", "%rax", result, "");
             (*Instruction*)
             (*("movq", ".string" ^ string_of_int !string_counter, result, "");*)
@@ -1864,19 +2047,39 @@ let tac_to_as (tac : tac_elem) cur_method =
       let result = get_var_addr tac.result in
       if tac.arg1 = "true" then
         [
-          Instruction ("call", "$Bool..new", "", "");
+          Instruction ("call", "Bool..new", "", "");
           Instruction ("movq", "$1", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
         ]
       else
         [
-          Instruction ("call", "$Bool..new", "", "");
+          Instruction ("call", "Bool..new", "", "");
           Instruction ("movq", "$0", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
         ]
   | _ -> assert false
 
 let tac_list_to_asm lst = List.map tac_to_as lst
+
+let get_start_method_boilerplate method_name class_name stack_space =
+  let name = class_name ^ "." ^ method_name in
+  [
+    Line "\t.p2align 4";
+    Line (Printf.sprintf "\t.globl\t%s" name);
+    Line (Printf.sprintf "\t.type\t%s, @function" name);
+    Line (Printf.sprintf "%s:" name);
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsp", "%rbp", "");
+    Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
+  ]
+
+let get_end_method_boilerplate method_name stack_space =
+  [
+    Line (Printf.sprintf ".%s.end:" method_name);
+    Instruction ("addq", "$" ^ string_of_int stack_space, "%rsp", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("ret", "", "", "");
+  ]
 
 let default_classes : annotated_ast_elem list =
   [
@@ -1912,7 +2115,7 @@ let () =
   let print_vtable (table : vtable) =
     let name = table.name_id in
     let strid = table.name_string_id in
-    Printf.fprintf out_file "\tglobl\t%s..vtable\n" name;
+    Printf.fprintf out_file ".globl %s..vtable\n" name;
     Printf.fprintf out_file "%s..vtable:\n" name;
     Printf.fprintf out_file "\t.quad string%d\n" strid;
     List.iter
@@ -1931,7 +2134,7 @@ let () =
       Printf.fprintf out_file "\t.globl\t%s..new\n" name;
       Printf.fprintf out_file "\t.type\t%s..new, @function\n" name;
       List.iter (fun ln -> print_asm ln) lines;
-      Printf.fprintf out_file "\t.size\t%s, .-%s\n" name name;
+      (*Printf.fprintf out_file "\t.size\t%s, .-%s\n" name name;*)
       Printf.fprintf out_file
         "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
     in
@@ -1972,13 +2175,42 @@ let () =
   (* A list of (the assembly code for) methods *)
   let method_asm =
     List.map
-      (fun (cfg, _, method_name) ->
+      (fun (cfg, class_name, method_name, _) ->
+        (*let name = class_name ^ "." ^ method_name in*)
+        let stack_space =
+          (*if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8*)
+          1024
+        in
         let method_tac = cfg |> List.flatten in
-        List.map (fun tac -> tac_to_as tac method_name) method_tac
-        |> List.flatten)
+        get_start_method_boilerplate method_name class_name stack_space
+        @ (List.map (fun tac -> tac_to_as tac method_name) method_tac
+          |> List.flatten)
+          (* @ [Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
+        @ get_end_method_boilerplate method_name stack_space)
       cfg_list
   in
-  List.iter (List.iter print_asm) method_asm
+  List.iter (List.iter print_asm) method_asm;
+  Printf.fprintf out_file "\t.section\t.rodata\n";
+  Hashtbl.iter
+    (fun k v ->
+      Printf.fprintf out_file "string%d:\n\t.string\t\"%s\"\n" v k)
+    string_map;
+  Printf.fprintf out_file "\t.globl empty.string\nempty.string:\n\t.string\t\"\"\n";
+  Printf.fprintf out_file "\t.globl percent.ld\npercent.ld:\n\t.string\t\"%%ld\"\n";
+  Printf.fprintf out_file "\t.globl percent.d\npercent.d:\n\t.string\t\"%%d\"\n";
+  Printf.fprintf out_file "\t.text\n";
+  (*List.iter print_asm handlers;*)
+  Printf.fprintf out_file
+    "\t.globl start\n\
+     start:\n\
+     \t.globl main\n\
+     \t.type main, @function\n\
+     main:\n\
+     \tpushq\t%%rbp\n\
+     \tcall\tMain.main\t\n\
+     andq\t$-16, %%rsp\n\
+     \txorq\t%%rdi, %%rdi\n\
+     \tcall\texit\n"
 
 (* basic_block_to_ast *)
 
