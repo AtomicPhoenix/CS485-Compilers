@@ -113,7 +113,7 @@ let () =
       cfg_list
   in
   List.iter (List.iter Asm.print_asm) method_asm;
-  Printf.fprintf Print.out_file "\t.section\trodata\n";
+  Printf.fprintf Print.out_file "\t.section\t.rodata\n";
   Hashtbl.iter
     (fun k v ->
       Printf.fprintf Print.out_file "string%d:\n\t.string\t\"%s\"\n" v k)

@@ -330,6 +330,7 @@ let out_int =
     Instruction ("movq", "%rbx", "%rax", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("popq", "%rbx", "", "");
+    Instruction ("ret", "", "", "");
     (*Instruction (".size", "IO.out_int", ".-IO.out_int", "");*)
   ]
 
