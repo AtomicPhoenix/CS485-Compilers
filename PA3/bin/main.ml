@@ -58,7 +58,7 @@ let () =
       Printf.fprintf Print.out_file "\t.globl\t%s..new\n" name;
       Printf.fprintf Print.out_file "\t.type\t%s..new, @function\n" name;
       List.iter (fun ln -> Asm.print_asm ln) lines;
-      Printf.fprintf Print.out_file "\t.size\t%s, .-%s\n" name name;
+      (*Printf.fprintf Print.out_file "\t.size\t%s, .-%s\n" name name;*)
       Printf.fprintf Print.out_file
         "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
     in
@@ -110,7 +110,7 @@ let () =
           Asm.Line (Printf.sprintf "%s:" name);
         ]
         @ (List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
-          |> List.flatten) @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)])
+          |> List.flatten)(* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*))
       cfg_list
   in
   List.iter (List.iter Asm.print_asm) method_asm
