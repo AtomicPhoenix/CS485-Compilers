@@ -33,8 +33,6 @@ let default_classes : Parser.annotated_ast_elem list =
     };
   ]
 
-
-
 let () =
   (* let class_map = Parser.parse_class_map () in
   let implementation_map = Parser.parse_implementation_map () in
@@ -46,7 +44,7 @@ let () =
   (*let tacs = Tac.parse_tac_expressions annotated_ast in*)
   (*let cfg_list = List.map Cfg.tac_to_cfg tacs in*)
   (*let asm_commands =*)
-    (*List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten *)
+  (*List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten *)
   (*in*)
 
   (*List.iter Asm.print_asm asm_commands*)
@@ -57,8 +55,13 @@ let () =
     Printf.fprintf Print.out_file "\tglobl\t%s..vtable\n" name;
     Printf.fprintf Print.out_file "%s..vtable:\n" name;
     Printf.fprintf Print.out_file "\t.quad string%d\n" strid;
-    List.iter (fun (func : Asm.vtable_func) -> Printf.fprintf Print.out_file "\t.quad %s.%s\n" func.type_name func.method_name) table.methods;
-    Printf.fprintf Print.out_file "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+    List.iter
+      (fun (func : Asm.vtable_func) ->
+        Printf.fprintf Print.out_file "\t.quad %s.%s\n" func.type_name
+          func.method_name)
+      table.methods;
+    Printf.fprintf Print.out_file
+      "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
   in
   List.iter print_vtable vtables;
   let print_new_funcs funcs =
@@ -69,18 +72,18 @@ let () =
       Printf.fprintf Print.out_file "\t.type\t%s..new, @function\n" name;
       List.iter (fun ln -> Asm.print_asm ln) lines;
       Printf.fprintf Print.out_file "\t.size\t%s, .-%s\n" name name;
-    Printf.fprintf Print.out_file "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+      Printf.fprintf Print.out_file
+        "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
     in
     List.iter print_new_func funcs
-  in print_new_funcs Asm.new_funcs;
-  List.iter (fun func -> List.iter (fun f -> Asm.print_asm f) func; Printf.fprintf Print.out_file "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n") Asm.intrinsic_funcs;
-
-
-
-      
-
-
-
+  in
+  print_new_funcs Asm.new_funcs;
+  List.iter
+    (fun func ->
+      List.iter (fun f -> Asm.print_asm f) func;
+      Printf.fprintf Print.out_file
+        "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n")
+    Asm.intrinsic_funcs;
 
   (* A List of basic blocks *)
   (* A list of list of tac elems *)
@@ -94,10 +97,17 @@ let () =
   (* A list of (the assembly code for) methods *)
   let method_asm =
     List.map
-      (fun (cfg, _, method_name) ->
+      (fun (cfg, class_name, method_name) ->
+        let name = class_name ^ "." ^ method_name in
         let method_tac = cfg |> List.flatten in
-        List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
-        |> List.flatten)
+        [
+          Asm.Line "\t.p2align 4";
+          Asm.Line (Printf.sprintf "\t.globl\t%s" name);
+          Asm.Line (Printf.sprintf "\t.type\t%s, @function" name);
+          Asm.Line (Printf.sprintf "%s:" name);
+        ]
+        @ (List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
+          |> List.flatten) @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)])
       cfg_list
   in
   List.iter (List.iter Asm.print_asm) method_asm
