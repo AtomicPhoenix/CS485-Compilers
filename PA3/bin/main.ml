@@ -92,8 +92,8 @@ let () =
   let method_asm =
     List.map
       (fun (cfg, class_name, method_name, temps) ->
-        Printf.fprintf stdout "Method %s of Class %s uses %d temps\n"
-          method_name class_name temps;
+        (* Printf.fprintf stdout "Method %s of Class %s uses %d temps\n"
+          method_name class_name temps; *)
         (*let name = class_name ^ "." ^ method_name in*)
         let stack_space =
           if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
