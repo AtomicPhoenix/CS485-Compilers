@@ -33,10 +33,10 @@ let default_classes : Parser.annotated_ast_elem list =
     };
   ]
 
+let basic_block_to_asm (bb : Cfg.basic_block) = Asm.tac_list_to_asm bb
+let cfg_to_asm (cfg : Cfg.basic_block list) = List.map basic_block_to_asm cfg
+
 let () =
-  let _ = Parser.parse_class_map () in
-  let _ = Parser.parse_implementation_map () in
-  let _ = Parser.parse_parent_map () in
   (* let class_map = Parser.parse_class_map () in
   let implementation_map = Parser.parse_implementation_map () in
   let parent_map = Parser.parse_parent_map () in  *)
@@ -44,10 +44,10 @@ let () =
   List.iter Tac.add_class default_classes;
   List.iter Tac.add_class annotated_ast;
   let tacs = Tac.parse_tac_expressions annotated_ast in
-  let cfg = List.map Cfg.tac_to_cfg tacs in
-  List.iter Cfg.print_cfg cfg;
-  let _ =
-    List.map (fun f -> List.map Asm.tac_list_to_asm f) cfg
-    |> List.flatten |> List.flatten |> List.flatten
+  let cfg_list = List.map Cfg.tac_to_cfg tacs in
+  let asm_commands =
+    List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten |> List.flatten
   in
-  ()
+  List.iter Asm.print_asm asm_commands
+
+(* basic_block_to_ast *)
