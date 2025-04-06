@@ -40,7 +40,8 @@ let is_break_point (tac : tac_elem) =
   | Bt | Call | Jmp | Case | Default | Return -> true
   | _ -> false
 
-let tac_to_cfg (tacs, class_name, method_name) : cfg * string * string =
+let tac_to_cfg (tacs, class_name, method_name, temp_count) :
+    cfg * string * string * int =
   let rec create_cfg (tac_list : tac_elem list) acc cfg =
     match tac_list with
     | tac :: tail -> (
@@ -49,6 +50,6 @@ let tac_to_cfg (tacs, class_name, method_name) : cfg * string * string =
         | false -> create_cfg tail (tac :: acc) cfg)
     | [] -> [ List.rev acc ] @ cfg
   in
-  (List.rev (create_cfg tacs [] []), class_name, method_name)
+  (List.rev (create_cfg tacs [] []), class_name, method_name, temp_count)
 
 and print_cfg bbl = List.iter (List.iter print_tac_elem) bbl

@@ -98,7 +98,7 @@ let () =
   (* A list of (the assembly code for) methods *)
   let method_asm =
     List.map
-      (fun (cfg, class_name, method_name) ->
+      (fun (cfg, class_name, method_name, _) ->
         let name = class_name ^ "." ^ method_name in
         let method_tac = cfg |> List.flatten in
         [
@@ -108,8 +108,8 @@ let () =
           Asm.Line (Printf.sprintf "%s:" name);
         ]
         @ (List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
-          |> List.flatten)(* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*))
-
+          |> List.flatten)
+        (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*))
       cfg_list
   in
   List.iter (List.iter Asm.print_asm) method_asm

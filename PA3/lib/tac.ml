@@ -133,7 +133,7 @@ let print_tac_elems (t : tac_elem list) =
   List.iter print_tac_elem t
 
 let rec parse_tac_expressions (ast : annotated_ast_elem list) :
-    (tac_elem list * string * string) list =
+    (tac_elem list * string * string * int) list =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
     List.filter_map
       (fun (feat, _) ->
@@ -157,7 +157,8 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
                     ast_elem.class_name.name id1.name
                 @ [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ],
                 ast_elem.class_name.name,
-                id1.name )
+                id1.name,
+                !var_ctr )
         | Attribute _ -> None)
       (get_all_methods ast_elem)
   in

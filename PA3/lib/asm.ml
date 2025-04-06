@@ -199,6 +199,76 @@ let make_asm_class (c : class_map_elem) =
     attributes = attrs;
   }
 
+let abort =
+  [
+    Line "\t.globl\tObject.abort";
+    Line "Object.abort:";
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsp", "%rbp", "");
+    Instruction ("movq", "16(%rbp)", "%r12", "");
+    Instruction ("movq", "$16", "%r14", "");
+    Instruction ("subq", "%r14", "%rsp", "");
+    Instruction ("movq", "$string8", "%r13", "");
+    Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+    Instruction ("movq", "%r13", "%rdi", "");
+    Instruction ("call", "cooloutstr", "", "");
+    Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+    Instruction ("movl", "$0", "%edi", "");
+    Instruction ("call", "exit", "", "");
+    Line "Object.abort.end:";
+    Instruction ("movq", "%rbp", "%rsp", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("ret", "", "", "");
+  ]
+
+let copy =
+  [
+    Line "\t.p2align 4";
+    Line "\t.globl\tObject.copy";
+    Line "Object.copy:";
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsp", "%rbp", "");
+    Instruction ("movq", "16(%rbp)", "%r12", "");
+    Instruction ("movq", "$16", "%r14", "");
+    Instruction ("subq", "%r14", "%rsp", "");
+    Instruction ("movq", "8(%r12)", "%r14", "");
+    Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+    Instruction ("movq", "$8", "%rsi", "");
+    Instruction ("movq", "%r14", "%rdi", "");
+    Instruction ("call", "calloc", "", "");
+    Instruction ("movq", "%rax", "%r13", "");
+    Instruction ("pushq", "%r13", "", "");
+    Line "\t.globl\tObject.copy.end";
+    Line "Object.copy.end:";
+    Instruction ("movq", "%rbp", "%rsp", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("ret", "", "", "");
+  ]
+
+let objecttypename =
+  [
+    Line "Object.type_name:";
+    Line "\t.globl\tObject.type_name";
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsp", "%rbp", "");
+    Instruction ("movq", "16(%rbp)", "%r12", "");
+    Instruction ("movq", "$16", "%r14", "");
+    Instruction ("subq", "%r14", "%rsp", "");
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("pushq", "%r12", "", "");
+    Instruction ("movq", "$String..new", "%r14", "");
+    Instruction ("call", "*%r14", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("movq", "16(%r12)", "%r14", "");
+    Instruction ("movq", "0(%r14)", "%r14", "");
+    Instruction ("movq", "%r14", "24(%r13)", "");
+    Line "Object.type_name.end:";
+    Instruction ("movq", "%rbp", "%rsp", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("ret", "", "", "");
+  ]
+
 let in_int =
   [
     Line "\t.p2align 4";
