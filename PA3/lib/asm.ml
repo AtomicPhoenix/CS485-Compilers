@@ -70,11 +70,15 @@ and new_func = string * asm
 let print_asm (asm : asm_line) =
   match asm with
   | Instruction (s1, s2, s3, s4) ->
-      if s4 != "" then ((*Printf.printf "\t%s\t%s, %s, %s\n" s1 s2 s3 s4;*)Printf.fprintf out_file "\t%s\t%s, %s, %s\n" s1 s2 s3 s4)
-      else if s3 != "" then ((*Printf.printf "\t%s\t%s, %s\n" s1 s2 s3;*)Printf.fprintf out_file "\t%s\t%s, %s\n" s1 s2 s3)
-      else if s2 != "" then ((*Printf.printf "\t%s\t%s\n" s1 s2;*)Printf.fprintf out_file "\t%s\t%s\n" s1 s2)
-      else if s1 != "" then ((*Printf.printf "\t%s\n" s1;*)Printf.fprintf out_file "\t%s\n" s1)
-  | Line s1 -> ((*Printf.printf "%s\n" s1;*)Printf.fprintf out_file "%s\n" s1)
+      if s4 != "" then (*Printf.printf "\t%s\t%s, %s, %s\n" s1 s2 s3 s4;*)
+        Printf.fprintf out_file "\t%s\t%s, %s, %s\n" s1 s2 s3 s4
+      else if s3 != "" then (*Printf.printf "\t%s\t%s, %s\n" s1 s2 s3;*)
+        Printf.fprintf out_file "\t%s\t%s, %s\n" s1 s2 s3
+      else if s2 != "" then (*Printf.printf "\t%s\t%s\n" s1 s2;*)
+        Printf.fprintf out_file "\t%s\t%s\n" s1 s2
+      else if s1 != "" then (*Printf.printf "\t%s\n" s1;*)
+        Printf.fprintf out_file "\t%s\n" s1
+  | Line s1 -> (*Printf.printf "%s\n" s1;*) Printf.fprintf out_file "%s\n" s1
 
 let var_locations = Hashtbl.create 32
 
@@ -329,7 +333,124 @@ let out_int =
     (*Instruction (".size", "IO.out_int", ".-IO.out_int", "");*)
   ]
 
-let intrinsic_funcs = [ in_int; out_int ]
+let out_string =
+  [
+    Line "\t.p2align 4";
+    Line "\t.globl\tIO.out_string";
+    Line "IO.out_string:";
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsp", "%rbp", "");
+    Instruction ("movq", "16(%rbp)", "%r12", "");
+    Instruction ("movq $16, %r14", "", "", "");
+    Instruction ("subq %r14, %rsp", "", "", "");
+    Instruction ("movq 24(%rbp), %r14", "", "", "");
+    Instruction ("movq 24(%r14), %r13", "", "", "");
+    Instruction ("andq $0xFFFFFFFFFFFFFFF0, %rsp", "", "", "");
+    Instruction ("movq %r13, %rdi", "", "", "");
+    Instruction ("call cooloutstr", "", "", "");
+    Instruction ("movq %r12, %r13", "", "", "");
+    Instruction ("movq %rbp, %rsp", "", "", "");
+    Instruction ("popq %rbp", "", "", "");
+    Instruction ("ret", "", "", "");
+  ]
+
+let cooloutstr =
+  [
+    Instruction (".globl\tcooloutstr", "", "", "");
+    Instruction (".type\tcooloutstr, @function", "", "", "");
+    Instruction ("cooloutstr:", "", "", "");
+    Instruction (".LFB6:", "", "", "");
+    Instruction (".cfi_startproc", "", "", "");
+    Instruction ("endbr64", "", "", "");
+    Instruction ("pushq\t%rbp", "", "", "");
+    Instruction (".cfi_def_cfa_offset 16", "", "", "");
+    Instruction (".cfi_offset 6, -16", "", "", "");
+    Instruction ("movq\t%rsp, %rbp", "", "", "");
+    Instruction (".cfi_def_cfa_register 6", "", "", "");
+    Instruction ("subq\t$32, %rsp", "", "", "");
+    Instruction ("movq\t%rdi, -24(%rbp)", "", "", "");
+    Instruction ("movl\t$0, -4(%rbp)", "", "", "");
+    Instruction ("jmp\t.L2", "", "", "");
+    Instruction (".L5:", "", "", "");
+    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
+    Instruction ("movslq\t%eax, %rdx", "", "", "");
+    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
+    Instruction ("addq\t%rdx, %rax", "", "", "");
+    Instruction ("movzbl\t(%rax), %eax", "", "", "");
+    Instruction ("cmpb\t$92, %al", "", "", "");
+    Instruction ("jne\t.L3", "", "", "");
+    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
+    Instruction ("cltq", "", "", "");
+    Instruction ("leaq\t1(%rax), %rdx", "", "", "");
+    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
+    Instruction ("addq\t%rdx, %rax", "", "", "");
+    Instruction ("movzbl\t(%rax), %eax", "", "", "");
+    Instruction ("cmpb\t$110, %al", "", "", "");
+    Instruction ("jne\t.L3", "", "", "");
+    Instruction ("movq\tstdout(%rip), %rax", "", "", "");
+    Instruction ("movq\t%rax, %rsi", "", "", "");
+    Instruction ("movl\t$10, %edi", "", "", "");
+    Instruction ("call\tfputc@PLT", "", "", "");
+    Instruction ("addl\t$2, -4(%rbp)", "", "", "");
+    Instruction ("jmp\t.L2", "", "", "");
+    Instruction (".L3:", "", "", "");
+    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
+    Instruction ("movslq\t%eax, %rdx", "", "", "");
+    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
+    Instruction ("addq\t%rdx, %rax", "", "", "");
+    Instruction ("movzbl\t(%rax), %eax", "", "", "");
+    Instruction ("cmpb\t$92, %al", "", "", "");
+    Instruction ("jne\t.L4", "", "", "");
+    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
+    Instruction ("cltq", "", "", "");
+    Instruction ("leaq\t1(%rax), %rdx", "", "", "");
+    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
+    Instruction ("addq\t%rdx, %rax", "", "", "");
+    Instruction ("movzbl\t(%rax), %eax", "", "", "");
+    Instruction ("cmpb\t$116, %al", "", "", "");
+    Instruction ("jne\t.L4", "", "", "");
+    Instruction ("movq\tstdout(%rip), %rax", "", "", "");
+    Instruction ("movq\t%rax, %rsi", "", "", "");
+    Instruction ("movl\t$9, %edi", "", "", "");
+    Instruction ("call\tfputc@PLT", "", "", "");
+    Instruction ("addl\t$2, -4(%rbp)", "", "", "");
+    Instruction ("jmp\t.L2", "", "", "");
+    Instruction (".L4:", "", "", "");
+    Instruction ("movq\tstdout(%rip), %rdx", "", "", "");
+    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
+    Instruction ("movslq\t%eax, %rcx", "", "", "");
+    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
+    Instruction ("addq\t%rcx, %rax", "", "", "");
+    Instruction ("movzbl\t(%rax), %eax", "", "", "");
+    Instruction ("movsbl\t%al, %eax", "", "", "");
+    Instruction ("movq\t%rdx, %rsi", "", "", "");
+    Instruction ("movl\t%eax, %edi", "", "", "");
+    Instruction ("call\tfputc@PLT", "", "", "");
+    Instruction ("addl\t$1, -4(%rbp)", "", "", "");
+    Instruction (".L2:", "", "", "");
+    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
+    Instruction ("movslq\t%eax, %rdx", "", "", "");
+    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
+    Instruction ("addq\t%rdx, %rax", "", "", "");
+    Instruction ("movzbl\t(%rax), %eax", "", "", "");
+    Instruction ("testb\t%al, %al", "", "", "");
+    Instruction ("jne\t.L5", "", "", "");
+    Instruction ("movq\tstdout(%rip), %rax", "", "", "");
+    Instruction ("movq\t%rax, %rdi", "", "", "");
+    Instruction ("call\tfflush@PLT", "", "", "");
+    Instruction ("nop", "", "", "");
+    Instruction ("leave", "", "", "");
+    Instruction (".cfi_def_cfa 7, 8", "", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction (".cfi_endproc", "", "", "");
+    Instruction (".LFE6:", "", "", "");
+    Instruction (".size\tcooloutstr, .-cooloutstr", "", "", "");
+    Instruction (".globl\tcoolstrlen", "", "", "");
+    Instruction (".type\tcoolstrlen, @function", "", "", "");
+    Instruction ("", "", "", "");
+  ]
+
+let intrinsic_funcs = [ in_int; out_int; out_string; cooloutstr ]
 
 (* Bool is class tag 0 *)
 let () = Hashtbl.add class_id_map "Bool" 0
@@ -963,10 +1084,7 @@ let tac_to_as (tac : tac_elem) cur_method =
           [
             Instruction ("call", "String..new", "", "");
             Instruction
-              ( "movq",
-                "$string" ^ string_of_int !string_counter,
-                "24(%rax)",
-                "" );
+              ("movq", "$string" ^ string_of_int !string_counter, "24(%rax)", "");
             Instruction ("movq", "%rax", result, "");
             (*Instruction*)
             (*("movq", ".string" ^ string_of_int !string_counter, result, "");*)
@@ -999,20 +1117,20 @@ let tac_list_to_asm lst = List.map tac_to_as lst
 
 let get_start_method_boilerplate method_name class_name stack_space =
   let name = class_name ^ "." ^ method_name in
-        [
-          Line "\t.p2align 4";
-          Line (Printf.sprintf "\t.globl\t%s" name);
-          Line (Printf.sprintf "\t.type\t%s, @function" name);
-          Line (Printf.sprintf "%s:" name);
-          Instruction ("pushq", "%rbp", "", "");
-          Instruction ("movq", "%rsp", "%rbp", "");
-          Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
-        ]
+  [
+    Line "\t.p2align 4";
+    Line (Printf.sprintf "\t.globl\t%s" name);
+    Line (Printf.sprintf "\t.type\t%s, @function" name);
+    Line (Printf.sprintf "%s:" name);
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsp", "%rbp", "");
+    Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
+  ]
 
 let get_end_method_boilerplate method_name stack_space =
-        [
-            Line (Printf.sprintf ".%s.end:" method_name);
-            Instruction ("addq", "$" ^ string_of_int stack_space, "%rsp", "");
-            Instruction ("popq", "%rbp", "", "");
-            Instruction ("ret", "", "", "");
-          ]
+  [
+    Line (Printf.sprintf ".%s.end:" method_name);
+    Instruction ("addq", "$" ^ string_of_int stack_space, "%rsp", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("ret", "", "", "");
+  ]

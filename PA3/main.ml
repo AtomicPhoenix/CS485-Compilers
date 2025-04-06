@@ -1192,7 +1192,28 @@ let out_int =
     Instruction (".size", "IO.out_int", ".-IO.out_int", "");
   ]
 
-let intrinsic_funcs = [ in_int; out_int ]
+let out_string =
+  [
+    Line "\t.p2align 4";
+    Line "\t.globl\tIO.out_string";
+    Line "IO.out_string:";
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsp", "%rbp", "");
+    Instruction ("movq", "16(%rbp)", "%r12", "");
+    Instruction ("movq $16, %r14", "", "", "");
+    Instruction ("subq %r14, %rsp", "", "", "");
+    Instruction ("movq 24(%rbp), %r14", "", "", "");
+    Instruction ("movq 24(%r14), %r13", "", "", "");
+    Instruction ("andq $0xFFFFFFFFFFFFFFF0, %rsp", "", "", "");
+    Instruction ("movq %r13, %rdi", "", "", "");
+    Instruction ("call cooloutstr", "", "", "");
+    Instruction ("movq %r12, %r13", "", "", "");
+    Instruction ("movq %rbp, %rsp", "", "", "");
+    Instruction ("popq %rbp", "", "", "");
+    Instruction ("ret", "", "", "");
+  ]
+
+let intrinsic_funcs = [ in_int; out_int; out_string ]
 
 (* Bool is class tag 0 *)
 let () = Hashtbl.add class_id_map "Bool" 0
