@@ -78,17 +78,10 @@ let () =
   List.iter Tac.add_class default_classes;
   List.iter Tac.add_class annotated_ast;
 
-  (*let tacs = Tac.parse_tac_expressions annotated_ast in*)
-  (*let cfg_list = List.map Cfg.tac_to_cfg tacs in*)
-  (*let asm_commands =*)
-  (*List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten *)
-  (*in*)
-
-  (*List.iter Asm.print_asm asm_commands*)
-
   (* A List of basic blocks *)
   (* A list of list of tac elems *)
   let tacs = Tac.parse_tac_expressions annotated_ast in
+  List.iter (fun (f, _, _, _) -> Tac.print_tac_elems f) tacs;
 
   (* A cfg list *)
   (* A list of list of basic blocks *)
@@ -98,11 +91,12 @@ let () =
   (* A list of (the assembly code for) methods *)
   let method_asm =
     List.map
-      (fun (cfg, class_name, method_name, _) ->
+      (fun (cfg, class_name, method_name, temps) ->
+        Printf.fprintf stdout "Method %s of Class %s uses %d temps\n"
+          method_name class_name temps;
         (*let name = class_name ^ "." ^ method_name in*)
         let stack_space =
-          (*if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8*)
-          1024
+          if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
         in
         let method_tac = cfg |> List.flatten in
         Asm.get_start_method_boilerplate method_name class_name stack_space
@@ -118,9 +112,12 @@ let () =
     (fun k v ->
       Printf.fprintf Print.out_file "string%d:\n\t.string\t\"%s\"\n" v k)
     Asm.string_map;
-  Printf.fprintf Print.out_file "\t.globl empty.string\nempty.string:\n\t.string\t\"\"\n";
-  Printf.fprintf Print.out_file "\t.globl percent.ld\npercent.ld:\n\t.string\t\"%%ld\"\n";
-  Printf.fprintf Print.out_file "\t.globl percent.d\npercent.d:\n\t.string\t\"%%d\"\n";
+  Printf.fprintf Print.out_file
+    "\t.globl empty.string\nempty.string:\n\t.string\t\"\"\n";
+  Printf.fprintf Print.out_file
+    "\t.globl percent.ld\npercent.ld:\n\t.string\t\"%%ld\"\n";
+  Printf.fprintf Print.out_file
+    "\t.globl percent.d\npercent.d:\n\t.string\t\"%%d\"\n";
   Printf.fprintf Print.out_file "\t.text\n";
   (*List.iter Asm.print_asm Asm.handlers;*)
   Printf.fprintf Print.out_file

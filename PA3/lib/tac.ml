@@ -143,22 +143,30 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
               exp.id.name id1.name ast_elem.class_name.name;  *)
             var_ctr := 0;
             label_ctr := 0;
+            let base_lst =
+              [
+                { operand = Comment; arg1 = "start"; arg2 = ""; result = "" };
+                {
+                  operand = Label;
+                  arg1 = ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0";
+                  arg2 = "";
+                  result = "";
+                };
+              ]
+            in
+            let exp_list =
+              exp_to_tac exp.sub_expr (get_id !var_ctr) ast_elem.class_name.name
+                id1.name
+            in
+            let rtrn =
+              [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ]
+            in
+            let temps = !var_ctr + 1 in
             Some
-              ( [
-                  { operand = Comment; arg1 = "start"; arg2 = ""; result = "" };
-                  {
-                    operand = Label;
-                    arg1 = ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0";
-                    arg2 = "";
-                    result = "";
-                  };
-                ]
-                @ exp_to_tac exp.sub_expr (get_id !var_ctr)
-                    ast_elem.class_name.name id1.name
-                @ [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ],
+              ( base_lst @ exp_list @ rtrn,
                 ast_elem.class_name.name,
                 id1.name,
-                !var_ctr + 1 )
+                temps )
         | Attribute _ -> None)
       (get_all_methods ast_elem)
   in
