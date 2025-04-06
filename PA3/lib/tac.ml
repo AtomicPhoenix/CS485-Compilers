@@ -158,7 +158,7 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
                 @ [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ],
                 ast_elem.class_name.name,
                 id1.name,
-                !var_ctr )
+                !var_ctr + 1 )
         | Attribute _ -> None)
       (get_all_methods ast_elem)
   in
@@ -419,7 +419,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       [
         {
           operand = String_Constant;
-          arg1 = Printf.sprintf "string\n%s" s;
+          arg1 = Printf.sprintf "%s" s;
           arg2 = "";
           result;
         };

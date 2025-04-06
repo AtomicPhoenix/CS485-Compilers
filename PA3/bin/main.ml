@@ -114,10 +114,23 @@ let () =
   in
   List.iter (List.iter Asm.print_asm) method_asm;
   Printf.fprintf Print.out_file "\t.section\trodata\n";
-  Hashtbl.iter (fun k v -> Printf.fprintf Print.out_file ".string%d:\n\t.string \"%s\"\n" v k) Asm.string_map;
+  Hashtbl.iter
+    (fun k v ->
+      Printf.fprintf Print.out_file ".string%d:\n\t.string \"%s\"\n" v k)
+    Asm.string_map;
   Printf.fprintf Print.out_file "\t.text\n";
   List.iter Asm.print_asm Asm.handlers;
-  Printf.fprintf Print.out_file "\t.globl start\nstart:\n\t.globl main\n\t.type main, @function\nmain:\n\tpushq\t%%rbp\n\tcall\tMain..main\t\nandq\t$-16, %%rsp\n\tmovl\t$0, %%edi\n\tcall\texit\n"
+  Printf.fprintf Print.out_file
+    "\t.globl start\n\
+     start:\n\
+     \t.globl main\n\
+     \t.type main, @function\n\
+     main:\n\
+     \tpushq\t%%rbp\n\
+     \tcall\tMain..main\t\n\
+     andq\t$-16, %%rsp\n\
+     \tmovl\t$0, %%edi\n\
+     \tcall\texit\n"
 
 (* basic_block_to_ast *)
 
