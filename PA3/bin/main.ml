@@ -34,25 +34,12 @@ let default_classes : Parser.annotated_ast_elem list =
   ]
 
 let () =
-  (* let class_map = Parser.parse_class_map () in
-  let implementation_map = Parser.parse_implementation_map () in
-  let parent_map = Parser.parse_parent_map () in  *)
-  let annotated_ast = Parser.parse_annotated_ast () in
-  List.iter Tac.add_class default_classes;
-  List.iter Tac.add_class annotated_ast;
 
-  (*let tacs = Tac.parse_tac_expressions annotated_ast in*)
-  (*let cfg_list = List.map Cfg.tac_to_cfg tacs in*)
-  (*let asm_commands =*)
-  (*List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten *)
-  (*in*)
-
-  (*List.iter Asm.print_asm asm_commands*)
   let vtables = Asm.create_default_vtables () @ !Asm.vtable_list in
   let print_vtable (table : Asm.vtable) =
     let name = table.name_id in
     let strid = table.name_string_id in
-    Printf.fprintf Print.out_file "\tglobl\t%s..vtable\n" name;
+    Printf.fprintf Print.out_file ".globl %s..vtable\n" name;
     Printf.fprintf Print.out_file "%s..vtable:\n" name;
     Printf.fprintf Print.out_file "\t.quad string%d\n" strid;
     List.iter
@@ -84,6 +71,22 @@ let () =
       Printf.fprintf Print.out_file
         "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n")
     Asm.intrinsic_funcs;
+
+
+  (* let class_map = Parser.parse_class_map () in
+  let implementation_map = Parser.parse_implementation_map () in
+  let parent_map = Parser.parse_parent_map () in  *)
+  let annotated_ast = Parser.parse_annotated_ast () in
+  List.iter Tac.add_class default_classes;
+  List.iter Tac.add_class annotated_ast;
+
+  (*let tacs = Tac.parse_tac_expressions annotated_ast in*)
+  (*let cfg_list = List.map Cfg.tac_to_cfg tacs in*)
+  (*let asm_commands =*)
+  (*List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten *)
+  (*in*)
+
+  (*List.iter Asm.print_asm asm_commands*)
 
   (* A List of basic blocks *)
   (* A list of list of tac elems *)
