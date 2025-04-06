@@ -825,7 +825,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       [
         {
           operand = String_Constant;
-          arg1 = Printf.sprintf "string\n%s" s;
+          arg1 = Printf.sprintf "%s" s;
           arg2 = "";
           result;
         };
@@ -1640,7 +1640,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("addl", "%edx", "%eax", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("call", "$Int..new", "", "");
+        Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
