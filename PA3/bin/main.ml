@@ -33,6 +33,8 @@ let default_classes : Parser.annotated_ast_elem list =
     };
   ]
 
+
+
 let () =
   (* let class_map = Parser.parse_class_map () in
   let implementation_map = Parser.parse_implementation_map () in
@@ -40,6 +42,45 @@ let () =
   let annotated_ast = Parser.parse_annotated_ast () in
   List.iter Tac.add_class default_classes;
   List.iter Tac.add_class annotated_ast;
+
+  (*let tacs = Tac.parse_tac_expressions annotated_ast in*)
+  (*let cfg_list = List.map Cfg.tac_to_cfg tacs in*)
+  (*let asm_commands =*)
+    (*List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten *)
+  (*in*)
+
+  (*List.iter Asm.print_asm asm_commands*)
+  let vtables = Asm.create_default_vtables () @ !Asm.vtable_list in
+  let print_vtable (table : Asm.vtable) =
+    let name = table.name_id in
+    let strid = table.name_string_id in
+    Printf.fprintf Print.out_file "\tglobl\t%s..vtable\n" name;
+    Printf.fprintf Print.out_file "%s..vtable:\n" name;
+    Printf.fprintf Print.out_file "\t.quad string%d\n" strid;
+    List.iter (fun (func : Asm.vtable_func) -> Printf.fprintf Print.out_file "\t.quad %s.%s\n" func.type_name func.method_name) table.methods;
+    Printf.fprintf Print.out_file "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+  in
+  List.iter print_vtable vtables;
+  let print_new_funcs funcs =
+    let print_new_func func =
+      let name, lines = func in
+      Printf.fprintf Print.out_file "\t.p2align 4\n";
+      Printf.fprintf Print.out_file "\t.globl\t%s..new\n" name;
+      Printf.fprintf Print.out_file "\t.type\t%s..new, @function\n" name;
+      List.iter (fun ln -> Asm.print_asm ln) lines;
+      Printf.fprintf Print.out_file "\t.size\t%s, .-%s\n" name name;
+    Printf.fprintf Print.out_file "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+    in
+    List.iter print_new_func funcs
+  in print_new_funcs Asm.new_funcs;
+  List.iter (fun func -> List.iter (fun f -> Asm.print_asm f) func; Printf.fprintf Print.out_file "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n") Asm.intrinsic_funcs;
+
+
+
+      
+
+
+
 
   (* A List of basic blocks *)
   (* A list of list of tac elems *)

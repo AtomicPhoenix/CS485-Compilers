@@ -44,7 +44,7 @@ type asm_instruction = string * string * string * string
 and asm_line = Instruction of asm_instruction | Line of string
 and asm = asm_line list
 and vtable_func = { type_name : string; method_name : string }
-and vtable = { name_id : string; methods : vtable_func list }
+and vtable = { name_id : string; name_string_id : int; methods : vtable_func list }
 
 and attribute = {
   field_name : string;
@@ -59,6 +59,7 @@ and asm_class = {
   vtable : vtable;
   attributes : attribute list;
 }
+and new_func = string * asm
 
 let print_asm (asm : asm_line) =
   match asm with
@@ -75,11 +76,12 @@ let var_locations = Hashtbl.create 32
 let string_map = Hashtbl.create 32
 let class_id_map = Hashtbl.create 32
 let class_vtable_map = Hashtbl.create 32
-let string_counter = ref 0
-let class_tag_ctr = ref 0
+let string_counter = ref 5
+let class_tag_ctr = ref 9
 let class_map = Parser.parse_class_map ()
 let implementation_map = Parser.parse_implementation_map ()
 let parent_map = Parser.parse_parent_map ()
+let vtable_list : vtable list ref = ref []
 
 let create_vtable (itm : implementation_map_elem) : vtable =
   let name = itm.name in
@@ -89,11 +91,21 @@ let create_vtable (itm : implementation_map_elem) : vtable =
         { type_name = meth.type_name; method_name = meth.name })
       itm.methods
   in
-  { name_id = name; methods = funcs }
+  string_counter := !string_counter + 1;
+  { name_id = name; name_string_id = !string_counter; methods = funcs }
 
 let create_vtables () =
   let tables = List.map create_vtable implementation_map in
-  List.iter (fun i -> Hashtbl.add class_vtable_map i.name_id i) tables
+  List.iter (fun i -> Hashtbl.add class_vtable_map i.name_id i; vtable_list := !vtable_list @ [i]) tables
+
+let create_default_vtables () =
+  [
+    { name_id = "Bool"; name_string_id = 0; methods = [{ type_name = "Bool"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}]};
+    { name_id = "IO"; name_string_id = 1; methods = [{ type_name = "IO"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}; {type_name = "IO"; method_name = "in_int"}; {type_name = "IO"; method_name = "in_string"}; {type_name = "IO"; method_name = "out_int"}; {type_name = "IO"; method_name = "out_string"}]};
+    { name_id = "Int"; name_string_id = 2; methods = [{ type_name = "Int"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}]};
+    { name_id = "Object"; name_string_id = 3; methods = [{ type_name = "Object"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}]};
+    { name_id = "String"; name_string_id = 4; methods = [{ type_name = "String"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}; {type_name = "String"; method_name = "concat"}; {type_name = "String"; method_name = "length"}; {type_name = "String"; method_name = "substr"}]};
+  ]
 
 let get_class_attributes attrs =
   let get_attribute i (attr : ast_attribute) =
@@ -119,9 +131,13 @@ let make_asm_class (c : class_map_elem) =
     vtable = class_vtable;
     attributes = attrs;
   }
+  
+
 
 let in_int =
   [
+    Line "\t.p2align 4";
+    Line "\t.globl\tIO.in_int";
     Line "IO.in_int:";
     Instruction ("pushq", "%rbp", "", "");
     Instruction ("pushq", "%rbx", "", "");
@@ -156,6 +172,8 @@ let in_int =
 
 let out_int =
   [
+    Line "\t.p2align 4";
+    Line "\t.globl\tIO.out_int";
     Line "IO.out_int:";
     Instruction ("pushq", "%rbx", "", "");
     Instruction ("movq", "24(%rsi)", "%rsi", "");
@@ -166,6 +184,11 @@ let out_int =
     Instruction ("movq", "rbx", "%rax", "");
     Instruction ("popq", "rbx", "", "");
     Instruction (".size", "IO.out_int", ".-IO.out_int", "");
+  ]
+let intrinsic_funcs =
+  [
+    in_int;
+    out_int;
   ]
 
 (* Bool is class tag 0 *)
@@ -193,13 +216,13 @@ let () = Hashtbl.add class_id_map "IO" 1
 
 let io_new =
   [
-    Line "Int..new:";
+    Line "IO..new:";
     Instruction ("subq", "$8", "%rsp", "");
     Instruction ("movl", "$3", "%esi", "");
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$1", "(%rax)", "");
+    Instruction ("movq", "$8", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$IO..vtable", "%r10", "");
     Instruction ("movq", "%r10", "16(%rax)", "");
@@ -218,7 +241,7 @@ let int_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$2", "(%rax)", "");
+    Instruction ("movq", "$1", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Int..vtable", "%r10", "");
     Instruction ("movq", "%r10", "16(%rax)", "");
@@ -232,13 +255,13 @@ let () = Hashtbl.add class_id_map "Object" 3
 
 let object_new =
   [
-    Line "Int..new:";
+    Line "Object..new:";
     Instruction ("subq", "$8", "%rsp", "");
     Instruction ("movl", "$3", "%esi", "");
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$3", "(%rax)", "");
+    Instruction ("movq", "$7", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$Object..vtable", "%r10", "");
     Instruction ("movq", "%r10", "16(%rax)", "");
@@ -251,13 +274,13 @@ let () = Hashtbl.add class_id_map "String" 4
 
 let string_new =
   [
-    Line "Int..new:";
+    Line "String..new:";
     Instruction ("subq", "$8", "%rsp", "");
     Instruction ("movl", "$4", "%esi", "");
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$4", "(%rax)", "");
+    Instruction ("movq", "$3", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$String..vtable", "%r10", "");
     Instruction ("movq", "%r10", "16(%rax)", "");
@@ -268,6 +291,14 @@ let string_new =
     Instruction (".size", "String..new", ".-String..new", "");
   ]
 
+let new_funcs =
+  [
+    ("Bool", bool_new);
+    ("IO", io_new);
+    ("Int", int_new);
+    ("Object", object_new);
+    ("String", string_new);
+  ]
 let handlers =
   [
     Line "lt_handler:";
@@ -469,7 +500,7 @@ let get_var_addr (var_name : string) : string =
   | Some addr -> Printf.sprintf "%d(%%rbp)" addr
   | None -> var_name
 
-let pusha () =
+let pusha =
   [
     Instruction ("push rbx ", "", "", "");
     Instruction ("push rbp ", "", "", "");
@@ -487,7 +518,7 @@ let pusha () =
     Instruction ("push r15 ", "", "", "");
   ]
 
-let popa () =
+let popa =
   [
     Instruction ("pop rbx ", "", "", "");
     Instruction ("pop rbp ", "", "", "");
@@ -527,13 +558,13 @@ let tac_to_as (tac : tac_elem) cur_method =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       if tac.arg2 = "" then
-        pusha ()
+        pusha
         @ [
             Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
             Instruction ("call", tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
-        @ popa ()
+        @ popa
       else
         (*let args = String.split_on_char ' ' tac.arg2 in*)
         (*let arglist =*)
@@ -543,13 +574,13 @@ let tac_to_as (tac : tac_elem) cur_method =
         let arglist =
           [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
         in
-        pusha () @ arglist
+        pusha @ arglist
         @ [
             Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
             Instruction ("call", tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
-        @ popa ()
+        @ popa
       (* Push all variables onto stack *)
       (* Push all onto stack *)
       (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
