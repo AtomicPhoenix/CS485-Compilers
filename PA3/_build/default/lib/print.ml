@@ -11,5 +11,5 @@ let read_int () : int =
   try int_of_string r
   with c ->
     Printf.printf "%s\n" r;
-    Printf.printf "---------------------ERRROR-------------------------\n";
+    Printf.printf "-1--------------------ERRROR-------------------------\n";
     raise c

@@ -45,5 +45,9 @@ let () =
   List.iter Tac.add_class annotated_ast;
   let tacs = Tac.parse_tac_expressions annotated_ast in
   let cfg = List.map Cfg.tac_to_cfg tacs in
-  List.iter Cfg.print_cfg cfg
-(* List.iter Asm.tac_to_as (snd (List.hd tacs)) *)
+  List.iter Cfg.print_cfg cfg;
+  let _ =
+    List.map (fun f -> List.map Asm.tac_list_to_asm f) cfg
+    |> List.flatten |> List.flatten |> List.flatten
+  in
+  ()
