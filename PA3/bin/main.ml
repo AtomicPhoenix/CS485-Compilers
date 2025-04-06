@@ -40,7 +40,7 @@ let () =
     let strid = table.name_string_id in
     Printf.fprintf Print.out_file ".globl %s..vtable\n" name;
     Printf.fprintf Print.out_file "%s..vtable:\n" name;
-    Printf.fprintf Print.out_file "\t.quad .string%d\n" strid;
+    Printf.fprintf Print.out_file "\t.quad string%d\n" strid;
     List.iter
       (fun (func : Asm.vtable_func) ->
         Printf.fprintf Print.out_file "\t.quad %s.%s\n" func.type_name
@@ -99,27 +99,30 @@ let () =
   let method_asm =
     List.map
       (fun (cfg, class_name, method_name, _) ->
-        let name = class_name ^ "." ^ method_name in
+        (*let name = class_name ^ "." ^ method_name in*)
+        let stack_space =
+          (*if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8*)
+          1024
+        in
         let method_tac = cfg |> List.flatten in
-        [
-          Asm.Line "\t.p2align 4";
-          Asm.Line (Printf.sprintf "\t.globl\t%s" name);
-          Asm.Line (Printf.sprintf "\t.type\t%s, @function" name);
-          Asm.Line (Printf.sprintf "%s:" name);
-        ]
+        Asm.get_start_method_boilerplate method_name class_name stack_space
         @ (List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
           |> List.flatten)
-        (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*))
+          (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
+        @ Asm.get_end_method_boilerplate method_name stack_space)
       cfg_list
   in
   List.iter (List.iter Asm.print_asm) method_asm;
   Printf.fprintf Print.out_file "\t.section\trodata\n";
   Hashtbl.iter
     (fun k v ->
-      Printf.fprintf Print.out_file ".string%d:\n\t.string \"%s\"\n" v k)
+      Printf.fprintf Print.out_file "string%d:\n\t.string\t\"%s\"\n" v k)
     Asm.string_map;
+  Printf.fprintf Print.out_file "\t.globl empty.string\nempty.string:\n\t.string\t\"\"\n";
+  Printf.fprintf Print.out_file "\t.globl percent.ld\npercent.ld:\n\t.string\t\"%%ld\"\n";
+  Printf.fprintf Print.out_file "\t.globl percent.d\npercent.d:\n\t.string\t\"%%d\"\n";
   Printf.fprintf Print.out_file "\t.text\n";
-  List.iter Asm.print_asm Asm.handlers;
+  (*List.iter Asm.print_asm Asm.handlers;*)
   Printf.fprintf Print.out_file
     "\t.globl start\n\
      start:\n\
@@ -127,9 +130,9 @@ let () =
      \t.type main, @function\n\
      main:\n\
      \tpushq\t%%rbp\n\
-     \tcall\tMain..main\t\n\
+     \tcall\tMain.main\t\n\
      andq\t$-16, %%rsp\n\
-     \tmovl\t$0, %%edi\n\
+     \txorq\t%%rdi, %%rdi\n\
      \tcall\texit\n"
 
 (* basic_block_to_ast *)
