@@ -123,14 +123,19 @@ let print_tac_elem t =
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
-let print_tac_elems (t : tac_elem list) =
+let print_tac_elems ((s, t) : string * tac_elem list) =
   List.iter
     (fun t ->
       if t.operand = Case then (
         Printf.fprintf out_file "";
         exit 1))
     t;
-  List.iter print_tac_elem t
+  Printf.fprintf out_file "comment start\n";
+  Printf.fprintf out_file "%s\n" s;
+  List.iter print_tac_elem t;
+  (* This is right but it doesn't work rn *)
+  (* Printf.fprintf out_file "return %s\n" (get_id !ret)*)
+  Printf.fprintf out_file "return t$0\n"
 
 let rec parse_tac_expressions (ast : annotated_ast_elem list) =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
@@ -143,22 +148,16 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) =
             var_ctr := 0;
             label_ctr := 0;
             Some
-              ([
-                 { operand = Comment; arg1 = "start"; arg2 = ""; result = "" };
-                 {
-                   operand = Label;
-                   arg1 = ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0";
-                   arg2 = "";
-                   result = "";
-                 };
-               ]
-              @ exp_to_tac exp.sub_expr (get_id !var_ctr)
+              ( "label " ^ ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0",
+                exp_to_tac exp.sub_expr (get_id !var_ctr)
                   ast_elem.class_name.name id1.name
-              @ [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ])
+                |> List.flatten
+                   :: { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" }
+              )
         | Attribute _ -> None)
       (get_all_methods ast_elem)
   in
-  List.map get_tac_elem ast |> List.flatten
+  List.map get_tac_elem ast
 
 and get_bool bool_val = match bool_val with True -> "true" | False -> "false"
 and get_id n = "t$" ^ string_of_int n

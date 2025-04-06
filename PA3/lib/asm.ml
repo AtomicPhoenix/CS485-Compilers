@@ -476,11 +476,11 @@ let tac_to_as (tac : tac_elem) elems =
   | Assignment ->
       let result = get_var_addr tac.result in
       let arg1 = get_var_addr tac.arg1 in
-      elems @ [
-        Instruction ("movq", arg1, "%rax", "");
-        Instruction ("movq", "%rax", result, "")
-      ]
-    
+      elems
+      @ [
+          Instruction ("movq", arg1, "%rax", "");
+          Instruction ("movq", "%rax", result, "");
+        ]
   | Bt ->
       let arg1 = get_var_addr tac.arg1 in
       elems
@@ -549,9 +549,7 @@ let tac_to_as (tac : tac_elem) elems =
   | Ident_Expr s ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      elems @ [
-        Instruction ("movq", get_var_addr s, result, "");
-      ]
+      elems @ [ Instruction ("movq", get_var_addr s, result, "") ]
   (*| New *)
   (* | Isvoid *)
   | Plus ->
@@ -746,6 +744,7 @@ let tac_to_as (tac : tac_elem) elems =
         Instruction ("movq", "%rax", result, "");
       ]
   (****************** TODO ******************)
+
   | String_Constant -> (
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -791,5 +790,6 @@ let tac_to_as (tac : tac_elem) elems =
         Instruction ("call", "$Bool..new", "", "");
         Instruction ("movq", "$0", "24(%rax)", "");
         Instruction ("movq", "%rax", result, "")
-      ]
+      ]and then we can 
+
   | _ -> assert false

@@ -123,19 +123,14 @@ let print_tac_elem t =
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
-let print_tac_elems ((s, t) : string * tac_elem list) =
+let print_tac_elems (t : tac_elem list) =
   List.iter
     (fun t ->
       if t.operand = Case then (
         Printf.fprintf out_file "";
         exit 1))
     t;
-  Printf.fprintf out_file "comment start\n";
-  Printf.fprintf out_file "%s\n" s;
-  List.iter print_tac_elem t;
-  (* This is right but it doesn't work rn *)
-  (* Printf.fprintf out_file "return %s\n" (get_id !ret)*)
-  Printf.fprintf out_file "return t$0\n"
+  List.iter print_tac_elem t
 
 let rec parse_tac_expressions (ast : annotated_ast_elem list) =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
@@ -148,9 +143,18 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) =
             var_ctr := 0;
             label_ctr := 0;
             Some
-              ( "label " ^ ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0",
-                exp_to_tac exp.sub_expr (get_id !var_ctr)
-                  ast_elem.class_name.name id1.name )
+              ([
+                 { operand = Comment; arg1 = "start"; arg2 = ""; result = "" };
+                 {
+                   operand = Label;
+                   arg1 = ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0";
+                   arg2 = "";
+                   result = "";
+                 };
+               ]
+              @ exp_to_tac exp.sub_expr (get_id !var_ctr)
+                  ast_elem.class_name.name id1.name
+              @ [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ])
         | Attribute _ -> None)
       (get_all_methods ast_elem)
   in
@@ -269,7 +273,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
           };
         ]
       @ [ { operand = Bt; arg1 = jump_else_value; arg2 = else_label; result } ]
-      @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result } ]
+      (* @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result } ] *)
       @ [ { operand = Comment; arg1 = "then branch"; arg2 = ""; result } ]
       @ [ { operand = Label; arg1 = then_label; arg2 = ""; result } ]
       @ then_tac

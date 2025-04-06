@@ -3,6 +3,9 @@
 (** @canonical PA3.Asm *)
 module Asm = PA3__Asm
 
+(** @canonical PA3.Cfg *)
+module Cfg = PA3__Cfg
+
 (** @canonical PA3.Parser *)
 module Parser = PA3__Parser
 

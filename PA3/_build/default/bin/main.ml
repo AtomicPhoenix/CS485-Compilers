@@ -2,8 +2,7 @@ module Print = PA3.Print
 module Parser = PA3.Parser
 module Tac = PA3.Tac
 module Asm = PA3.Asm
-
-let out_file = Print.out_file
+module Cfg = PA3.Cfg
 
 let default_classes : Parser.annotated_ast_elem list =
   [
@@ -45,6 +44,6 @@ let () =
   List.iter Tac.add_class default_classes;
   List.iter Tac.add_class annotated_ast;
   let tacs = Tac.parse_tac_expressions annotated_ast in
-  Tac.print_tac_elems (List.hd tacs);
-  Printf.fprintf out_file "\n";
-  List.iter Asm.tac_to_as (snd (List.hd tacs))
+  let cfg = List.map Cfg.tac_to_cfg tacs in
+  List.iter Cfg.print_cfg cfg
+(* List.iter Asm.tac_to_as (snd (List.hd tacs)) *)
