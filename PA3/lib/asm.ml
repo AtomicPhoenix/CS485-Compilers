@@ -126,8 +126,7 @@ let in_int =
     Instruction ("pushq", "%rbp", "", "");
     Instruction ("pushq", "%rbx", "", "");
     Instruction ("subq", "%4120", "%rsp", "");
-    Instruction ("movq", "$Int..new", "%r14", "");
-    Instruction ("call", "*%r14", "", "");
+    Instruction ("call", "Int..new", "", "");
     Instruction ("leaq", "16(%rsp)", "%rbp", "");
     Instruction ("movl", "$4096", "%esi", "");
     Instruction ("movq", "stdin(%rip)", "%rdx", "");
@@ -277,8 +276,7 @@ let handlers =
     Instruction ("pushq", "%rbp", "", "");
     Instruction ("pushq", "%rbx", "", "");
     Instruction ("movq", "%rdi", "%rbx", "");
-    Instruction ("movq", "$Bool..new", "%r14", "");
-    Instruction ("call", "*%r14", "", "");
+    Instruction ("call", "Bool..new", "", "");
     Instruction ("movq", "%rax", "%rbp", "");
     Instruction ("testq", "%rbx", "%rbx", "");
     Instruction ("je", ".lt_false", "", "");
@@ -339,8 +337,7 @@ let handlers =
     Instruction ("movq", "%rsi", "%rbp", "");
     Instruction ("pushq", "%rbx", "", "");
     Instruction ("movq", "%rdi", "%rbx", "");
-    Instruction ("movq", "$Bool..new", "%r14", "");
-    Instruction ("call", "*%r14", "", "");
+    Instruction ("call", "Bool..new", "", "");
     Instruction ("movq", "%rax", "%r12", "");
     Instruction ("testq", "%rbx", "%rbx", "");
     Instruction ("je", ".le_false", "", "");
@@ -405,8 +402,7 @@ let handlers =
     Instruction ("movq", "%rsi", "%rbp", "");
     Instruction ("pushq", "%rbx", "", "");
     Instruction ("movq", "%rdi", "%rbx", "");
-    Instruction ("movq", "$Bool..new", "%r14", "");
-    Instruction ("call", "*%r14", "", "");
+    Instruction ("call", "Bool..new", "", "");
     Instruction ("movq", "%rax", "%r12", "");
     Instruction ("testq", "%rbx", "%rbx", "");
     Instruction ("je", ".eq_false", "", "");
@@ -580,8 +576,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         (*Instruction ("movq", "$0", result, "");*)
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("movq", "$" ^ tac.arg2 ^ "..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$" ^ tac.arg2 ^ "..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("movq", "%r10", result, "");
@@ -610,8 +605,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("addl", "%edx", "%eax", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("movq", "$Int..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -632,8 +626,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("subl", "%edx", "%eax", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("movq", "$Int..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -655,8 +648,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("idivl", "%rcx", "", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("movq", "$Int..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -676,8 +668,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("imull", "%edx", "%eax", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("movq", "$Int..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -745,8 +736,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("cmoveq", "$1", "%rdx", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rdx", "", "");
-        Instruction ("movq", "$Bool..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$Bool..new", "", "");
         Instruction ("popq", "%rdx", "", "");
         Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rdx", "24(%rax)", "");
@@ -763,8 +753,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("notq", "%rax", "", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
-        Instruction ("movq", "$Int..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$Int..new", "", "");
         Instruction ("movq", "%rax", "%r10", "");
         Instruction ("popq", "%rax", "", "");
         Instruction ("popq", "%rbp", "", "");
@@ -775,8 +764,7 @@ let tac_to_as (tac : tac_elem) cur_method =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       [
-        Instruction ("movq", "$Int..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("call", "$Int..new", "", "");
         Instruction ("movq", "$" ^ tac.arg1, "24(%rax)", "");
         Instruction ("movq", "%rax", result, "");
       ]
@@ -787,8 +775,7 @@ let tac_to_as (tac : tac_elem) cur_method =
       match Hashtbl.find_opt string_map tac.arg1 with
       | Some str_id ->
           [
-            Instruction ("movq", "$String..new", "%r14", "");
-            Instruction ("call", "*%r14", "", "");
+            Instruction ("call", "$String..new", "", "");
             Instruction
               ("movq", "$.string" ^ string_of_int str_id, "24(%rax)", "");
             Instruction ("movq", "%rax", result, "");
@@ -799,8 +786,7 @@ let tac_to_as (tac : tac_elem) cur_method =
           Hashtbl.add string_map tac.arg1 !string_counter;
 
           [
-            Instruction ("movq", "$String..new", "%r14", "");
-            Instruction ("call", "*%r14", "", "");
+            Instruction ("call", "$String..new", "", "");
             Instruction
               ( "movq",
                 "$.string" ^ string_of_int !string_counter,
@@ -822,16 +808,16 @@ let tac_to_as (tac : tac_elem) cur_method =
       let result = get_var_addr tac.result in
       if tac.arg1 = "true" then
         [
-          Instruction ("movq", "$Bool..new", "%r14", "");
-          Instruction ("call", "*%r14", "", "");
+          Instruction ("call", "$Bool..new", "", "");
           Instruction ("movq", "$1", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
         ]
       else
         [
-          Instruction ("movq", "$Bool..new", "%r14", "");
-          Instruction ("call", "*%r14", "", "");
+          Instruction ("call", "$Bool..new", "", "");
           Instruction ("movq", "$0", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
         ]
   | _ -> assert false
+
+let tac_list_to_asm lst = List.map tac_to_as lst
