@@ -33,9 +33,6 @@ let default_classes : Parser.annotated_ast_elem list =
     };
   ]
 
-let basic_block_to_asm (bb : Cfg.basic_block) = Asm.tac_list_to_asm bb
-let cfg_to_asm (cfg : Cfg.basic_block list) = List.map basic_block_to_asm cfg
-
 let () =
   (* let class_map = Parser.parse_class_map () in
   let implementation_map = Parser.parse_implementation_map () in
@@ -43,11 +40,34 @@ let () =
   let annotated_ast = Parser.parse_annotated_ast () in
   List.iter Tac.add_class default_classes;
   List.iter Tac.add_class annotated_ast;
+
+  (* A List of basic blocks *)
+  (* A list of list of tac elems *)
   let tacs = Tac.parse_tac_expressions annotated_ast in
+
+  (* A cfg list *)
+  (* A list of list of basic blocks *)
+  (* A tac_elem list list list *)
   let cfg_list = List.map Cfg.tac_to_cfg tacs in
-  let asm_commands =
-    List.map cfg_to_asm cfg_list |> List.flatten |> List.flatten |> List.flatten
+
+  (* A list of (the assembly code for) methods *)
+  let method_asm =
+    List.map
+      (fun (cfg, _, method_name) ->
+        let method_tac = cfg |> List.flatten in
+        List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
+        |> List.flatten)
+      cfg_list
   in
-  List.iter Asm.print_asm asm_commands
+  List.iter (List.iter Asm.print_asm) method_asm
 
 (* basic_block_to_ast *)
+
+(* 
+  
+let cfg_to_asm = ()
+  let class_name = "TODO" in
+  let method_name = "TODO" in
+
+
+*)

@@ -537,10 +537,11 @@ let tac_to_as (tac : tac_elem) cur_method =
       else
         (*let args = String.split_on_char ' ' tac.arg2 in*)
         (*let arglist =*)
-          (*List.fold_left*)
-            (*(fun acc itm -> acc @ [ Instruction ("pushq", itm, "", "") ])*)
-            (*[] args*)
-        let arglist = [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
+        (*List.fold_left*)
+        (*(fun acc itm -> acc @ [ Instruction ("pushq", itm, "", "") ])*)
+        (*[] args*)
+        let arglist =
+          [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
         in
         pusha () @ arglist
         @ [
@@ -818,5 +819,3 @@ let tac_to_as (tac : tac_elem) cur_method =
           Instruction ("movq", "%rax", result, "");
         ]
   | _ -> assert false
-
-let tac_list_to_asm lst = List.map tac_to_as lst

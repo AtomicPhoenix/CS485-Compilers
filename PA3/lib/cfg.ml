@@ -21,6 +21,7 @@ open Tac
 *)
 
 type basic_block = tac_elem list
+and cfg = basic_block list
 
 (*
 and control_flow_graph_elem =
@@ -39,7 +40,7 @@ let is_break_point (tac : tac_elem) =
   | Bt | Call | Jmp | Case | Default | Return -> true
   | _ -> false
 
-let tac_to_cfg (tacs : tac_elem list) =
+let tac_to_cfg (tacs, class_name, method_name) : cfg * string * string =
   let rec create_cfg (tac_list : tac_elem list) acc cfg =
     match tac_list with
     | tac :: tail -> (
@@ -48,6 +49,6 @@ let tac_to_cfg (tacs : tac_elem list) =
         | false -> create_cfg tail (tac :: acc) cfg)
     | [] -> [ List.rev acc ] @ cfg
   in
-  List.rev (create_cfg tacs [] [])
+  (List.rev (create_cfg tacs [] []), class_name, method_name)
 
 and print_cfg bbl = List.iter (List.iter print_tac_elem) bbl
