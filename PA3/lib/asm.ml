@@ -44,7 +44,12 @@ type asm_instruction = string * string * string * string
 and asm_line = Instruction of asm_instruction | Line of string
 and asm = asm_line list
 and vtable_func = { type_name : string; method_name : string }
-and vtable = { name_id : string; name_string_id : int; methods : vtable_func list }
+
+and vtable = {
+  name_id : string;
+  name_string_id : int;
+  methods : vtable_func list;
+}
 
 and attribute = {
   field_name : string;
@@ -59,6 +64,7 @@ and asm_class = {
   vtable : vtable;
   attributes : attribute list;
 }
+
 and new_func = string * asm
 
 let print_asm (asm : asm_line) =
@@ -96,15 +102,76 @@ let create_vtable (itm : implementation_map_elem) : vtable =
 
 let create_vtables () =
   let tables = List.map create_vtable implementation_map in
-  List.iter (fun i -> Hashtbl.add class_vtable_map i.name_id i; vtable_list := !vtable_list @ [i]) tables
+  List.iter
+    (fun i ->
+      Hashtbl.add class_vtable_map i.name_id i;
+      vtable_list := !vtable_list @ [ i ])
+    tables
 
 let create_default_vtables () =
   [
-    { name_id = "Bool"; name_string_id = 0; methods = [{ type_name = "Bool"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}]};
-    { name_id = "IO"; name_string_id = 1; methods = [{ type_name = "IO"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}; {type_name = "IO"; method_name = "in_int"}; {type_name = "IO"; method_name = "in_string"}; {type_name = "IO"; method_name = "out_int"}; {type_name = "IO"; method_name = "out_string"}]};
-    { name_id = "Int"; name_string_id = 2; methods = [{ type_name = "Int"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}]};
-    { name_id = "Object"; name_string_id = 3; methods = [{ type_name = "Object"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}]};
-    { name_id = "String"; name_string_id = 4; methods = [{ type_name = "String"; method_name = ".new"}; {type_name = "Object"; method_name = "abort"}; {type_name = "Object"; method_name = "copy"}; {type_name = "Object"; method_name = "type_name"}; {type_name = "String"; method_name = "concat"}; {type_name = "String"; method_name = "length"}; {type_name = "String"; method_name = "substr"}]};
+    {
+      name_id = "Bool";
+      name_string_id = 0;
+      methods =
+        [
+          { type_name = "Bool"; method_name = ".new" };
+          { type_name = "Object"; method_name = "abort" };
+          { type_name = "Object"; method_name = "copy" };
+          { type_name = "Object"; method_name = "type_name" };
+        ];
+    };
+    {
+      name_id = "IO";
+      name_string_id = 1;
+      methods =
+        [
+          { type_name = "IO"; method_name = ".new" };
+          { type_name = "Object"; method_name = "abort" };
+          { type_name = "Object"; method_name = "copy" };
+          { type_name = "Object"; method_name = "type_name" };
+          { type_name = "IO"; method_name = "in_int" };
+          { type_name = "IO"; method_name = "in_string" };
+          { type_name = "IO"; method_name = "out_int" };
+          { type_name = "IO"; method_name = "out_string" };
+        ];
+    };
+    {
+      name_id = "Int";
+      name_string_id = 2;
+      methods =
+        [
+          { type_name = "Int"; method_name = ".new" };
+          { type_name = "Object"; method_name = "abort" };
+          { type_name = "Object"; method_name = "copy" };
+          { type_name = "Object"; method_name = "type_name" };
+        ];
+    };
+    {
+      name_id = "Object";
+      name_string_id = 3;
+      methods =
+        [
+          { type_name = "Object"; method_name = ".new" };
+          { type_name = "Object"; method_name = "abort" };
+          { type_name = "Object"; method_name = "copy" };
+          { type_name = "Object"; method_name = "type_name" };
+        ];
+    };
+    {
+      name_id = "String";
+      name_string_id = 4;
+      methods =
+        [
+          { type_name = "String"; method_name = ".new" };
+          { type_name = "Object"; method_name = "abort" };
+          { type_name = "Object"; method_name = "copy" };
+          { type_name = "Object"; method_name = "type_name" };
+          { type_name = "String"; method_name = "concat" };
+          { type_name = "String"; method_name = "length" };
+          { type_name = "String"; method_name = "substr" };
+        ];
+    };
   ]
 
 let get_class_attributes attrs =
@@ -131,8 +198,6 @@ let make_asm_class (c : class_map_elem) =
     vtable = class_vtable;
     attributes = attrs;
   }
-  
-
 
 let in_int =
   [
@@ -141,7 +206,7 @@ let in_int =
     Line "IO.in_int:";
     Instruction ("pushq", "%rbp", "", "");
     Instruction ("pushq", "%rbx", "", "");
-    Instruction ("subq", "%4120", "%rsp", "");
+    Instruction ("subq", "$4120", "%rsp", "");
     Instruction ("call", "Int..new", "", "");
     Instruction ("leaq", "16(%rsp)", "%rbp", "");
     Instruction ("movl", "$4096", "%esi", "");
@@ -179,17 +244,14 @@ let out_int =
     Instruction ("movq", "24(%rsi)", "%rsi", "");
     Instruction ("movq", "24(%rdi)", "%rbx", "");
     Instruction ("xorl", "%eax", "%eax", "");
-    Instruction ("movl", "$percent.d", "%rdi", "");
+    Instruction ("movq", "$percent.d", "%rdi", "");
     Instruction ("call", "printf", "", "");
     Instruction ("movq", "rbx", "%rax", "");
     Instruction ("popq", "rbx", "", "");
     Instruction (".size", "IO.out_int", ".-IO.out_int", "");
   ]
-let intrinsic_funcs =
-  [
-    in_int;
-    out_int;
-  ]
+
+let intrinsic_funcs = [ in_int; out_int ]
 
 (* Bool is class tag 0 *)
 let () = Hashtbl.add class_id_map "Bool" 0
@@ -299,6 +361,7 @@ let new_funcs =
     ("Object", object_new);
     ("String", string_new);
   ]
+
 let handlers =
   [
     Line "lt_handler:";

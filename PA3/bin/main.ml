@@ -34,7 +34,6 @@ let default_classes : Parser.annotated_ast_elem list =
   ]
 
 let () =
-
   let vtables = Asm.create_default_vtables () @ !Asm.vtable_list in
   let print_vtable (table : Asm.vtable) =
     let name = table.name_id in
@@ -71,7 +70,6 @@ let () =
       Printf.fprintf Print.out_file
         "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n")
     Asm.intrinsic_funcs;
-
 
   (* let class_map = Parser.parse_class_map () in
   let implementation_map = Parser.parse_implementation_map () in
@@ -110,7 +108,8 @@ let () =
           Asm.Line (Printf.sprintf "%s:" name);
         ]
         @ (List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
-          |> List.flatten) @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)])
+          |> List.flatten)
+        @ [ Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name) ])
       cfg_list
   in
   List.iter (List.iter Asm.print_asm) method_asm
