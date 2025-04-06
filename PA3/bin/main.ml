@@ -81,7 +81,7 @@ let () =
   (* A List of basic blocks *)
   (* A list of list of tac elems *)
   let tacs = Tac.parse_tac_expressions annotated_ast in
-  List.iter (fun (f, _, _, _) -> Tac.print_tac_elems f) tacs;
+  (* List.iter (fun (f, _, _, _) -> Tac.print_tac_elems f) tacs;*)
 
   (* A cfg list *)
   (* A list of list of basic blocks *)
