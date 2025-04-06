@@ -157,10 +157,14 @@ let in_int =
 let out_int =
   [
     Line "IO.out_int:";
+    Instruction ("pushq", "%rbx", "", "");
     Instruction ("movq", "24(%rsi)", "%rsi", "");
-    Instruction ("movl", "$percent.d", "%rdi", "");
+    Instruction ("movq", "24(%rdi)", "%rbx", "");
     Instruction ("xorl", "%eax", "%eax", "");
-    Instruction ("jmp", "printf", "", "");
+    Instruction ("movl", "$percent.d", "%rdi", "");
+    Instruction ("call", "printf", "", "");
+    Instruction ("movq", "rbx", "%rax", "");
+    Instruction ("popq", "rbx", "", "");
     Instruction (".size", "IO.out_int", ".-IO.out_int", "");
   ]
 
@@ -519,7 +523,6 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("testq", "%rax", "%rax", "");
         Instruction ("jne", tac.arg2, "", "");
       ]
-  (****************** TODO ******************)
   | Call ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -532,11 +535,12 @@ let tac_to_as (tac : tac_elem) cur_method =
           ]
         @ popa ()
       else
-        let args = String.split_on_char ' ' tac.arg2 in
-        let arglist =
-          List.fold_left
-            (fun acc itm -> acc @ [ Instruction ("pushq", itm, "", "") ])
-            [] args
+        (*let args = String.split_on_char ' ' tac.arg2 in*)
+        (*let arglist =*)
+          (*List.fold_left*)
+            (*(fun acc itm -> acc @ [ Instruction ("pushq", itm, "", "") ])*)
+            (*[] args*)
+        let arglist = [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
         in
         pusha () @ arglist
         @ [
@@ -564,7 +568,6 @@ let tac_to_as (tac : tac_elem) cur_method =
         (*Instruction ("ret", "", "", "");*)
         Instruction ("jmp", "$." ^ cur_method ^ ".end", "", "");
       ]
-  (****************** TODO ******************)
   | LetNoInit ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
