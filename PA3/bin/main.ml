@@ -40,7 +40,7 @@ let () =
     let strid = table.name_string_id in
     Printf.fprintf Print.out_file ".globl %s..vtable\n" name;
     Printf.fprintf Print.out_file "%s..vtable:\n" name;
-    Printf.fprintf Print.out_file "\t.quad string%d\n" strid;
+    Printf.fprintf Print.out_file "\t.quad .string%d\n" strid;
     List.iter
       (fun (func : Asm.vtable_func) ->
         Printf.fprintf Print.out_file "\t.quad %s.%s\n" func.type_name
@@ -112,7 +112,12 @@ let () =
 
       cfg_list
   in
-  List.iter (List.iter Asm.print_asm) method_asm
+  List.iter (List.iter Asm.print_asm) method_asm;
+  Printf.fprintf Print.out_file "\t.section\trodata\n";
+  Hashtbl.iter (fun k v -> Printf.fprintf Print.out_file ".string%d:\n\t.string \"%s\"\n" v k) Asm.string_map;
+  Printf.fprintf Print.out_file "\t.text\n";
+  List.iter Asm.print_asm Asm.handlers;
+  Printf.fprintf Print.out_file "\t.globl start\nstart:\n\t.globl main\n\t.type main, @function\nmain:\n\tpushq\t%%rbp\n\tcall\tMain..main\t\nandq\t$-16, %%rsp\n\tmovl\t$0, %%edi\n\tcall\texit\n"
 
 (* basic_block_to_ast *)
 
