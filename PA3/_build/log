@@ -1,0 +1,16 @@
+# dune exec PA3 ../testing/test_cases/if.cl-type
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location: /home/AI/.cache/dune/db
+# Workspace root: /home/AI/Documents/Classes/CS485-Compilers/PA3
+# Auto-detected concurrency: 16
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ /usr/bin/ocamlc.opt -config > /tmp/dune_4ee584_output
