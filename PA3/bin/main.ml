@@ -119,7 +119,7 @@ let () =
   Printf.fprintf Print.out_file
     "\t.globl percent.d\npercent.d:\n\t.string\t\"%%d\"\n";
   Printf.fprintf Print.out_file "\t.text\n";
-  (*List.iter Asm.print_asm Asm.handlers;*)
+  List.iter Asm.print_asm Asm.handlers;
   Printf.fprintf Print.out_file
     "\t.globl start\n\
      start:\n\
