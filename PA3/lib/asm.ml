@@ -63,7 +63,10 @@ and asm_class = {
 let print_asm (asm : asm_line) =
   match asm with
   | Instruction (s1, s2, s3, s4) ->
-      Printf.fprintf out_file "%s %s %s %s" s1 s2 s3 s4
+      if s2 = "" then Printf.fprintf out_file "\t%s\n" s1
+      else if s3 = "" then Printf.fprintf out_file "\t%s\t%s\n" s1 s2
+      else if s4 = "" then Printf.fprintf out_file "\t%s\t%s, %s\n" s1 s2 s3
+      else Printf.fprintf out_file "\t%s\t%s, %s, %s\n" s1 s2 s3 s4
   | Line s1 -> Printf.fprintf out_file "%s" s1
 
 let var_locations = Hashtbl.create 32
@@ -548,7 +551,7 @@ let tac_to_as (tac : tac_elem) cur_method =
       [
         Instruction ("movq", get_var_addr s, "%rax", "");
         Instruction ("movq", "%rax", result, "");
-       ]
+      ]
   (*| New *)
   (* | Isvoid *)
   | Plus ->
