@@ -63,10 +63,10 @@ and asm_class = {
 let print_asm (asm : asm_line) =
   match asm with
   | Instruction (s1, s2, s3, s4) ->
-      if s4 != "" then Printf.fprintf out_file "%s %s, %s %s\n" s1 s2 s3 s4
-      else if s3 != "" then Printf.fprintf out_file "%s %s, %s\n" s1 s2 s3
-      else if s2 != "" then Printf.fprintf out_file "%s %s\n" s1 s2
-      else if s1 != "" then Printf.fprintf out_file "%s\n" s1
+      if s4 != "" then Printf.fprintf out_file "\t%s %s, %s %s\n" s1 s2 s3 s4
+      else if s3 != "" then Printf.fprintf out_file "\t%s %s, %s\n" s1 s2 s3
+      else if s2 != "" then Printf.fprintf out_file "\t%s %s\n" s1 s2
+      else if s1 != "" then Printf.fprintf out_file "\t%s\n" s1
   | Line s1 -> Printf.fprintf out_file "%s\n" s1
 
 let var_locations = Hashtbl.create 32
