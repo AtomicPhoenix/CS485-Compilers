@@ -70,13 +70,13 @@ and new_func = string * asm
 let print_asm (asm : asm_line) =
   match asm with
   | Instruction (s1, s2, s3, s4) ->
-      if s4 != "" then (*Printf.printf "\t%s\t%s, %s, %s\n" s1 s2 s3 s4;*)
+      if s4 <> "" then (*Printf.printf "\t%s\t%s, %s, %s\n" s1 s2 s3 s4;*)
         Printf.fprintf out_file "\t%s\t%s, %s, %s\n" s1 s2 s3 s4
-      else if s3 != "" then (*Printf.printf "\t%s\t%s, %s\n" s1 s2 s3;*)
+      else if s3 <> "" then (*Printf.printf "\t%s\t%s, %s\n" s1 s2 s3;*)
         Printf.fprintf out_file "\t%s\t%s, %s\n" s1 s2 s3
-      else if s2 != "" then (*Printf.printf "\t%s\t%s\n" s1 s2;*)
+      else if s2 <> "" then (*Printf.printf "\t%s\t%s\n" s1 s2;*)
         Printf.fprintf out_file "\t%s\t%s\n" s1 s2
-      else if s1 != "" then (*Printf.printf "\t%s\n" s1;*)
+      else if s1 <> "" then (*Printf.printf "\t%s\n" s1;*)
         Printf.fprintf out_file "\t%s\n" s1
   | Line s1 -> (*Printf.printf "%s\n" s1;*) Printf.fprintf out_file "%s\n" s1
 
