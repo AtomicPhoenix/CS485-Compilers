@@ -156,7 +156,7 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
                 @ exp_to_tac exp.sub_expr (get_id !var_ctr)
                     ast_elem.class_name.name id1.name
                 @ [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ],
-                "CLASS NAME",
+                ast_elem.class_name.name,
                 id1.name )
         | Attribute _ -> None)
       (get_all_methods ast_elem)

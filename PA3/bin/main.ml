@@ -34,6 +34,7 @@ let default_classes : Parser.annotated_ast_elem list =
   ]
 
 let () =
+
   let vtables = Asm.create_default_vtables () @ !Asm.vtable_list in
   let print_vtable (table : Asm.vtable) =
     let name = table.name_id in
@@ -71,6 +72,7 @@ let () =
         "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n")
     Asm.intrinsic_funcs;
 
+
   (* let class_map = Parser.parse_class_map () in
   let implementation_map = Parser.parse_implementation_map () in
   let parent_map = Parser.parse_parent_map () in  *)
@@ -98,10 +100,17 @@ let () =
   (* A list of (the assembly code for) methods *)
   let method_asm =
     List.map
-      (fun (cfg, _, method_name) ->
+      (fun (cfg, class_name, method_name) ->
+        let name = class_name ^ "." ^ method_name in
         let method_tac = cfg |> List.flatten in
-        List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
-        |> List.flatten)
+        [
+          Asm.Line "\t.p2align 4";
+          Asm.Line (Printf.sprintf "\t.globl\t%s" name);
+          Asm.Line (Printf.sprintf "\t.type\t%s, @function" name);
+          Asm.Line (Printf.sprintf "%s:" name);
+        ]
+        @ (List.map (fun tac -> Asm.tac_to_as tac method_name) method_tac
+          |> List.flatten) @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)])
       cfg_list
   in
   List.iter (List.iter Asm.print_asm) method_asm
