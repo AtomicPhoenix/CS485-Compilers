@@ -209,80 +209,81 @@ let make_asm_class (c : class_map_elem) =
     attributes = attrs;
   }
 
-let abort =
-  [
-    Line "\t.globl\tObject.abort";
-    Line "Object.abort:";
-    Instruction ("pushq", "%rbp", "", "");
-    Instruction ("movq", "%rsp", "%rbp", "");
-    Instruction ("movq", "16(%rbp)", "%r12", "");
-    Instruction ("movq", "$16", "%r14", "");
-    Instruction ("subq", "%r14", "%rsp", "");
-    Instruction ("movq", "$string8", "%r13", "");
-    Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
-    Instruction ("movq", "%r13", "%rdi", "");
-    Instruction ("call", "cooloutstr", "", "");
-    Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
-    Instruction ("movl", "$0", "%edi", "");
-    Instruction ("call", "exit", "", "");
-    Line "Object.abort.end:";
-    Instruction ("movq", "%rbp", "%rsp", "");
-    Instruction ("popq", "%rbp", "", "");
-    Instruction ("ret", "", "", "");
-  ]
+(*let abort =*)
+  (*[*)
+    (*Line "\t.globl\tObject.abort";*)
+    (*Line "Object.abort:";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq", "$16", "%r14", "");*)
+    (*Instruction ("subq", "%r14", "%rsp", "");*)
+    (*Instruction ("movq", "$string8", "%r13", "");*)
+    (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+    (*Instruction ("movq", "%r13", "%rdi", "");*)
+    (*Instruction ("call", "cooloutstr", "", "");*)
+    (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+    (*Instruction ("movl", "$0", "%edi", "");*)
+    (*Instruction ("call", "exit", "", "");*)
+    (*Line "Object.abort.end:";*)
+    (*Instruction ("movq", "%rbp", "%rsp", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
 
-let copy =
-  [
-    Line "\t.p2align 4";
-    Line "\t.globl\tObject.copy";
-    Line "Object.copy:";
-    Instruction ("pushq", "%rbp", "", "");
-    Instruction ("movq", "%rsp", "%rbp", "");
-    Instruction ("movq", "16(%rbp)", "%r12", "");
-    Instruction ("movq", "$16", "%r14", "");
-    Instruction ("subq", "%r14", "%rsp", "");
-    Instruction ("movq", "8(%r12)", "%r14", "");
-    Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
-    Instruction ("movq", "$8", "%rsi", "");
-    Instruction ("movq", "%r14", "%rdi", "");
-    Instruction ("call", "calloc", "", "");
-    Instruction ("movq", "%rax", "%r13", "");
-    Instruction ("pushq", "%r13", "", "");
-    Line "\t.globl\tObject.copy.end";
-    Line "Object.copy.end:";
-    Instruction ("movq", "%rbp", "%rsp", "");
-    Instruction ("popq", "%rbp", "", "");
-    Instruction ("ret", "", "", "");
-  ]
+(*let copy =*)
+  (*[*)
+    (*Line "\t.p2align 4";*)
+    (*Line "\t.globl\tObject.copy";*)
+    (*Line "Object.copy:";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq", "$16", "%r14", "");*)
+    (*Instruction ("subq", "%r14", "%rsp", "");*)
+    (*Instruction ("movq", "8(%r12)", "%r14", "");*)
+    (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
+    (*Instruction ("movq", "$8", "%rsi", "");*)
+    (*Instruction ("movq", "%r14", "%rdi", "");*)
+    (*Instruction ("call", "calloc", "", "");*)
+    (*Instruction ("movq", "%rax", "%r13", "");*)
+    (*Instruction ("pushq", "%r13", "", "");*)
+    (*Line "\t.globl\tObject.copy.end";*)
+    (*Line "Object.copy.end:";*)
+    (*Instruction ("movq", "%rbp", "%rsp", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
 
-let objecttypename =
-  [
-    Line "Object.type_name:";
-    Line "\t.globl\tObject.type_name";
-    Instruction ("pushq", "%rbp", "", "");
-    Instruction ("movq", "%rsp", "%rbp", "");
-    Instruction ("movq", "16(%rbp)", "%r12", "");
-    Instruction ("movq", "$16", "%r14", "");
-    Instruction ("subq", "%r14", "%rsp", "");
-    Instruction ("pushq", "%rbp", "", "");
-    Instruction ("pushq", "%r12", "", "");
-    Instruction ("movq", "$String..new", "%r14", "");
-    Instruction ("call", "*%r14", "", "");
-    Instruction ("popq", "%r12", "", "");
-    Instruction ("popq", "%rbp", "", "");
-    Instruction ("movq", "16(%r12)", "%r14", "");
-    Instruction ("movq", "0(%r14)", "%r14", "");
-    Instruction ("movq", "%r14", "24(%r13)", "");
-    Line "Object.type_name.end:";
-    Instruction ("movq", "%rbp", "%rsp", "");
-    Instruction ("popq", "%rbp", "", "");
-    Instruction ("ret", "", "", "");
-  ]
+(*let objecttypename =*)
+  (*[*)
+    (*Line "Object.type_name:";*)
+    (*Line "\t.globl\tObject.type_name";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq", "$16", "%r14", "");*)
+    (*Instruction ("subq", "%r14", "%rsp", "");*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("pushq", "%r12", "", "");*)
+    (*Instruction ("movq", "$String..new", "%r14", "");*)
+    (*Instruction ("call", "*%r14", "", "");*)
+    (*Instruction ("popq", "%r12", "", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("movq", "16(%r12)", "%r14", "");*)
+    (*Instruction ("movq", "0(%r14)", "%r14", "");*)
+    (*Instruction ("movq", "%r14", "24(%r13)", "");*)
+    (*Line "Object.type_name.end:";*)
+    (*Instruction ("movq", "%rbp", "%rsp", "");*)
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
 
 let in_int =
   [
     Line "\t.p2align 4";
     Line "\t.globl\tIO.in_int";
+    Line "\t.type\tIO.in_int, @function";
     Line "IO.in_int:";
     Instruction ("pushq", "%rbp", "", "");
     Instruction ("pushq", "%rbx", "", "");
@@ -319,6 +320,7 @@ let out_int =
   [
     Line "\t.p2align 4";
     Line "\t.globl\tIO.out_int";
+    Line "\t.type\tIO.out_int, @function";
     Line "IO.out_int:";
     Instruction ("pushq", "%rbx", "", "");
     Instruction ("subq", "$8", "%rsp", "");
@@ -334,124 +336,124 @@ let out_int =
     (*Instruction (".size", "IO.out_int", ".-IO.out_int", "");*)
   ]
 
-let out_string =
-  [
-    Line "\t.p2align 4";
-    Line "\t.globl\tIO.out_string";
-    Line "IO.out_string:";
-    Instruction ("pushq", "%rbp", "", "");
-    Instruction ("movq", "%rsp", "%rbp", "");
-    Instruction ("movq", "16(%rbp)", "%r12", "");
-    Instruction ("movq $16, %r14", "", "", "");
-    Instruction ("subq %r14, %rsp", "", "", "");
-    Instruction ("movq 24(%rbp), %r14", "", "", "");
-    Instruction ("movq 24(%r14), %r13", "", "", "");
-    Instruction ("andq $0xFFFFFFFFFFFFFFF0, %rsp", "", "", "");
-    Instruction ("movq %r13, %rdi", "", "", "");
-    Instruction ("call cooloutstr", "", "", "");
-    Instruction ("movq %r12, %r13", "", "", "");
-    Instruction ("movq %rbp, %rsp", "", "", "");
-    Instruction ("popq %rbp", "", "", "");
-    Instruction ("ret", "", "", "");
-  ]
+(*let out_string =*)
+  (*[*)
+    (*Line "\t.p2align 4";*)
+    (*Line "\t.globl\tIO.out_string";*)
+    (*Line "IO.out_string:";*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    (*Instruction ("movq", "%rsp", "%rbp", "");*)
+    (*Instruction ("movq", "16(%rbp)", "%r12", "");*)
+    (*Instruction ("movq $16, %r14", "", "", "");*)
+    (*Instruction ("subq %r14, %rsp", "", "", "");*)
+    (*Instruction ("movq 24(%rbp), %r14", "", "", "");*)
+    (*Instruction ("movq 24(%r14), %r13", "", "", "");*)
+    (*Instruction ("andq $0xFFFFFFFFFFFFFFF0, %rsp", "", "", "");*)
+    (*Instruction ("movq %r13, %rdi", "", "", "");*)
+    (*Instruction ("call cooloutstr", "", "", "");*)
+    (*Instruction ("movq %r12, %r13", "", "", "");*)
+    (*Instruction ("movq %rbp, %rsp", "", "", "");*)
+    (*Instruction ("popq %rbp", "", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+  (*]*)
 
-let cooloutstr =
-  [
-    Instruction (".globl\tcooloutstr", "", "", "");
-    Instruction (".type\tcooloutstr, @function", "", "", "");
-    Instruction ("cooloutstr:", "", "", "");
-    Instruction (".LFB6:", "", "", "");
-    Instruction (".cfi_startproc", "", "", "");
-    Instruction ("endbr64", "", "", "");
-    Instruction ("pushq\t%rbp", "", "", "");
-    Instruction (".cfi_def_cfa_offset 16", "", "", "");
-    Instruction (".cfi_offset 6, -16", "", "", "");
-    Instruction ("movq\t%rsp, %rbp", "", "", "");
-    Instruction (".cfi_def_cfa_register 6", "", "", "");
-    Instruction ("subq\t$32, %rsp", "", "", "");
-    Instruction ("movq\t%rdi, -24(%rbp)", "", "", "");
-    Instruction ("movl\t$0, -4(%rbp)", "", "", "");
-    Instruction ("jmp\t.L2", "", "", "");
-    Instruction (".L5:", "", "", "");
-    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
-    Instruction ("movslq\t%eax, %rdx", "", "", "");
-    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
-    Instruction ("addq\t%rdx, %rax", "", "", "");
-    Instruction ("movzbl\t(%rax), %eax", "", "", "");
-    Instruction ("cmpb\t$92, %al", "", "", "");
-    Instruction ("jne\t.L3", "", "", "");
-    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
-    Instruction ("cltq", "", "", "");
-    Instruction ("leaq\t1(%rax), %rdx", "", "", "");
-    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
-    Instruction ("addq\t%rdx, %rax", "", "", "");
-    Instruction ("movzbl\t(%rax), %eax", "", "", "");
-    Instruction ("cmpb\t$110, %al", "", "", "");
-    Instruction ("jne\t.L3", "", "", "");
-    Instruction ("movq\tstdout(%rip), %rax", "", "", "");
-    Instruction ("movq\t%rax, %rsi", "", "", "");
-    Instruction ("movl\t$10, %edi", "", "", "");
-    Instruction ("call\tfputc@PLT", "", "", "");
-    Instruction ("addl\t$2, -4(%rbp)", "", "", "");
-    Instruction ("jmp\t.L2", "", "", "");
-    Instruction (".L3:", "", "", "");
-    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
-    Instruction ("movslq\t%eax, %rdx", "", "", "");
-    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
-    Instruction ("addq\t%rdx, %rax", "", "", "");
-    Instruction ("movzbl\t(%rax), %eax", "", "", "");
-    Instruction ("cmpb\t$92, %al", "", "", "");
-    Instruction ("jne\t.L4", "", "", "");
-    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
-    Instruction ("cltq", "", "", "");
-    Instruction ("leaq\t1(%rax), %rdx", "", "", "");
-    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
-    Instruction ("addq\t%rdx, %rax", "", "", "");
-    Instruction ("movzbl\t(%rax), %eax", "", "", "");
-    Instruction ("cmpb\t$116, %al", "", "", "");
-    Instruction ("jne\t.L4", "", "", "");
-    Instruction ("movq\tstdout(%rip), %rax", "", "", "");
-    Instruction ("movq\t%rax, %rsi", "", "", "");
-    Instruction ("movl\t$9, %edi", "", "", "");
-    Instruction ("call\tfputc@PLT", "", "", "");
-    Instruction ("addl\t$2, -4(%rbp)", "", "", "");
-    Instruction ("jmp\t.L2", "", "", "");
-    Instruction (".L4:", "", "", "");
-    Instruction ("movq\tstdout(%rip), %rdx", "", "", "");
-    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
-    Instruction ("movslq\t%eax, %rcx", "", "", "");
-    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
-    Instruction ("addq\t%rcx, %rax", "", "", "");
-    Instruction ("movzbl\t(%rax), %eax", "", "", "");
-    Instruction ("movsbl\t%al, %eax", "", "", "");
-    Instruction ("movq\t%rdx, %rsi", "", "", "");
-    Instruction ("movl\t%eax, %edi", "", "", "");
-    Instruction ("call\tfputc@PLT", "", "", "");
-    Instruction ("addl\t$1, -4(%rbp)", "", "", "");
-    Instruction (".L2:", "", "", "");
-    Instruction ("movl\t-4(%rbp), %eax", "", "", "");
-    Instruction ("movslq\t%eax, %rdx", "", "", "");
-    Instruction ("movq\t-24(%rbp), %rax", "", "", "");
-    Instruction ("addq\t%rdx, %rax", "", "", "");
-    Instruction ("movzbl\t(%rax), %eax", "", "", "");
-    Instruction ("testb\t%al, %al", "", "", "");
-    Instruction ("jne\t.L5", "", "", "");
-    Instruction ("movq\tstdout(%rip), %rax", "", "", "");
-    Instruction ("movq\t%rax, %rdi", "", "", "");
-    Instruction ("call\tfflush@PLT", "", "", "");
-    Instruction ("nop", "", "", "");
-    Instruction ("leave", "", "", "");
-    Instruction (".cfi_def_cfa 7, 8", "", "", "");
-    Instruction ("ret", "", "", "");
-    Instruction (".cfi_endproc", "", "", "");
-    Instruction (".LFE6:", "", "", "");
-    Instruction (".size\tcooloutstr, .-cooloutstr", "", "", "");
-    Instruction (".globl\tcoolstrlen", "", "", "");
-    Instruction (".type\tcoolstrlen, @function", "", "", "");
-    Instruction ("", "", "", "");
-  ]
+(*let cooloutstr =*)
+  (*[*)
+    (*Instruction (".globl\tcooloutstr", "", "", "");*)
+    (*Instruction (".type\tcooloutstr, @function", "", "", "");*)
+    (*Instruction ("cooloutstr:", "", "", "");*)
+    (*Instruction (".LFB6:", "", "", "");*)
+    (*Instruction (".cfi_startproc", "", "", "");*)
+    (*Instruction ("endbr64", "", "", "");*)
+    (*Instruction ("pushq\t%rbp", "", "", "");*)
+    (*Instruction (".cfi_def_cfa_offset 16", "", "", "");*)
+    (*Instruction (".cfi_offset 6, -16", "", "", "");*)
+    (*Instruction ("movq\t%rsp, %rbp", "", "", "");*)
+    (*Instruction (".cfi_def_cfa_register 6", "", "", "");*)
+    (*Instruction ("subq\t$32, %rsp", "", "", "");*)
+    (*Instruction ("movq\t%rdi, -24(%rbp)", "", "", "");*)
+    (*Instruction ("movl\t$0, -4(%rbp)", "", "", "");*)
+    (*Instruction ("jmp\t.L2", "", "", "");*)
+    (*Instruction (".L5:", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$92, %al", "", "", "");*)
+    (*Instruction ("jne\t.L3", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("cltq", "", "", "");*)
+    (*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$110, %al", "", "", "");*)
+    (*Instruction ("jne\t.L3", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+    (*Instruction ("movq\t%rax, %rsi", "", "", "");*)
+    (*Instruction ("movl\t$10, %edi", "", "", "");*)
+    (*Instruction ("call\tfputc@PLT", "", "", "");*)
+    (*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
+    (*Instruction ("jmp\t.L2", "", "", "");*)
+    (*Instruction (".L3:", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$92, %al", "", "", "");*)
+    (*Instruction ("jne\t.L4", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("cltq", "", "", "");*)
+    (*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("cmpb\t$116, %al", "", "", "");*)
+    (*Instruction ("jne\t.L4", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+    (*Instruction ("movq\t%rax, %rsi", "", "", "");*)
+    (*Instruction ("movl\t$9, %edi", "", "", "");*)
+    (*Instruction ("call\tfputc@PLT", "", "", "");*)
+    (*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
+    (*Instruction ("jmp\t.L2", "", "", "");*)
+    (*Instruction (".L4:", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rdx", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rcx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rcx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("movsbl\t%al, %eax", "", "", "");*)
+    (*Instruction ("movq\t%rdx, %rsi", "", "", "");*)
+    (*Instruction ("movl\t%eax, %edi", "", "", "");*)
+    (*Instruction ("call\tfputc@PLT", "", "", "");*)
+    (*Instruction ("addl\t$1, -4(%rbp)", "", "", "");*)
+    (*Instruction (".L2:", "", "", "");*)
+    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+    (*Instruction ("testb\t%al, %al", "", "", "");*)
+    (*Instruction ("jne\t.L5", "", "", "");*)
+    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+    (*Instruction ("movq\t%rax, %rdi", "", "", "");*)
+    (*Instruction ("call\tfflush@PLT", "", "", "");*)
+    (*Instruction ("nop", "", "", "");*)
+    (*Instruction ("leave", "", "", "");*)
+    (*Instruction (".cfi_def_cfa 7, 8", "", "", "");*)
+    (*Instruction ("ret", "", "", "");*)
+    (*Instruction (".cfi_endproc", "", "", "");*)
+    (*Instruction (".LFE6:", "", "", "");*)
+    (*Instruction (".size\tcooloutstr, .-cooloutstr", "", "", "");*)
+    (*Instruction (".globl\tcoolstrlen", "", "", "");*)
+    (*Instruction (".type\tcoolstrlen, @function", "", "", "");*)
+    (*Instruction ("", "", "", "");*)
+  (*]*)
 
-let intrinsic_funcs = [ in_int; out_int; out_string; cooloutstr ]
+let intrinsic_funcs = [ in_int; out_int(*; out_string; cooloutstr *)]
 
 (* Bool is class tag 0 *)
 let () = Hashtbl.add class_id_map "Bool" 0
@@ -471,7 +473,7 @@ let bool_new =
     Instruction ("movq", "$0", "24(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "Bool..new", ".-Bool..new", "");
+    (*Instruction (".size", "Bool..new", ".-Bool..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "IO" 1
@@ -490,7 +492,7 @@ let io_new =
     Instruction ("movq", "%r10", "16(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "IO..new", ".-IO..new", "");
+    (*Instruction (".size", "IO..new", ".-IO..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "Int" 2
@@ -510,7 +512,7 @@ let int_new =
     Instruction ("movq", "$0", "24(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "IO..new", ".-IO..new", "");
+    (*Instruction (".size", "Int..new", ".-Int..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "Object" 3
@@ -825,7 +827,7 @@ let tac_to_as (tac : tac_elem) cur_method =
       if tac.arg2 = "" then
         pusha
         @ [
-            Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+            (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
             Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
@@ -841,7 +843,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         in
         pusha @ arglist
         @ [
-            Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+            (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
             Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
