@@ -117,43 +117,6 @@ let make_asm_class (c : class_map_elem) =
     attributes = attrs;
   }
 
-(*TODO: make this make and return an int object*)
-(*let in_int =*)
-(*"\n\*)
-(*IO.in_int:\n\*)
-(*\tpushq\t%rbx\n\*)
-(*\tmovl\t$4096, %esi\n\*)
-(*\tsubq\t$4112, %rsp\n\*)
-(*\tmovq\tstdin(%rip), %rdx\n\*)
-(*\tleaq\t16(%rsp), %rbx\n\*)
-(*\tmovq\t%rbx, %rdi\n\*)
-(*\tcall\tfgets\n\*)
-(*\tleaq\t8(%rsp), %rdx\n\*)
-(*\tmovq\t%rbx, %rdi\n\*)
-(*\txorl\t%eax, %eax\n\*)
-(*\tmovq\t$percent.ld, %rsi\n\*)
-(*\tcall\tsscanf\n\*)
-(*\tmovq\t8(%rsp), %rax\n\*)
-(*\tmovl\t$2147483648, %edx\n\*)
-(*\tmovl\t$4294967295, %ecx\n\*)
-(*\taddq\t%rax, %rdx\n\*)
-(*\tcmpq\t%rdx, %rcx\n\*)
-(*\tmovl\t$0, %edx\n\*)
-(*\tcmovb\t%rdx, %rax\n\*)
-(*\taddq\t$4112, %rsp\n\*)
-(*\tpopq\t%rbx\n\*)
-(*\tret\n\*)
-(*\t.size\tin_int, .-in_int\n"*)
-
-(*let out_int =*)
-(*"\n\*)
-(*IO.out_int:*)
-(*\tmovq\t24(%rsi), %rsi\n\*)
-(*\tmovl\t$percent.d, %rdi\n\*)
-(*\txorl\t%eax, %eax\n\*)
-(*\tjmp\tprintf\n\*)
-(*\t.size\tIO.out_int, .-IO.out_int*)
-(*"*)
 let in_int =
   [
     Line "IO.in_int:";
@@ -279,213 +242,217 @@ let object_new =
 
 let () = Hashtbl.add class_id_map "String" 4
 
-let string_new = [
-    Line("Int..new:");
-    Instruction("subq", "$8", "%rsp", "");
-    Instruction("movl", "$4", "%esi", "");
-    Instruction("movl", "$8", "%edi", "");
-    Instruction("call", "calloc", "", "");
-    Line("\t#Set class tag, object size, vtable pointer");
-    Instruction("movq", "$4", "(%rax)", "");
-    Instruction("movq", "$4", "8(%rax)", "");
-    Instruction("movq", "$String..vtable", "%r10", "");
-    Instruction("movq", "%r10", "16(%rax)", "");
-    Instruction("movq", "$empty.string", "%r10", "");
-    Instruction("movq", "%r10", "24(%rax)", "");
-    Instruction("addq", "$8", "%rsp", "");
-    Instruction("ret", "", "", "");
-    Instruction(".size", "String..new", ".-String..new", "");
-]
-let handlers = [
-  Line("lt_handler:");
-  Instruction("pushq", "%r12", "", "");
-  Instruction("movq", "%rsi", "%r12", "");
-  Instruction("pushq", "%rbp", "", "");
-  Instruction("pushq", "%rbx", "", "");
-  Instruction("movq", "%rdi", "%rbx", "");
-  Instruction("call", "Bool..new", "", "");
-  Instruction("movq", "%rax", "%rbp", "");
-  Instruction("testq", "%rbx", "%rbx", "");
-  Instruction("je", ".lt_false", "", "");
-  Instruction("testq", "%r12", "%r12", "");
-  Instruction("je", ".lt_false", "", "");
-  Instruction("movq", "(%r12)", "%rdx", "");
-  Instruction("addq", "(%rbx)", "%rdx", "");
-  Instruction("testq", "$-3", "%rdx", "");
-  Instruction("je", ".lt_num", "", "");
-  Instruction("xorl", "%eax", "%eax", "");
-  Instruction("cmpq", "$6", "%rdx", "");
-  Instruction("je", ".lt_string", "", "");
-  Line(".lt_cleanup:");
-  Instruction("movq", "%rax", "24(%rbp)", "");
-  Instruction("movq", "%rbp", "%rax", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".lt_num:");
-  Instruction("movq", "24(%r12)", "%rax", "");
-  Instruction("cmpq", "%rax", "24(%rbx)", "");
-  Instruction("setge", "%al", "", "");
-  Instruction("movzbl", "%al", "%eax", "");
-  Instruction("movq", "%rax", "24(%rbp)", "");
-  Instruction("movq", "%rbp", "%rax", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".lt_false:");
-  Instruction("xorl", "%eax", "%eax", "");
-  Instruction("movq", "%rax", "24(%rbp)", "");
-  Instruction("movq", "%rbp", "%rax", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".lt_string:");
-  Instruction("movq", "24(%r12)", "%rsi", "");
-  Instruction("movq", "24(%rbx)", "%rdi", "");
-  Instruction("call", "strcmp", "", "");
-  Instruction("shrl", "$31", "%eax", "");
-  Instruction("jmp", ".lt_cleanup", "", "");
-  Instruction("\t.size", "lt_handler", ".-lt_handler", "");
-  Instruction("\t.p2align 4", "", "", "");
-  Instruction("\t.globl", "le_handler", "", "");
-  Instruction("\t.type", "le_handler", "@function", "");
-  Line("le_handler:");
-  Instruction("pushq", "%r12", "", "");
-  Instruction("pushq", "%rbp", "", "");
-  Instruction("movq", "%rsi", "%rbp", "");
-  Instruction("pushq", "%rbx", "", "");
-  Instruction("movq", "%rdi", "%rbx", "");
-  Instruction("call", "Bool..new", "", "");
-  Instruction("movq", "%rax", "%r12", "");
-  Instruction("testq", "%rbx", "%rbx", "");
-  Instruction("je", ".le_false", "", "");
-  Instruction("testq", "%rbp", "%rbp", "");
-  Instruction("je", ".le_false", "", "");
-  Instruction("movq", "0(%rbp)", "%rax", "");
-  Instruction("addq", "(%rbx)", "%rax", "");
-  Instruction("testq", "$-3", "%rax", "");
-  Instruction("je", ".le_num", "", "");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("cmpq", "%rbp", "%rbx", "");
-  Instruction("sete", "%dl", "", "");
-  Instruction("cmpq", "$6", "%rax", "");
-  Instruction("je", ".le_string", "", "");
-  Line(".le_cleanup:");
-  Instruction("movq", "%rdx", "24(%r12)", "");
-  Instruction("movq", "%r12", "%rax", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".le_num:");
-  Instruction("movq", "24(%rbp)", "%rax", "");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("cmpq", "%rax", "24(%rbx)", "");
-  Instruction("movq", "%r12", "%rax", "");
-  Instruction("setg", "%dl", "", "");
-  Instruction("movq", "%rdx", "24(%r12)", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".le_false:");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("movq", "%r12", "%rax", "");
-  Instruction("movq", "%rdx", "24(%r12)", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".le_string:");
-  Instruction("movq", "24(%rbp)", "%rsi", "");
-  Instruction("movq", "24(%rbx)", "%rdi", "");
-  Instruction("call", "strcmp", "", "");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("testl", "%eax", "%eax", "");
-  Instruction("setle", "%dl", "", "");
-  Instruction("jmp", ".le_cleanup", "", "");
-  Instruction("\t.size", "le_handler", ".-le_handler", "");
-  Instruction("\t.p2align 4", "", "", "");
-  Instruction("\t.globl", "eq_handler", "", "");
-  Instruction("\t.type", "eq_handler", "@function", "");
-  Line("eq_handler:");
-  Instruction("pushq", "%r12", "", "");
-  Instruction("pushq", "%rbp", "", "");
-  Instruction("movq", "%rsi", "%rbp", "");
-  Instruction("pushq", "%rbx", "", "");
-  Instruction("movq", "%rdi", "%rbx", "");
-  Instruction("call", "Bool..new", "", "");
-  Instruction("movq", "%rax", "%r12", "");
-  Instruction("testq", "%rbx", "%rbx", "");
-  Instruction("je", ".eq_false", "", "");
-  Instruction("testq", "%rbp", "%rbp", "");
-  Instruction("je", ".eq_false", "", "");
-  Instruction("movq", "0(%rbp)", "%rax", "");
-  Instruction("addq", "(%rbx)", "%rax", "");
-  Instruction("testq", "$-3", "%rax", "");
-  Instruction("je", ".eq_num", "", "");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("cmpq", "%rbp", "%rbx", "");
-  Instruction("sete", "%dl", "", "");
-  Instruction("cmpq", "$6", "%rax", "");
-  Instruction("je", ".eq_string", "", "");
-  Line(".eq_cleanup:");
-  Instruction("movq", "%rdx", "24(%r12)", "");
-  Instruction("movq", "%r12", "%rax", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".eq_num:");
-  Instruction("movq", "24(%rbp)", "%rax", "");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("cmpq", "%rax", "24(%rbx)", "");
-  Instruction("movq", "%r12", "%rax", "");
-  Instruction("setne", "%dl", "", "");
-  Instruction("movq", "%rdx", "24(%r12)", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".eq_false:");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("movq", "%r12", "%rax", "");
-  Instruction("movq", "%rdx", "24(%r12)", "");
-  Instruction("popq", "%rbx", "", "");
-  Instruction("popq", "%rbp", "", "");
-  Instruction("popq", "%r12", "", "");
-  Instruction("ret", "", "", "");
-  Instruction("\t.p2align 4,,10", "", "", "");
-  Instruction("\t.p2align 3", "", "", "");
-  Line(".eq_string:");
-  Instruction("movq", "24(%rbp)", "%rsi", "");
-  Instruction("movq", "24(%rbx)", "%rdi", "");
-  Instruction("call", "strcmp", "", "");
-  Instruction("xorl", "%edx", "%edx", "");
-  Instruction("testl", "%eax", "%eax", "");
-  Instruction("sete", "%dl", "", "");
-  Instruction("jmp", ".eq_cleanup", "", "");
-  Instruction("\t.size", "eq_handler", ".-eq_handler", "");
-]
+let string_new =
+  [
+    Line "Int..new:";
+    Instruction ("subq", "$8", "%rsp", "");
+    Instruction ("movl", "$4", "%esi", "");
+    Instruction ("movl", "$8", "%edi", "");
+    Instruction ("call", "calloc", "", "");
+    Line "\t#Set class tag, object size, vtable pointer";
+    Instruction ("movq", "$4", "(%rax)", "");
+    Instruction ("movq", "$4", "8(%rax)", "");
+    Instruction ("movq", "$String..vtable", "%r10", "");
+    Instruction ("movq", "%r10", "16(%rax)", "");
+    Instruction ("movq", "$empty.string", "%r10", "");
+    Instruction ("movq", "%r10", "24(%rax)", "");
+    Instruction ("addq", "$8", "%rsp", "");
+    Instruction ("ret", "", "", "");
+    Instruction (".size", "String..new", ".-String..new", "");
+  ]
+
+let handlers =
+  [
+    Line "lt_handler:";
+    Instruction ("pushq", "%r12", "", "");
+    Instruction ("movq", "%rsi", "%r12", "");
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("pushq", "%rbx", "", "");
+    Instruction ("movq", "%rdi", "%rbx", "");
+    Instruction ("call", "Bool..new", "", "");
+    Instruction ("movq", "%rax", "%rbp", "");
+    Instruction ("testq", "%rbx", "%rbx", "");
+    Instruction ("je", ".lt_false", "", "");
+    Instruction ("testq", "%r12", "%r12", "");
+    Instruction ("je", ".lt_false", "", "");
+    Instruction ("movq", "(%r12)", "%rdx", "");
+    Instruction ("addq", "(%rbx)", "%rdx", "");
+    Instruction ("testq", "$-3", "%rdx", "");
+    Instruction ("je", ".lt_num", "", "");
+    Instruction ("xorl", "%eax", "%eax", "");
+    Instruction ("cmpq", "$6", "%rdx", "");
+    Instruction ("je", ".lt_string", "", "");
+    Line ".lt_cleanup:";
+    Instruction ("movq", "%rax", "24(%rbp)", "");
+    Instruction ("movq", "%rbp", "%rax", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".lt_num:";
+    Instruction ("movq", "24(%r12)", "%rax", "");
+    Instruction ("cmpq", "%rax", "24(%rbx)", "");
+    Instruction ("setge", "%al", "", "");
+    Instruction ("movzbl", "%al", "%eax", "");
+    Instruction ("movq", "%rax", "24(%rbp)", "");
+    Instruction ("movq", "%rbp", "%rax", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".lt_false:";
+    Instruction ("xorl", "%eax", "%eax", "");
+    Instruction ("movq", "%rax", "24(%rbp)", "");
+    Instruction ("movq", "%rbp", "%rax", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".lt_string:";
+    Instruction ("movq", "24(%r12)", "%rsi", "");
+    Instruction ("movq", "24(%rbx)", "%rdi", "");
+    Instruction ("call", "strcmp", "", "");
+    Instruction ("shrl", "$31", "%eax", "");
+    Instruction ("jmp", ".lt_cleanup", "", "");
+    Instruction ("\t.size", "lt_handler", ".-lt_handler", "");
+    Instruction ("\t.p2align 4", "", "", "");
+    Instruction ("\t.globl", "le_handler", "", "");
+    Instruction ("\t.type", "le_handler", "@function", "");
+    Line "le_handler:";
+    Instruction ("pushq", "%r12", "", "");
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsi", "%rbp", "");
+    Instruction ("pushq", "%rbx", "", "");
+    Instruction ("movq", "%rdi", "%rbx", "");
+    Instruction ("call", "Bool..new", "", "");
+    Instruction ("movq", "%rax", "%r12", "");
+    Instruction ("testq", "%rbx", "%rbx", "");
+    Instruction ("je", ".le_false", "", "");
+    Instruction ("testq", "%rbp", "%rbp", "");
+    Instruction ("je", ".le_false", "", "");
+    Instruction ("movq", "0(%rbp)", "%rax", "");
+    Instruction ("addq", "(%rbx)", "%rax", "");
+    Instruction ("testq", "$-3", "%rax", "");
+    Instruction ("je", ".le_num", "", "");
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("cmpq", "%rbp", "%rbx", "");
+    Instruction ("sete", "%dl", "", "");
+    Instruction ("cmpq", "$6", "%rax", "");
+    Instruction ("je", ".le_string", "", "");
+    Line ".le_cleanup:";
+    Instruction ("movq", "%rdx", "24(%r12)", "");
+    Instruction ("movq", "%r12", "%rax", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".le_num:";
+    Instruction ("movq", "24(%rbp)", "%rax", "");
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("cmpq", "%rax", "24(%rbx)", "");
+    Instruction ("movq", "%r12", "%rax", "");
+    Instruction ("setg", "%dl", "", "");
+    Instruction ("movq", "%rdx", "24(%r12)", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".le_false:";
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("movq", "%r12", "%rax", "");
+    Instruction ("movq", "%rdx", "24(%r12)", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".le_string:";
+    Instruction ("movq", "24(%rbp)", "%rsi", "");
+    Instruction ("movq", "24(%rbx)", "%rdi", "");
+    Instruction ("call", "strcmp", "", "");
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("testl", "%eax", "%eax", "");
+    Instruction ("setle", "%dl", "", "");
+    Instruction ("jmp", ".le_cleanup", "", "");
+    Instruction ("\t.size", "le_handler", ".-le_handler", "");
+    Instruction ("\t.p2align 4", "", "", "");
+    Instruction ("\t.globl", "eq_handler", "", "");
+    Instruction ("\t.type", "eq_handler", "@function", "");
+    Line "eq_handler:";
+    Instruction ("pushq", "%r12", "", "");
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rsi", "%rbp", "");
+    Instruction ("pushq", "%rbx", "", "");
+    Instruction ("movq", "%rdi", "%rbx", "");
+    Instruction ("call", "Bool..new", "", "");
+    Instruction ("movq", "%rax", "%r12", "");
+    Instruction ("testq", "%rbx", "%rbx", "");
+    Instruction ("je", ".eq_false", "", "");
+    Instruction ("testq", "%rbp", "%rbp", "");
+    Instruction ("je", ".eq_false", "", "");
+    Instruction ("movq", "0(%rbp)", "%rax", "");
+    Instruction ("addq", "(%rbx)", "%rax", "");
+    Instruction ("testq", "$-3", "%rax", "");
+    Instruction ("je", ".eq_num", "", "");
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("cmpq", "%rbp", "%rbx", "");
+    Instruction ("sete", "%dl", "", "");
+    Instruction ("cmpq", "$6", "%rax", "");
+    Instruction ("je", ".eq_string", "", "");
+    Line ".eq_cleanup:";
+    Instruction ("movq", "%rdx", "24(%r12)", "");
+    Instruction ("movq", "%r12", "%rax", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".eq_num:";
+    Instruction ("movq", "24(%rbp)", "%rax", "");
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("cmpq", "%rax", "24(%rbx)", "");
+    Instruction ("movq", "%r12", "%rax", "");
+    Instruction ("setne", "%dl", "", "");
+    Instruction ("movq", "%rdx", "24(%r12)", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".eq_false:";
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("movq", "%r12", "%rax", "");
+    Instruction ("movq", "%rdx", "24(%r12)", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Instruction ("\t.p2align 4,,10", "", "", "");
+    Instruction ("\t.p2align 3", "", "", "");
+    Line ".eq_string:";
+    Instruction ("movq", "24(%rbp)", "%rsi", "");
+    Instruction ("movq", "24(%rbx)", "%rdi", "");
+    Instruction ("call", "strcmp", "", "");
+    Instruction ("xorl", "%edx", "%edx", "");
+    Instruction ("testl", "%eax", "%eax", "");
+    Instruction ("sete", "%dl", "", "");
+    Instruction ("jmp", ".eq_cleanup", "", "");
+    Instruction ("\t.size", "eq_handler", ".-eq_handler", "");
+  ]
+
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * Hashtbl.length var_locations in
   Hashtbl.add var_locations var_name fp_offset
@@ -498,7 +465,7 @@ let get_var_addr (var_name : string) : string =
       var_name
 
 (** Method to convert a TAC element to assembly code *)
-let tac_to_as (tac : tac_elem) =
+let tac_to_as (tac : tac_elem) cur_method =
   match tac.operand with
   (****************** TODO ******************)
   | Assignment ->
@@ -544,7 +511,7 @@ let tac_to_as (tac : tac_elem) =
           ]
       (* Push all variables onto stack *)
       (* Push all onto stack *)
-      (* [Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
+      (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
       (*Printf.fprintf out_file "\tcallq %s\n" tac.arg1*)
   | Comment ->
       [ Line ("#" ^ tac.arg1) ]
@@ -556,20 +523,32 @@ let tac_to_as (tac : tac_elem) =
   (****************** TODO ******************)
   | Return ->
       [
-        Instruction ("movq", "%rbp", "%rsp", "");
-        Instruction ("popq", "%rbp", "%rsp", "");
-        Instruction ("ret", "", "", "");
+        (*Instruction ("movq", "%rbp", "%rsp", "");*)
+        (*Instruction ("popq", "%rbp", "%rsp", "");*)
+        (*Instruction ("ret", "", "", "");*)
+        Instruction ("jmp", "$." ^ cur_method ^ ".end", "", "");
       ]
   (****************** TODO ******************)
   | LetNoInit ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      [ Instruction ("movq", "$0", result, "") ]
+      [
+        (*Instruction ("movq", "$0", result, "");*)
+        Instruction ("pushq", "%rbp", "", "");
+        Instruction ("pushq", "%rax", "", "");
+        Instruction ("call", "$" ^ tac.arg2 ^ "..new", "", "");
+        Instruction ("movq", "%rax", "%r10", "");
+        Instruction ("popq", "%rax", "", "");
+        Instruction ("movq", "%r10", result, "");
+      ]
   (****************** TODO ******************)
   | Ident_Expr s ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      [ Instruction ("movq", get_var_addr s, result, "") ]
+      [
+        Instruction ("movq", get_var_addr s, "%rax", "");
+        Instruction ("movq", "%rax", result, "");
+       ]
   (*| New *)
   (* | Isvoid *)
   | Plus ->
@@ -577,6 +556,7 @@ let tac_to_as (tac : tac_elem) =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+
       [
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
@@ -597,6 +577,7 @@ let tac_to_as (tac : tac_elem) =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+
       [
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
@@ -617,6 +598,7 @@ let tac_to_as (tac : tac_elem) =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+
       [
         Instruction ("movq", arg2, "%rcx", "");
         Instruction ("movq", "24(%rcx)", "%rcx", "");
@@ -639,112 +621,106 @@ let tac_to_as (tac : tac_elem) =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      elems
-      @ [
-          Instruction ("movq", arg1, "%rax", "");
-          Instruction ("movq", "24(%rax)", "%rax", "");
-          Instruction ("movq", arg2, "%rdx", "");
-          Instruction ("movq", "24(%rdx)", "%rdx", "");
-          Instruction ("imull", "%edx", "%eax", "");
-          Instruction ("pushq", "%rbp", "", "");
-          Instruction ("pushq", "%rax", "", "");
-          Instruction ("call", "$Int..new", "", "");
-          Instruction ("movq", "%rax", "%r10", "");
-          Instruction ("popq", "%rax", "", "");
-          Instruction ("popq", "%rbp", "", "");
-          Instruction ("movq", "%rax", "24(%r10)", "");
-          Instruction ("movq", "%r10", result, "");
-        ]
+      [
+        Instruction ("movq", arg1, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("movq", arg2, "%rdx", "");
+        Instruction ("movq", "24(%rdx)", "%rdx", "");
+        Instruction ("imull", "%edx", "%eax", "");
+        Instruction ("pushq", "%rbp", "", "");
+        Instruction ("pushq", "%rax", "", "");
+        Instruction ("call", "$Int..new", "", "");
+        Instruction ("movq", "%rax", "%r10", "");
+        Instruction ("popq", "%rax", "", "");
+        Instruction ("popq", "%rbp", "", "");
+        Instruction ("movq", "%rax", "24(%r10)", "");
+        Instruction ("movq", "%r10", result, "");
+      ]
   | LessThan ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      elems
-      @ [
-          Instruction ("pushq", "%rdi", "", "");
-          Instruction ("pushq", "%rsi", "", "");
-          Instruction ("movq", arg1, "%rdi", "");
-          Instruction ("movq", arg2, "%rsi", "");
-          Instruction ("call", "lt_handler", "", "");
-          Instruction ("popq", "%rsi", "", "");
-          Instruction ("popq", "%rdi", "", "");
-          Instruction ("movq", "%rax", result, "");
-        ]
+      [
+        Instruction ("pushq", "%rdi", "", "");
+        Instruction ("pushq", "%rsi", "", "");
+        Instruction ("movq", arg1, "%rdi", "");
+        Instruction ("movq", arg2, "%rsi", "");
+        Instruction ("call", "lt_handler", "", "");
+        Instruction ("popq", "%rsi", "", "");
+        Instruction ("popq", "%rdi", "", "");
+        Instruction ("movq", "%rax", result, "");
+      ]
   | LessEqual ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      elems
-      @ [
-          Instruction ("pushq", "%rdi", "", "");
-          Instruction ("pushq", "%rsi", "", "");
-          Instruction ("movq", arg1, "%rdi", "");
-          Instruction ("movq", arg2, "%rsi", "");
-          Instruction ("call", "le_handler", "", "");
-          Instruction ("popq", "%rsi", "", "");
-          Instruction ("popq", "%rdi", "", "");
-          Instruction ("movq", "%rax", result, "");
-        ]
+      [
+        Instruction ("pushq", "%rdi", "", "");
+        Instruction ("pushq", "%rsi", "", "");
+        Instruction ("movq", arg1, "%rdi", "");
+        Instruction ("movq", arg2, "%rsi", "");
+        Instruction ("call", "le_handler", "", "");
+        Instruction ("popq", "%rsi", "", "");
+        Instruction ("popq", "%rdi", "", "");
+        Instruction ("movq", "%rax", result, "");
+      ]
   | Equal ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      elems
-      @ [
-          Instruction ("pushq", "%rdi", "", "");
-          Instruction ("pushq", "%rsi", "", "");
-          Instruction ("movq", arg1, "%rdi", "");
-          Instruction ("movq", arg2, "%rsi", "");
-          Instruction ("call", "eq_handler", "", "");
-          Instruction ("popq", "%rsi", "", "");
-          Instruction ("popq", "%rdi", "", "");
-          Instruction ("movq", "%rax", result, "");
-        ]
+      [
+        Instruction ("pushq", "%rdi", "", "");
+        Instruction ("pushq", "%rsi", "", "");
+        Instruction ("movq", arg1, "%rdi", "");
+        Instruction ("movq", arg2, "%rsi", "");
+        Instruction ("call", "eq_handler", "", "");
+        Instruction ("popq", "%rsi", "", "");
+        Instruction ("popq", "%rdi", "", "");
+        Instruction ("movq", "%rax", result, "");
+      ]
   | Not ->
       let arg1 = get_var_addr tac.arg1 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      elems
-      @ [
-          Instruction ("movq", arg1, "%rax", "");
-          Instruction ("movq", "24(%rax)", "%rax", "");
-          Instruction ("testq", "%rax", "%rax", "");
-          Instruction ("movq", "$0", "%rdx", "");
-          Instruction ("cmoveq", "$1", "%rdx", "");
-          Instruction ("pushq", "%rbp", "", "");
-          Instruction ("pushq", "%rdx", "", "");
-          Instruction ("call", "$Bool..new", "", "");
-          Instruction ("popq", "%rdx", "", "");
-          Instruction ("popq", "%rbp", "", "");
-          Instruction ("movq", "%rdx", "24(%rax)", "");
-          Instruction ("movq", "%rax", result, "");
-        ]
+      [
+        Instruction ("movq", arg1, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("testq", "%rax", "%rax", "");
+        Instruction ("movq", "$0", "%rdx", "");
+        Instruction ("cmoveq", "$1", "%rdx", "");
+        Instruction ("pushq", "%rbp", "", "");
+        Instruction ("pushq", "%rdx", "", "");
+        Instruction ("call", "$Bool..new", "", "");
+        Instruction ("popq", "%rdx", "", "");
+        Instruction ("popq", "%rbp", "", "");
+        Instruction ("movq", "%rdx", "24(%rax)", "");
+        Instruction ("movq", "%rax", result, "");
+      ]
   | Negate ->
       let arg1 = get_var_addr tac.arg1 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      elems
-      @ [
-          Instruction ("movq", arg1, "%rax", "");
-          Instruction ("movq", "24(%rax)", "%rax", "");
-          Instruction ("notq", "%rax", "", "");
-          Instruction ("pushq", "%rbp", "", "");
-          Instruction ("pushq", "%rax", "", "");
-          Instruction ("call", "$Int..new", "", "");
-          Instruction ("movq", "%rax", "%r10", "");
-          Instruction ("popq", "%rax", "", "");
-          Instruction ("popq", "%rbp", "", "");
-          Instruction ("movq", "%rax", "24(%r10)", "");
-          Instruction ("movq", "%r10", result, "");
-        ]
+      [
+        Instruction ("movq", arg1, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("notq", "%rax", "", "");
+        Instruction ("pushq", "%rbp", "", "");
+        Instruction ("pushq", "%rax", "", "");
+        Instruction ("call", "$Int..new", "", "");
+        Instruction ("movq", "%rax", "%r10", "");
+        Instruction ("popq", "%rax", "", "");
+        Instruction ("popq", "%rbp", "", "");
+        Instruction ("movq", "%rax", "24(%r10)", "");
+        Instruction ("movq", "%r10", result, "");
+      ]
   | Int_Constant ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -769,6 +745,7 @@ let tac_to_as (tac : tac_elem) =
       | None ->
           string_counter := !string_counter + 1;
           Hashtbl.add string_map tac.arg1 !string_counter;
+
           [
             Instruction ("call", "$String..new", "", "");
             Instruction
@@ -780,15 +757,14 @@ let tac_to_as (tac : tac_elem) =
             (*Instruction*)
             (*("movq", ".string" ^ string_of_int !string_counter, result, "");*)
           ]
-      (* This is all we do because they're emitted later :) *))
-  (* This is the later but that's another stage; needs to be NOT just in an expression lm ao*)
-  (*Printf.fprintf out_file "\t%s\n" (".secton\t.rodata");*)
-  (*Printf.fprintf out_file "%s\n" ("string" ^ string_of_int(!string_counter) ^ ":");*)
-  (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"");*)
-  (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"")*)
-
-
-   | Boolean_Constant ->
+      (* This is all we do because they're emitted later :) *)
+      (* This is the later but that's another stage; needs to be NOT just in an expression lm ao*)
+      (*Printf.fprintf out_file "\t%s\n" (".secton\t.rodata");*)
+      (*Printf.fprintf out_file "%s\n" ("string" ^ string_of_int(!string_counter) ^ ":");*)
+      (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"");*)
+      (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"")*)
+      )
+  | Boolean_Constant ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       if tac.arg1 = "true" then
@@ -798,12 +774,11 @@ let tac_to_as (tac : tac_elem) =
           Instruction ("movq", "%rax", result, "");
         ]
       else
-
-      elems @ [
-        Instruction ("call", "$Bool..new", "", "");
-        Instruction ("movq", "$0", "24(%rax)", "");
-        Instruction ("movq", "%rax", result, "")
-      ]
+        [
+          Instruction ("call", "$Bool..new", "", "");
+          Instruction ("movq", "$0", "24(%rax)", "");
+          Instruction ("movq", "%rax", result, "");
+        ]
   | _ -> assert false
 
 let tac_list_to_asm lst = List.map tac_to_as lst
