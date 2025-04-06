@@ -291,13 +291,6 @@ and get_formal_list () = List.init (read_int ()) (fun _ -> get_formal ())
         Output the name and then \n
     If this method is inherited from a parent class and not overriden, output the name of the ultimate parent class that defined the method body expression and then \n. Otherwise, output the name of the current class and then \n.
     Output the method body expression.
-    
-and ast_method = {
-  name : identifier;
-  method_formals : formal list;
-  type_name : identifier;
-  method_expr : expr;
-}
 *)
 let parse_class_map () : class_map_elem list =
   let _ = read () in

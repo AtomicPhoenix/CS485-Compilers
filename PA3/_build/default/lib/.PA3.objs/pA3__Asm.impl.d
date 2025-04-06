@@ -1,1 +1,1 @@
-lib/asm.ml: Hashtbl Parser Print Printf String
+lib/asm.ml: Hashtbl List Parser Print Printf String

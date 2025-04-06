@@ -111,11 +111,11 @@ let tac_to_as (tac : tac_elem) elems =
   | Assignment ->
       let result = get_var_addr tac.result in
       let arg1 = get_var_addr tac.arg1 in
-      elems @ [
-        Instruction ("movq", arg1, "%rax", "");
-        Instruction ("movq", "%rax", result, "")
-      ]
-    
+      elems
+      @ [
+          Instruction ("movq", arg1, "%rax", "");
+          Instruction ("movq", "%rax", result, "");
+        ]
   | Bt ->
       let arg1 = get_var_addr tac.arg1 in
       elems
@@ -173,16 +173,11 @@ let tac_to_as (tac : tac_elem) elems =
   | LetNoInit ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      elems @ [
-        Instruction ("movq", "$0", result, "");
-      ]
-    
+      elems @ [ Instruction ("movq", "$0", result, "") ]
   | Ident_Expr s ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      elems @ [
-        Instruction ("movq", get_var_addr s, result, "");
-      ]
+      elems @ [ Instruction ("movq", get_var_addr s, result, "") ]
   (*| New *)
   (* | Isvoid *)
   | Plus ->
@@ -295,10 +290,11 @@ let tac_to_as (tac : tac_elem) elems =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       let arg1 = get_var_addr tac.arg1 in
-      elems @ [
-        Instruction ("movq", arg1, "%rax", "");
-        Instruction ("movq", "%rax", result, "")
-      ]
+      elems
+      @ [
+          Instruction ("movq", arg1, "%rax", "");
+          Instruction ("movq", "%rax", result, "");
+        ]
   | String_Constant -> (
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -316,24 +312,26 @@ let tac_to_as (tac : tac_elem) elems =
               Instruction
                 ("movq", ".string" ^ string_of_int !string_counter, result, "");
             ]
-      (* This is all we do because they're emitted later :) *))
-  (* This is the later but that's another stage; needs to be NOT just in an expression lm ao*)
-  (*Printf.fprintf out_file "\t%s\n" (".secton\t.rodata");*)
-  (*Printf.fprintf out_file "%s\n" ("string" ^ string_of_int(!string_counter) ^ ":");*)
-  (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"");*)
-  (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"")*)
-
-   | Boolean_Constant ->
+      (* This is all we do because they're emitted later :) *)
+      (* This is the later but that's another stage; needs to be NOT just in an expression lm ao*)
+      (*Printf.fprintf out_file "\t%s\n" (".secton\t.rodata");*)
+      (*Printf.fprintf out_file "%s\n" ("string" ^ string_of_int(!string_counter) ^ ":");*)
+      (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"");*)
+      (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"")*)
+      )
+  | Boolean_Constant ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       if tac.arg1 = "true" then
-      elems @ [
-        Instruction ("movq", "$1", "%rax", "");
-        Instruction ("movq", "%rax", result, "")
-      ]
+        elems
+        @ [
+            Instruction ("movq", "$1", "%rax", "");
+            Instruction ("movq", "%rax", result, "");
+          ]
       else
-      elems @ [
-        Instruction ("movq", "$0", "%rax", "");
-        Instruction ("movq", "%rax", result, "")
-      ]
+        elems
+        @ [
+            Instruction ("movq", "$0", "%rax", "");
+            Instruction ("movq", "%rax", result, "");
+          ]
   | _ -> assert false
