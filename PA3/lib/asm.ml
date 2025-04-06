@@ -232,7 +232,7 @@ let in_int =
     Instruction ("popq", "%rbx", "", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "IO.in_int", ".-IO.in_int", "");
+    (*Instruction (".size", "IO.in_int", ".-IO.in_int", "");*)
   ]
 
 let out_int =
@@ -248,7 +248,7 @@ let out_int =
     Instruction ("call", "printf", "", "");
     Instruction ("movq", "rbx", "%rax", "");
     Instruction ("popq", "rbx", "", "");
-    Instruction (".size", "IO.out_int", ".-IO.out_int", "");
+    (*Instruction (".size", "IO.out_int", ".-IO.out_int", "");*)
   ]
 
 let intrinsic_funcs = [ in_int; out_int ]
@@ -329,7 +329,7 @@ let object_new =
     Instruction ("movq", "%r10", "16(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "Object..new", ".-Object..new", "");
+    (*Instruction (".size", "Object..new", ".-Object..new", "");*)
   ]
 
 let () = Hashtbl.add class_id_map "String" 4
@@ -350,7 +350,7 @@ let string_new =
     Instruction ("movq", "%r10", "24(%rax)", "");
     Instruction ("addq", "$8", "%rsp", "");
     Instruction ("ret", "", "", "");
-    Instruction (".size", "String..new", ".-String..new", "");
+    (*Instruction (".size", "String..new", ".-String..new", "");*)
   ]
 
 let new_funcs =
@@ -565,38 +565,40 @@ let get_var_addr (var_name : string) : string =
 
 let pusha =
   [
-    Instruction ("push rbx ", "", "", "");
-    Instruction ("push rbp ", "", "", "");
-    Instruction ("push rdi ", "", "", "");
-    Instruction ("push rsi ", "", "", "");
-    Instruction ("push rcx ", "", "", "");
-    Instruction ("push rdx ", "", "", "");
-    Instruction ("push r8 ", "", "", "");
-    Instruction ("push r9 ", "", "", "");
-    Instruction ("push r10 ", "", "", "");
-    Instruction ("push r11 ", "", "", "");
-    Instruction ("push r12 ", "", "", "");
-    Instruction ("push r13 ", "", "", "");
-    Instruction ("push r14 ", "", "", "");
-    Instruction ("push r15 ", "", "", "");
+    Instruction ("pushq", "%rax", "", "");
+    Instruction ("pushq", "%rbx", "", "");
+    Instruction ("pushq", "%rbp", "", "");
+    Instruction ("pushq", "%rdi", "", "");
+    Instruction ("pushq", "%rsi", "", "");
+    Instruction ("pushq", "%rcx", "", "");
+    Instruction ("pushq", "%rdx", "", "");
+    Instruction ("pushq", "%r8", "", "");
+    Instruction ("pushq", "%r9", "", "");
+    Instruction ("pushq", "%r10", "", "");
+    Instruction ("pushq", "%r11", "", "");
+    Instruction ("pushq", "%r12", "", "");
+    Instruction ("pushq", "%r13", "", "");
+    Instruction ("pushq", "%r14", "", "");
+    Instruction ("pushq", "%r15", "", "");
   ]
 
 let popa =
   [
-    Instruction ("pop rbx ", "", "", "");
-    Instruction ("pop rbp ", "", "", "");
-    Instruction ("pop rdi ", "", "", "");
-    Instruction ("pop rsi ", "", "", "");
-    Instruction ("pop rcx ", "", "", "");
-    Instruction ("pop rdx ", "", "", "");
-    Instruction ("pop r8 ", "", "", "");
-    Instruction ("pop r9 ", "", "", "");
-    Instruction ("pop r10 ", "", "", "");
-    Instruction ("pop r11 ", "", "", "");
-    Instruction ("pop r12 ", "", "", "");
-    Instruction ("pop r13 ", "", "", "");
-    Instruction ("pop r14 ", "", "", "");
-    Instruction ("pop r15 ", "", "", "");
+    Instruction ("popq", "%rax", "", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%rdi", "", "");
+    Instruction ("popq", "%rsi", "", "");
+    Instruction ("popq", "%rcx", "", "");
+    Instruction ("popq", "%rdx", "", "");
+    Instruction ("popq", "%r8", "", "");
+    Instruction ("popq", "%r9", "", "");
+    Instruction ("popq", "%r10", "", "");
+    Instruction ("popq", "%r11", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("popq", "%r13", "", "");
+    Instruction ("popq", "%r14", "", "");
+    Instruction ("popq", "%r15", "", "");
   ]
 
 (** Method to convert a TAC element to assembly code *)
@@ -661,7 +663,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         (*Instruction ("movq", "%rbp", "%rsp", "");*)
         (*Instruction ("popq", "%rbp", "%rsp", "");*)
         (*Instruction ("ret", "", "", "");*)
-        Instruction ("jmp", "$." ^ cur_method ^ ".end", "", "");
+        Instruction ("jmp", "." ^ cur_method ^ ".end", "", "");
       ]
   | LetNoInit ->
       add_var_addr tac.result;
@@ -826,11 +828,12 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
         Instruction ("testq", "%rax", "%rax", "");
-        Instruction ("movq", "$0", "%rdx", "");
-        Instruction ("cmoveq", "$1", "%rdx", "");
+        Instruction ("movl", "$1", "%eax", "");
+        Instruction ("movl", "$0", "%edx", "");
+        Instruction ("cmovel", "%eax", "%edx", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rdx", "", "");
-        Instruction ("call", "$Bool..new", "", "");
+        Instruction ("call", "Bool..new", "", "");
         Instruction ("popq", "%rdx", "", "");
         Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rdx", "24(%rax)", "");
@@ -869,7 +872,7 @@ let tac_to_as (tac : tac_elem) cur_method =
       match Hashtbl.find_opt string_map tac.arg1 with
       | Some str_id ->
           [
-            Instruction ("call", "$String..new", "", "");
+            Instruction ("call", "String..new", "", "");
             Instruction
               ("movq", "$.string" ^ string_of_int str_id, "24(%rax)", "");
             Instruction ("movq", "%rax", result, "");
@@ -880,7 +883,7 @@ let tac_to_as (tac : tac_elem) cur_method =
           Hashtbl.add string_map tac.arg1 !string_counter;
 
           [
-            Instruction ("call", "$String..new", "", "");
+            Instruction ("call", "String..new", "", "");
             Instruction
               ( "movq",
                 "$.string" ^ string_of_int !string_counter,
@@ -902,13 +905,13 @@ let tac_to_as (tac : tac_elem) cur_method =
       let result = get_var_addr tac.result in
       if tac.arg1 = "true" then
         [
-          Instruction ("call", "$Bool..new", "", "");
+          Instruction ("call", "Bool..new", "", "");
           Instruction ("movq", "$1", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
         ]
       else
         [
-          Instruction ("call", "$Bool..new", "", "");
+          Instruction ("call", "Bool..new", "", "");
           Instruction ("movq", "$0", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
         ]
