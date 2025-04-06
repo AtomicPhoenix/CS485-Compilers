@@ -98,6 +98,7 @@ let create_vtable (itm : implementation_map_elem) : vtable =
       itm.methods
   in
   string_counter := !string_counter + 1;
+  Hashtbl.add string_map itm.name !string_counter;
   { name_id = name; name_string_id = !string_counter; methods = funcs }
 
 let create_vtables () =
@@ -109,6 +110,11 @@ let create_vtables () =
     tables
 
 let create_default_vtables () =
+  Hashtbl.add string_map "Bool" 0;
+  Hashtbl.add string_map "IO" 1;
+  Hashtbl.add string_map "Int" 2;
+  Hashtbl.add string_map "Object" 3;
+  Hashtbl.add string_map "String" 4;
   [
     {
       name_id = "Bool";
@@ -116,9 +122,9 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "Bool"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
         ];
     };
     {
@@ -127,13 +133,13 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "IO"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
           { type_name = "IO"; method_name = "in_int" };
-          { type_name = "IO"; method_name = "in_string" };
+          (*{ type_name = "IO"; method_name = "in_string" };*)
           { type_name = "IO"; method_name = "out_int" };
-          { type_name = "IO"; method_name = "out_string" };
+          (*{ type_name = "IO"; method_name = "out_string" };*)
         ];
     };
     {
@@ -142,9 +148,9 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "Int"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
         ];
     };
     {
@@ -153,9 +159,9 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "Object"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
         ];
     };
     {
@@ -164,12 +170,12 @@ let create_default_vtables () =
       methods =
         [
           { type_name = "String"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
-          { type_name = "String"; method_name = "concat" };
-          { type_name = "String"; method_name = "length" };
-          { type_name = "String"; method_name = "substr" };
+          (*{ type_name = "Object"; method_name = "abort" };*)
+          (*{ type_name = "Object"; method_name = "copy" };*)
+          (*{ type_name = "Object"; method_name = "type_name" };*)
+          (*{ type_name = "String"; method_name = "concat" };*)
+          (*{ type_name = "String"; method_name = "length" };*)
+          (*{ type_name = "String"; method_name = "substr" };*)
         ];
     };
   ]
