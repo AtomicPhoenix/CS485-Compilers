@@ -120,43 +120,6 @@ let make_asm_class (c : class_map_elem) =
     attributes = attrs;
   }
 
-(*TODO: make this make and return an int object*)
-(*let in_int =*)
-(*"\n\*)
-(*IO.in_int:\n\*)
-(*\tpushq\t%rbx\n\*)
-(*\tmovl\t$4096, %esi\n\*)
-(*\tsubq\t$4112, %rsp\n\*)
-(*\tmovq\tstdin(%rip), %rdx\n\*)
-(*\tleaq\t16(%rsp), %rbx\n\*)
-(*\tmovq\t%rbx, %rdi\n\*)
-(*\tcall\tfgets\n\*)
-(*\tleaq\t8(%rsp), %rdx\n\*)
-(*\tmovq\t%rbx, %rdi\n\*)
-(*\txorl\t%eax, %eax\n\*)
-(*\tmovq\t$percent.ld, %rsi\n\*)
-(*\tcall\tsscanf\n\*)
-(*\tmovq\t8(%rsp), %rax\n\*)
-(*\tmovl\t$2147483648, %edx\n\*)
-(*\tmovl\t$4294967295, %ecx\n\*)
-(*\taddq\t%rax, %rdx\n\*)
-(*\tcmpq\t%rdx, %rcx\n\*)
-(*\tmovl\t$0, %edx\n\*)
-(*\tcmovb\t%rdx, %rax\n\*)
-(*\taddq\t$4112, %rsp\n\*)
-(*\tpopq\t%rbx\n\*)
-(*\tret\n\*)
-(*\t.size\tin_int, .-in_int\n"*)
-
-(*let out_int =*)
-(*"\n\*)
-(*IO.out_int:*)
-(*\tmovq\t24(%rsi), %rsi\n\*)
-(*\tmovl\t$percent.d, %rdi\n\*)
-(*\txorl\t%eax, %eax\n\*)
-(*\tjmp\tprintf\n\*)
-(*\t.size\tIO.out_int, .-IO.out_int*)
-(*"*)
 let in_int =
   [
     Line "IO.in_int:";
@@ -539,7 +502,7 @@ let popa () =
   ]
 
 (** Method to convert a TAC element to assembly code *)
-let tac_to_as (tac : tac_elem) =
+let tac_to_as (tac : tac_elem) cur_method =
   match tac.operand with
   (****************** TODO ******************)
   | Assignment ->
@@ -584,7 +547,7 @@ let tac_to_as (tac : tac_elem) =
         @ popa ()
       (* Push all variables onto stack *)
       (* Push all onto stack *)
-      (* [Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
+      (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
       (*Printf.fprintf out_file "\tcallq %s\n" tac.arg1*)
   | Comment ->
       [ Line ("#" ^ tac.arg1) ]
@@ -596,20 +559,32 @@ let tac_to_as (tac : tac_elem) =
   (****************** TODO ******************)
   | Return ->
       [
-        Instruction ("movq", "%rbp", "%rsp", "");
-        Instruction ("popq", "%rbp", "", "");
-        Instruction ("ret", "", "", "");
+        (*Instruction ("movq", "%rbp", "%rsp", "");*)
+        (*Instruction ("popq", "%rbp", "%rsp", "");*)
+        (*Instruction ("ret", "", "", "");*)
+        Instruction ("jmp", "$." ^ cur_method ^ ".end", "", "");
       ]
   (****************** TODO ******************)
   | LetNoInit ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      [ Instruction ("movq", "$0", result, "") ]
+      [
+        (*Instruction ("movq", "$0", result, "");*)
+        Instruction ("pushq", "%rbp", "", "");
+        Instruction ("pushq", "%rax", "", "");
+        Instruction ("call", "$" ^ tac.arg2 ^ "..new", "", "");
+        Instruction ("movq", "%rax", "%r10", "");
+        Instruction ("popq", "%rax", "", "");
+        Instruction ("movq", "%r10", result, "");
+      ]
   (****************** TODO ******************)
   | Ident_Expr s ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      [ Instruction ("movq", get_var_addr s, result, "") ]
+      [
+        Instruction ("movq", get_var_addr s, "%rax", "");
+        Instruction ("movq", "%rax", result, "");
+      ]
   (*| New *)
   (* | Isvoid *)
   | Plus ->
@@ -617,6 +592,7 @@ let tac_to_as (tac : tac_elem) =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+
       [
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
@@ -637,6 +613,7 @@ let tac_to_as (tac : tac_elem) =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+
       [
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
@@ -657,6 +634,7 @@ let tac_to_as (tac : tac_elem) =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+
       [
         Instruction ("movq", arg2, "%rcx", "");
         Instruction ("movq", "24(%rcx)", "%rcx", "");
@@ -802,6 +780,7 @@ let tac_to_as (tac : tac_elem) =
       | None ->
           string_counter := !string_counter + 1;
           Hashtbl.add string_map tac.arg1 !string_counter;
+
           [
             Instruction ("call", "$String..new", "", "");
             Instruction
@@ -815,7 +794,7 @@ let tac_to_as (tac : tac_elem) =
           ]
       (* This is all we do because they're emitted later :) *)
       (* This is the later but that's another stage; needs to be NOT just in an expression lm ao*)
-      (*Printf.fprintf out_file "\t%s\n" (".secton\t.rodata";*)
+      (*Printf.fprintf out_file "\t%s\n" (".secton\t.rodata");*)
       (*Printf.fprintf out_file "%s\n" ("string" ^ string_of_int(!string_counter) ^ ":");*)
       (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"");*)
       (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"")*)
