@@ -102,24 +102,24 @@ let operand_to_string (operand : tac_operand) : string =
 
 let print_tac_elem t =
   match t.operand with
-  | Label -> Printf.fprintf tac_file "label %s\n" t.arg1
-  | Jmp -> Printf.fprintf tac_file "jmp %s\n" t.arg1
-  | Return -> Printf.fprintf tac_file "return %s\n" t.arg1
-  | Comment -> Printf.fprintf tac_file "comment %s\n" t.arg1
-  | Bt -> Printf.fprintf tac_file "bt %s %s\n" t.arg1 t.arg2
-  | Assignment -> Printf.fprintf tac_file "%s <- %s\n" t.result t.arg1
-  | LetNoInit -> Printf.fprintf tac_file "%s <- %s %s\n" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.fprintf tac_file "%s <- %s\n" t.result t.arg1
+  | Label -> Printf.fprintf out_file "label %s\n" t.arg1
+  | Jmp -> Printf.fprintf out_file "jmp %s\n" t.arg1
+  | Return -> Printf.fprintf out_file "return %s\n" t.arg1
+  | Comment -> Printf.fprintf out_file "comment %s\n" t.arg1
+  | Bt -> Printf.fprintf out_file "bt %s %s\n" t.arg1 t.arg2
+  | Assignment -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
+  | LetNoInit -> Printf.fprintf out_file "%s <- %s %s\n" t.result t.arg1 t.arg2
+  | String_Constant -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
   | _ ->
       if t.arg2 = "" && t.arg1 = "" then
-        Printf.fprintf tac_file "%s <- %s\n" t.result
+        Printf.fprintf out_file "%s <- %s\n" t.result
           (operand_to_string t.operand)
       else if t.arg2 = "" then
-        Printf.fprintf tac_file "%s <- %s %s\n" t.result
+        Printf.fprintf out_file "%s <- %s %s\n" t.result
           (operand_to_string t.operand)
           t.arg1
       else
-        Printf.fprintf tac_file "%s <- %s %s %s\n" t.result
+        Printf.fprintf out_file "%s <- %s %s %s\n" t.result
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
