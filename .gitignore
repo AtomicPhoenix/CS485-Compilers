@@ -8,3 +8,4 @@ PA2/bins
 **/_build/
 PA3/main.ml
 PA3/program
+testing/test_cases/program
