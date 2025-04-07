@@ -597,7 +597,7 @@ let handlers =
     Line ".lt_num:";
     Instruction ("movq", "24(%r12)", "%rax", "");
     Instruction ("cmpq", "%rax", "24(%rbx)", "");
-    Instruction ("setge", "%al", "", "");
+    Instruction ("setl", "%al", "", "");
     Instruction ("movzbl", "%al", "%eax", "");
     Instruction ("movq", "%rax", "24(%rbp)", "");
     Instruction ("movq", "%rbp", "%rax", "");
@@ -662,7 +662,7 @@ let handlers =
     Instruction ("xorl", "%edx", "%edx", "");
     Instruction ("cmpq", "%rax", "24(%rbx)", "");
     Instruction ("movq", "%r12", "%rax", "");
-    Instruction ("setg", "%dl", "", "");
+    Instruction ("setle", "%dl", "", "");
     Instruction ("movq", "%rdx", "24(%r12)", "");
     Instruction ("popq", "%rbx", "", "");
     Instruction ("popq", "%rbp", "", "");
@@ -727,7 +727,7 @@ let handlers =
     Instruction ("xorl", "%edx", "%edx", "");
     Instruction ("cmpq", "%rax", "24(%rbx)", "");
     Instruction ("movq", "%r12", "%rax", "");
-    Instruction ("setne", "%dl", "", "");
+    Instruction ("sete", "%dl", "", "");
     Instruction ("movq", "%rdx", "24(%r12)", "");
     Instruction ("popq", "%rbx", "", "");
     Instruction ("popq", "%rbp", "", "");
@@ -775,28 +775,28 @@ let pusha =
     Instruction ("pushq", "%rdi", "", "");
     Instruction ("pushq", "%rsi", "", "");
     Instruction ("pushq", "%rcx", "", "");
-    Instruction ("pushq", "%rdx", "", "");
-    Instruction ("pushq", "%r8", "", "");
-    Instruction ("pushq", "%r9", "", "");
-    Instruction ("pushq", "%r10", "", "");
-    Instruction ("pushq", "%r11", "", "");
-    Instruction ("pushq", "%r12", "", "");
-    Instruction ("pushq", "%r13", "", "");
-    Instruction ("pushq", "%r14", "", "");
+    (*Instruction ("pushq", "%rdx", "", "");*)
+    (*Instruction ("pushq", "%r8", "", "");*)
+    (*Instruction ("pushq", "%r9", "", "");*)
+    (*Instruction ("pushq", "%r10", "", "");*)
+    (*Instruction ("pushq", "%r11", "", "");*)
+    (*Instruction ("pushq", "%r12", "", "");*)
+    (*Instruction ("pushq", "%r13", "", "");*)
+    (*Instruction ("pushq", "%r14", "", "");*)
     (*Instruction ("pushq", "%r15", "", "");*)
   ]
 
 let popa =
   [
     (*Instruction ("popq", "%r15", "", "");*)
-    Instruction ("popq", "%r14", "", "");
-    Instruction ("popq", "%r13", "", "");
-    Instruction ("popq", "%r12", "", "");
-    Instruction ("popq", "%r11", "", "");
-    Instruction ("popq", "%r10", "", "");
-    Instruction ("popq", "%r9", "", "");
-    Instruction ("popq", "%r8", "", "");
-    Instruction ("popq", "%rdx", "", "");
+    (*Instruction ("popq", "%r14", "", "");*)
+    (*Instruction ("popq", "%r13", "", "");*)
+    (*Instruction ("popq", "%r12", "", "");*)
+    (*Instruction ("popq", "%r11", "", "");*)
+    (*Instruction ("popq", "%r10", "", "");*)
+    (*Instruction ("popq", "%r9", "", "");*)
+    (*Instruction ("popq", "%r8", "", "");*)
+    (*Instruction ("popq", "%rdx", "", "");*)
     Instruction ("popq", "%rcx", "", "");
     Instruction ("popq", "%rsi", "", "");
     Instruction ("popq", "%rdi", "", "");
@@ -807,7 +807,7 @@ let popa =
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method =
-  Tac.print_tac_elem_commented tac;
+  [Line (Tac.print_tac_elem_commented tac)] @ 
   match tac.operand with
   (****************** TODO ******************)
   | Assignment ->
@@ -825,6 +825,7 @@ let tac_to_as (tac : tac_elem) cur_method =
       [
         Line "\t#Branch True start";
         Instruction ("movq", arg1, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
         Instruction ("testq", "%rax", "%rax", "");
         Instruction ("jne", tac.arg2, "", "");
         Line "\t#Branch True end";

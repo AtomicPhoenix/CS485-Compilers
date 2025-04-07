@@ -102,48 +102,46 @@ let operand_to_string (operand : tac_operand) : string =
 
 let print_tac_elem t =
   match t.operand with
-  | Label -> Printf.fprintf out_file "label %s\n" t.arg1
-  | Jmp -> Printf.fprintf out_file "jmp %s\n" t.arg1
-  | Return -> Printf.fprintf out_file "return %s\n" t.arg1
-  | Comment -> Printf.fprintf out_file "comment %s\n" t.arg1
-  | Bt -> Printf.fprintf out_file "bt %s %s\n" t.arg1 t.arg2
-  | Assignment -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
-  | LetNoInit -> Printf.fprintf out_file "%s <- %s %s\n" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
+  | Label -> Printf.fprintf tac_file "label %s\n" t.arg1
+  | Jmp -> Printf.fprintf tac_file "jmp %s\n" t.arg1
+  | Return -> Printf.fprintf tac_file "return %s\n" t.arg1
+  | Comment -> Printf.fprintf tac_file "comment %s\n" t.arg1
+  | Bt -> Printf.fprintf tac_file "bt %s %s\n" t.arg1 t.arg2
+  | Assignment -> Printf.fprintf tac_file "%s <- %s\n" t.result t.arg1
+  | LetNoInit -> Printf.fprintf tac_file "%s <- %s %s\n" t.result t.arg1 t.arg2
+  | String_Constant -> Printf.fprintf tac_file "%s <- %s\n" t.result t.arg1
   | _ ->
       if t.arg2 = "" && t.arg1 = "" then
-        Printf.fprintf out_file "%s <- %s\n" t.result
+        Printf.fprintf tac_file "%s <- %s\n" t.result
           (operand_to_string t.operand)
       else if t.arg2 = "" then
-        Printf.fprintf out_file "%s <- %s %s\n" t.result
+        Printf.fprintf tac_file "%s <- %s %s\n" t.result
           (operand_to_string t.operand)
           t.arg1
       else
-        Printf.fprintf out_file "%s <- %s %s %s\n" t.result
+        Printf.fprintf tac_file "%s <- %s %s %s\n" t.result
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
 let print_tac_elem_commented t =
   match t.operand with
-  | Label -> Printf.fprintf out_file "#;label %s\n" t.arg1
-  | Jmp -> Printf.fprintf out_file "#;jmp %s\n" t.arg1
-  | Return -> Printf.fprintf out_file "#;return %s\n" t.arg1
-  | Comment -> Printf.fprintf out_file "#;comment %s\n" t.arg1
-  | Bt -> Printf.fprintf out_file "#;bt %s %s\n" t.arg1 t.arg2
-  | Assignment -> Printf.fprintf out_file "#;%s <- %s\n" t.result t.arg1
-  | LetNoInit ->
-      Printf.fprintf out_file "#;%s <- %s %s\n" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.fprintf out_file "#;%s <- %s\n" t.result t.arg1
+  | Label -> Printf.sprintf "#;label %s" t.arg1
+  | Jmp -> Printf.sprintf "#;jmp %s" t.arg1
+  | Return -> Printf.sprintf "#;return %s" t.arg1
+  | Comment -> Printf.sprintf "#;comment %s" t.arg1
+  | Bt -> Printf.sprintf "#;bt %s %s" t.arg1 t.arg2
+  | Assignment -> Printf.sprintf "#;%s <- %s" t.result t.arg1
+  | LetNoInit -> Printf.sprintf "#;%s <- %s %s" t.result t.arg1 t.arg2
+  | String_Constant -> Printf.sprintf "#;%s <- %s" t.result t.arg1
   | _ ->
       if t.arg2 = "" && t.arg1 = "" then
-        Printf.fprintf out_file "#;%s <- %s\n" t.result
-          (operand_to_string t.operand)
+        Printf.sprintf "#;%s <- %s" t.result (operand_to_string t.operand)
       else if t.arg2 = "" then
-        Printf.fprintf out_file "#;%s <- %s %s\n" t.result
+        Printf.sprintf "#;%s <- %s %s" t.result
           (operand_to_string t.operand)
           t.arg1
       else
-        Printf.fprintf out_file "#;%s <- %s %s %s\n" t.result
+        Printf.sprintf "#;%s <- %s %s %s" t.result
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
@@ -285,12 +283,12 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
         ... code to evaluate THEN_BRACH
         label end_label
       *)
-      ret := !var_ctr;
+      (*ret := !var_ctr;*)
       var_ctr := !var_ctr + 1;
       let condResult = get_id !var_ctr in
       let cond_tac = exp_to_tac pred_exp.sub_expr condResult cname mname in
-      let then_tac = exp_to_tac then_exp.sub_expr (get_id !ret) cname mname in
-      let else_tac = exp_to_tac else_exp.sub_expr (get_id !ret) cname mname in
+      let then_tac = exp_to_tac then_exp.sub_expr (result) cname mname in
+      let else_tac = exp_to_tac else_exp.sub_expr (result) cname mname in
       var_ctr := !var_ctr + 1;
       let jump_else_value = get_id !var_ctr in
       label_ctr := !label_ctr + 1;
@@ -443,8 +441,8 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname
       @ [ { operand = Not; arg1 = get_id !var_ctr; arg2 = ""; result } ]
   | Negate exp ->
-      let result = get_id !var_ctr in
-      var_ctr := !var_ctr + 1;
+      (*let result = get_id !var_ctr in*)
+      (*var_ctr := !var_ctr + 1;*)
       exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname
       @ [ { operand = Negate; arg1 = get_id !var_ctr; arg2 = ""; result } ]
   | Int_Constant i ->
