@@ -183,7 +183,9 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
                 id1.name
             in
             let rtrn =
-              [ { operand = Return; arg1 = "t$0"; arg2 = ""; result = "" } ]
+              [
+                { operand = Return; arg1 = get_id !ret; arg2 = ""; result = "" };
+              ]
             in
             let temps = !var_ctr + 1 in
             Some
