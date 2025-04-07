@@ -1,0 +1,25 @@
+comment start
+label Main_main_0
+t$1 <- bool true
+t$10 <- not t$1
+bt t$10 Main_main_2
+bt t$1 Main_main_1
+comment then branch
+label Main_main_1
+t$2 <- int 1
+t$3 <- int 1
+t$4 <- t$2
+t$5 <- t$3
+t$0 <- + t$4 t$5
+jmp Main_main_3
+comment else branch
+label Main_main_2
+t$6 <- int 0
+t$7 <- int 0
+t$8 <- t$6
+t$9 <- t$7
+t$0 <- + t$8 t$9
+jmp Main_main_3
+comment if-join
+label Main_main_3
+return t$0

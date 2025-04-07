@@ -17,5 +17,6 @@ file=$(basename "$1" .cl-type)
 
 gcc -static -fno-pie -g3 -o program "$file".s
 ./program
+
 rm "./$file".cl* 2>/dev/null
 rm "./$file.s" 2>/dev/null
