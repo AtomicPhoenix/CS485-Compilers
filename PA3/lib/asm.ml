@@ -300,14 +300,23 @@ let in_int =
     Instruction ("xorl", "%eax", "%eax", "");
     Instruction ("movq", "$percent.ld", "%rsi", "");
     Instruction ("call", "sscanf", "", "");
-    Instruction ("movq", "8(%rsp)", "%rax", "");
+    Instruction ("movq", "8(%rsp)", "%rcx", "");
     Instruction ("movl", "$2147483648", "%edx", "");
-    Instruction ("movl", "$4294967295", "%ecx", "");
-    Instruction ("addq", "%rax", "%rdx", "");
-    Instruction ("cmpq", "%rdx", "%rcx", "");
-    Instruction ("movl", "$0", "%edx", "");
-    Instruction ("cmovb", "%rdx", "%rax", "");
-    Instruction ("movq", "%rax", "24(%rbx)", "");
+    Instruction ("addq", "%rcx", "%rdx", "");
+    Instruction ("shrq", "$32", "%rdx", "");
+    Instruction ("jne", ".in_int_zero", "", "");
+    Instruction ("testl", "%eax", "%eax", "");
+    Instruction ("jg", ".in_int_nonzero", "", "");
+    Line (".in_int_zero:");
+    Instruction ("xorl", "%ecx", "%ecx", "");
+    Line (".in_int_nonzero:");
+    Instruction ("movq", "%rcx", "24(%rbx)", "");
+    (*Instruction ("movl", "$4294967295", "%ecx", "");*)
+    (*Instruction ("addq", "%rcx", "%rdx", "");*)
+    (*Instruction ("cmpq", "%rdx", "%rcx", "");*)
+    (*Instruction ("movl", "$0", "%edx", "");*)
+    (*Instruction ("cmovb", "%rdx", "%rax", "");*)
+    (*Instruction ("movq", "%rax", "24(%rbx)", "");*)
     Instruction ("addq", "$4120", "%rsp", "");
     Instruction ("movq", "%rbx", "%rax", "");
     Instruction ("popq", "%rbx", "", "");
@@ -811,7 +820,7 @@ let tac_to_as (tac : tac_elem) cur_method =
   match tac.operand with
   (****************** TODO ******************)
   | Assignment ->
-      add_var_addr tac.result;
+      (*add_var_addr tac.result;*)
       let result = get_var_addr tac.result in
       let arg1 = get_var_addr tac.arg1 in
       [

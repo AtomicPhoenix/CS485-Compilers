@@ -209,11 +209,11 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
         id.name; *)
       let var_id = Hashtbl.find_opt letTable id.name in
       let arg1 = match var_id with Some v -> v | None -> id.name in
-      var_ctr := !var_ctr + 1;
+      (*var_ctr := !var_ctr + 1;*)
       let last_var = exp_to_tac exp.sub_expr arg1 cname mname in
-      var_ctr := !var_ctr + 1;
+      (*var_ctr := !var_ctr + 1;*)
       last_var
-      @ [ { operand = Assignment; arg1; arg2 = ""; result = get_id !var_ctr } ]
+      (*@ [ { operand = Assignment; arg1; arg2 = ""; result = get_id !var_ctr } ]*)
   | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
       let arg2 =
         if List.length args > 0 then
