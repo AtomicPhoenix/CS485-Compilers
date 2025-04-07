@@ -775,28 +775,28 @@ let pusha =
     Instruction ("pushq", "%rdi", "", "");
     Instruction ("pushq", "%rsi", "", "");
     Instruction ("pushq", "%rcx", "", "");
-    (*Instruction ("pushq", "%rdx", "", "");*)
-    (*Instruction ("pushq", "%r8", "", "");*)
-    (*Instruction ("pushq", "%r9", "", "");*)
-    (*Instruction ("pushq", "%r10", "", "");*)
-    (*Instruction ("pushq", "%r11", "", "");*)
-    (*Instruction ("pushq", "%r12", "", "");*)
-    (*Instruction ("pushq", "%r13", "", "");*)
-    (*Instruction ("pushq", "%r14", "", "");*)
+    Instruction ("pushq", "%rdx", "", "");
+    Instruction ("pushq", "%r8", "", "");
+    Instruction ("pushq", "%r9", "", "");
+    Instruction ("pushq", "%r10", "", "");
+    Instruction ("pushq", "%r11", "", "");
+    Instruction ("pushq", "%r12", "", "");
+    Instruction ("pushq", "%r13", "", "");
+    Instruction ("pushq", "%r14", "", "");
     (*Instruction ("pushq", "%r15", "", "");*)
   ]
 
 let popa =
   [
     (*Instruction ("popq", "%r15", "", "");*)
-    (*Instruction ("popq", "%r14", "", "");*)
-    (*Instruction ("popq", "%r13", "", "");*)
-    (*Instruction ("popq", "%r12", "", "");*)
-    (*Instruction ("popq", "%r11", "", "");*)
-    (*Instruction ("popq", "%r10", "", "");*)
-    (*Instruction ("popq", "%r9", "", "");*)
-    (*Instruction ("popq", "%r8", "", "");*)
-    (*Instruction ("popq", "%rdx", "", "");*)
+    Instruction ("popq", "%r14", "", "");
+    Instruction ("popq", "%r13", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("popq", "%r11", "", "");
+    Instruction ("popq", "%r10", "", "");
+    Instruction ("popq", "%r9", "", "");
+    Instruction ("popq", "%r8", "", "");
+    Instruction ("popq", "%rdx", "", "");
     Instruction ("popq", "%rcx", "", "");
     Instruction ("popq", "%rsi", "", "");
     Instruction ("popq", "%rdi", "", "");
