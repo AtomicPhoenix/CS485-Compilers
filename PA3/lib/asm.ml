@@ -332,14 +332,14 @@ let out_int =
     Line "\t.type\tIO.out_int, @function";
     Line "IO.out_int:";
     Instruction ("pushq", "%rbx", "", "");
-    Instruction ("subq", "$8", "%rsp", "");
+    (*Instruction ("subq", "$8", "%rsp", "");*)
     Instruction ("movq", "24(%rsi)", "%rsi", "");
     Instruction ("movq", "%rdi", "%rbx", "");
     Instruction ("xorl", "%eax", "%eax", "");
     Instruction ("movq", "$percent.d", "%rdi", "");
     Instruction ("call", "printf", "", "");
     Instruction ("movq", "%rbx", "%rax", "");
-    Instruction ("addq", "$8", "%rsp", "");
+    (*Instruction ("addq", "$8", "%rsp", "");*)
     Instruction ("popq", "%rbx", "", "");
     Instruction ("ret", "", "", "");
     (*Instruction (".size", "IO.out_int", ".-IO.out_int", "");*)
@@ -779,8 +779,8 @@ let get_var_addr (var_name : string) : string =
 let pusha =
   [
     Instruction ("pushq", "%rax", "", "");
-    Instruction ("pushq", "%rbx", "", "");
-    Instruction ("pushq", "%rbp", "", "");
+    (*Instruction ("pushq", "%rbx", "", "");*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
     Instruction ("pushq", "%rdi", "", "");
     Instruction ("pushq", "%rsi", "", "");
     Instruction ("pushq", "%rcx", "", "");
@@ -790,16 +790,16 @@ let pusha =
     Instruction ("pushq", "%r10", "", "");
     Instruction ("pushq", "%r11", "", "");
     Instruction ("pushq", "%r12", "", "");
-    Instruction ("pushq", "%r13", "", "");
-    Instruction ("pushq", "%r14", "", "");
+    (*Instruction ("pushq", "%r13", "", "");*)
+    (*Instruction ("pushq", "%r14", "", "");*)
     (*Instruction ("pushq", "%r15", "", "");*)
   ]
 
 let popa =
   [
     (*Instruction ("popq", "%r15", "", "");*)
-    Instruction ("popq", "%r14", "", "");
-    Instruction ("popq", "%r13", "", "");
+    (*Instruction ("popq", "%r14", "", "");*)
+    (*Instruction ("popq", "%r13", "", "");*)
     Instruction ("popq", "%r12", "", "");
     Instruction ("popq", "%r11", "", "");
     Instruction ("popq", "%r10", "", "");
@@ -809,8 +809,8 @@ let popa =
     Instruction ("popq", "%rcx", "", "");
     Instruction ("popq", "%rsi", "", "");
     Instruction ("popq", "%rdi", "", "");
-    Instruction ("popq", "%rbp", "", "");
-    Instruction ("popq", "%rbx", "", "");
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("popq", "%rbx", "", "");*)
     Instruction ("popq", "%rax", "", "");
   ]
 
@@ -844,13 +844,13 @@ let tac_to_as (tac : tac_elem) cur_method =
       let result = get_var_addr tac.result in
       if tac.arg2 = "" then
         [ Line "\t#Call w/ args start" ]
-        @ pusha
+        (*@ pusha*)
         @ [
             (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
             Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
-        @ popa
+        (*@ popa*)
         @ [ Line "\t#Call w/ args end" ]
       else
         (*let args = String.split_on_char ' ' tac.arg2 in*)
@@ -862,13 +862,13 @@ let tac_to_as (tac : tac_elem) cur_method =
           [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
         in
         [ Line "\t#Call w/ args start" ]
-        @ pusha @ arglist
+        (*@ pusha *)@ arglist
         @ [
             (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
             Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
-        @ popa
+        (*@ popa*)
         @ [ Line "\t#Call w/ args end" ]
       (* Push all variables onto stack *)
       (* Push all onto stack *)
@@ -1097,7 +1097,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Line "\t#Negate start";
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
-        Instruction ("notq", "%rax", "", "");
+        Instruction ("negq", "%rax", "", "");
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
         Instruction ("call", "Int..new", "", "");
