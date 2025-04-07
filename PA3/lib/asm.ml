@@ -758,7 +758,10 @@ let handlers =
 
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * Hashtbl.length var_locations in
+  match Hashtbl.find_opt var_locations var_name with
+  | None ->
   Hashtbl.add var_locations var_name fp_offset
+  | Some _ -> ()
 
 let get_var_addr (var_name : string) : string =
   match Hashtbl.find_opt var_locations var_name with

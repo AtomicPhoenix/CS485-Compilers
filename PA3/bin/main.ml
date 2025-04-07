@@ -34,6 +34,14 @@ let default_classes : Parser.annotated_ast_elem list =
   ]
 
 let () =
+  let annotated_ast = Parser.parse_annotated_ast () in
+  List.iter Tac.add_class default_classes;
+  List.iter Tac.add_class annotated_ast;
+
+  (* A List of basic blocks *)
+  (* A list of list of tac elems *)
+  let tacs = Tac.parse_tac_expressions annotated_ast in
+   List.iter (fun (f, _, _, _) -> Tac.print_tac_elems f) tacs;
   let vtables = Asm.create_default_vtables () @ !Asm.vtable_list in
   let print_vtable (table : Asm.vtable) =
     let name = table.name_id in
@@ -74,14 +82,7 @@ let () =
   (* let class_map = Parser.parse_class_map () in
   let implementation_map = Parser.parse_implementation_map () in
   let parent_map = Parser.parse_parent_map () in  *)
-  let annotated_ast = Parser.parse_annotated_ast () in
-  List.iter Tac.add_class default_classes;
-  List.iter Tac.add_class annotated_ast;
-
-  (* A List of basic blocks *)
-  (* A list of list of tac elems *)
-  let tacs = Tac.parse_tac_expressions annotated_ast in
-  (* List.iter (fun (f, _, _, _) -> Tac.print_tac_elems f) tacs;*)
+   (*List.iter (fun (f, _, _, _) -> Tac.print_tac_elems f) tacs;*)
 
   (* A cfg list *)
   (* A list of list of basic blocks *)
