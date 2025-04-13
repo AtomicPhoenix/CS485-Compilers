@@ -1055,41 +1055,79 @@ let new_funcs =
   ]
 
 let generate_class_new_asm asm_class_var =
-  let func_name = Printf.sprintf "\t%s..new:" asm_class_var.vtable.name_id in
+  let func_name = Printf.sprintf "%s..new:" asm_class_var.vtable.name_id in
   let class_tag = Printf.sprintf "$%d" asm_class_var.class_tag in
-  (* let object_size = Printf.sprintf "$%d" asm_class_var.object_size in *)
-  (* let pointer_size = Printf.sprintf "$%d" 8 in *)
+  let object_size = Printf.sprintf "$%d" (3 + asm_class_var.object_size) in
   let vtable_name = Printf.sprintf "$%s..vtable" asm_class_var.vtable.name_id in
+  let stack_room = Printf.sprintf "$%d" 16 in
+  let attr_init_lines =
+    List.map
+      (fun (attr : attribute) : asm_line list ->
+        let var_index = 3 + attr.index in
+        let type_new = Printf.sprintf "$%s..new" attr.type_name in
+        let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
+        [
+          Line
+            (Printf.sprintf "\t## self[%d] holds field x (%s)" var_index
+               attr.type_name);
+          Line (Printf.sprintf "\t## new %s" attr.type_name);
+          Instruction ("pushq", "%rbp", "", "");
+          Instruction ("pushq", "%r12", "", "");
+          Instruction ("movq", type_new, "%r14", "");
+          Instruction ("call", "*%r14", "", "");
+          Instruction ("popq", "%r12", "", "");
+          Instruction ("popq", "%rbp", "", "");
+          Instruction ("movq", "%r13", stack_location, "");
+        ]
+        (* 
+and attribute = {
+  field_name : string;
+  index : int;
+  type_name : string;
+  expression : expr option;
+*))
+      asm_class_var.attributes
+    |> List.flatten
+  in
   ( asm_class_var.vtable.name_id,
     [
+      (* Name *)
       Line func_name;
-      Line
-        (Printf.sprintf "\t## constructor for %s" asm_class_var.vtable.name_id);
+      Line (Printf.sprintf "## constructor for %s" asm_class_var.vtable.name_id);
+      (* Set stack pointer (make room for temporaries *)
       Instruction ("pushq", "%rbp", "", "");
       Instruction ("movq", "%rsp", "%rbp", "");
-      Line "\t## stack room for temporaries: 2";
-      Instruction ("subq", "$16", "%rsp", "");
+      Line "\t## stack room for temporaries: ?";
+      Instruction ("subq", stack_room, "%rsp", "");
+      (*  Return address handling *)
       Line "\t## return address handling";
-      Instruction ("movq", "$3", "%rax", "");
+      (* Will be used later for calloc? *)
+      Instruction ("movq", object_size, "%rax", "");
+      (*  16-byte alignment *)
       Line "\t## guarantee 16-byte alignment before call";
       Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+      (*  Allocate space for the variable (rsi*rdi)=num*bytes *)
       Instruction ("movq", "$8", "%rsi", "");
       Instruction ("movq", "%rax", "%rdi", "");
       Instruction ("call", "calloc", "", "");
-      Instruction ("movq", "%rax", "%rax", "");
+      (* Instruction ("movq", "%rax", "%rax", ""); *)
+      (* NOTE: Alot of these can be simplified to one line operations *)
       Line "\t## store class tag, object size and vtable pointer";
       Instruction ("movq", class_tag, "0(%rax)", "");
-      Instruction ("movq", "$3", "%r14", "");
+      Instruction ("movq", object_size, "%r14", "");
       Instruction ("movq", "%r14", "8(%rax)", "");
       Instruction ("movq", vtable_name, "%r14", "");
       Instruction ("movq", "%r14", "16(%rax)", "");
-      Instruction ("movq", "%rax", "%r13", "");
+      (* Instruction ("movq", "%rax", "%r13", ""); *)
       Line "\t## return address handling";
+      (* Reset stack pointer *)
       Instruction ("movq", "%rbp", "%rsp", "");
       Instruction ("popq", "%rbp", "", "");
       Instruction ("ret", "", "", "");
       Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
-    ] )
+      Line "\t## initialize attributes";
+    ]
+    @ attr_init_lines )
 (*
       Line func_name;
       Instruction ("subq", pointer_size, "%rsp", "");
