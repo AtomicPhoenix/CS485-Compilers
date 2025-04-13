@@ -165,7 +165,7 @@ IO.out_int:
 Main.main:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	subq	$48, %rsp
+	subq	$32, %rsp
 #;comment start
 	#Comment start
 #start
@@ -173,18 +173,17 @@ Main.main:
 #;label Main_main_0
 	#Label
 Main_main_0:
-#;t$3 <- my_attribute
-	#Ident Expr start
-	movq	my_attribute, %rax
+#;t$2 <- call in_int
+	#Call w/ args start
+	call	IO.in_int
 	movq	%rax, -0(%rbp)
-	#Ident Expr end
-#;t$4 <- int 5
-	#iconst start
-	call	Int..new
-	movq	$5, 24(%rax)
+	#Call w/ args end
+#;t$3 <- call in_int
+	#Call w/ args start
+	call	IO.in_int
 	movq	%rax, -8(%rbp)
-	#iconst end
-#;t$2 <- + t$3 t$4
+	#Call w/ args end
+#;t$1 <- + t$2 t$3
 	#Plus start
 	movq	-0(%rbp), %rax
 	movq	24(%rax), %rax
@@ -200,30 +199,18 @@ Main_main_0:
 	movq	%rax, 24(%r10)
 	movq	%r10, -16(%rbp)
 	#Plus end
-#;t$1 <- call out_int t$2
+#;t$0 <- call out_int t$1
 	#Call w/ args start
 	movq	-16(%rbp), %rsi
 	call	IO.out_int
 	movq	%rax, -24(%rbp)
-	#Call w/ args end
-#;t$5 <- Hello, world.\n
-	#sconst start
-	call	String..new
-	movq	$string6, 24(%rax)
-	movq	%rax, -32(%rbp)
-	#sconst end
-#;t$0 <- call out_string t$5
-	#Call w/ args start
-	movq	-32(%rbp), %rsi
-	call	IO.out_string
-	movq	%rax, -40(%rbp)
 	#Call w/ args end
 #;return t$0
 	#Return start
 	jmp	.main.end
 	#Return end
 .main.end:
-	addq	$48, %rsp
+	addq	$32, %rsp
 	popq	%rbp
 	ret
 	.section	.rodata
@@ -235,8 +222,6 @@ string4:
 	.string	"String"
 string0:
 	.string	"Bool"
-string6:
-	.string	"Hello, world.\n"
 string2:
 	.string	"Int"
 	.globl empty.string

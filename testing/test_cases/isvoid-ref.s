@@ -75,7 +75,7 @@ A..new:                 ## constructor for A
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        movq $4, %r12
+                        movq $3, %r12
                         ## guarantee 16-byte alignment before call
 			andq $0xFFFFFFFFFFFFFFF0, %rsp
 			movq $8, %rsi
@@ -85,31 +85,10 @@ A..new:                 ## constructor for A
                         ## store class tag, object size and vtable pointer
                         movq $10, %r14
                         movq %r14, 0(%r12)
-                        movq $4, %r14
+                        movq $3, %r14
                         movq %r14, 8(%r12)
                         movq $A..vtable, %r14
                         movq %r14, 16(%r12)
-                        ## initialize attributes
-                        ## self[3] holds field a (Int)
-                        ## new Int
-                        pushq %rbp
-                        pushq %r12
-                        movq $Int..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        movq %r13, 24(%r12)
-                        ## self[3] a initializer <- 5
-                        ## new Int
-                        pushq %rbp
-                        pushq %r12
-                        movq $Int..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        movq $5, %r14
-                        movq %r14, 24(%r13)
-                        movq %r13, 24(%r12)
                         movq %r12, %r13
                         ## return address handling
                         movq %rbp, %rsp
@@ -218,7 +197,7 @@ Main..new:              ## constructor for Main
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        movq $4, %r12
+                        movq $3, %r12
                         ## guarantee 16-byte alignment before call
 			andq $0xFFFFFFFFFFFFFFF0, %rsp
 			movq $8, %rsi
@@ -228,31 +207,10 @@ Main..new:              ## constructor for Main
                         ## store class tag, object size and vtable pointer
                         movq $12, %r14
                         movq %r14, 0(%r12)
-                        movq $4, %r14
+                        movq $3, %r14
                         movq %r14, 8(%r12)
                         movq $Main..vtable, %r14
                         movq %r14, 16(%r12)
-                        ## initialize attributes
-                        ## self[3] holds field my_attribute (Int)
-                        ## new Int
-                        pushq %rbp
-                        pushq %r12
-                        movq $Int..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        movq %r13, 24(%r12)
-                        ## self[3] my_attribute initializer <- 5
-                        ## new Int
-                        pushq %rbp
-                        pushq %r12
-                        movq $Int..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        movq $5, %r14
-                        movq %r14, 24(%r13)
-                        movq %r13, 24(%r12)
                         movq %r12, %r13
                         ## return address handling
                         movq %rbp, %rsp
@@ -329,7 +287,6 @@ Object.abort:           ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## self[3] holds field a (Int)
                         ## method body begins
                         movq $string8, %r13
                         ## guarantee 16-byte alignment before call
@@ -356,7 +313,6 @@ Object.copy:            ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## self[3] holds field a (Int)
                         ## method body begins
                         movq 8(%r12), %r14
                         ## guarantee 16-byte alignment before call
@@ -396,7 +352,6 @@ Object.type_name:       ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## self[3] holds field a (Int)
                         ## method body begins
                         ## new String
                         pushq %rbp
@@ -435,7 +390,7 @@ IO.in_int:              ## method definition
                         popq %r12
                         popq %rbp
                         movq %r13, %r14
-                        movl	$1, %esi
+                        			movl	$1, %esi
 			movl $4096, %edi
 			call calloc
 			pushq %rax
@@ -505,7 +460,7 @@ IO.out_int:             ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## fp[3] holds argument x (?)
+                        ## fp[3] holds argument x (Int)
                         ## method body begins
                         movq 24(%rbp), %r14
                         movq 24(%r14), %r13
@@ -534,7 +489,7 @@ IO.out_string:          ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## fp[3] holds argument x (?)
+                        ## fp[3] holds argument x (String)
                         ## method body begins
                         movq 24(%rbp), %r14
                         movq 24(%r14), %r13
@@ -559,15 +514,7 @@ Main.main:              ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## self[3] holds field my_attribute (Int)
                         ## method body begins
-                        ## out_int(...)
-                        pushq %r12
-                        pushq %rbp
-                        ## my_attribute
-                        movq 24(%r12), %r13
-                        movq 24(%r13), %r13
-                        movq %r13, 0(%rbp)
                         ## new Int
                         pushq %rbp
                         pushq %r12
@@ -577,52 +524,31 @@ Main.main:              ## method definition
                         popq %rbp
                         movq $5, %r14
                         movq %r14, 24(%r13)
-                        movq 24(%r13), %r13
-                        movq 0(%rbp), %r14
-                        addq %r14, %r13
-                        movq %r13, 0(%rbp)
-                        ## new Int
+                        cmpq $0, %r13
+			je l3
+.globl l4
+l4:                     ## false branch of isvoid
+                        ## new Bool
                         pushq %rbp
                         pushq %r12
-                        movq $Int..new, %r14
+                        movq $Bool..new, %r14
                         call *%r14
                         popq %r12
                         popq %rbp
-                        movq 0(%rbp), %r14
+                        jmp l5
+.globl l3
+l3:                     ## true branch of isvoid
+                        ## new Bool
+                        pushq %rbp
+                        pushq %r12
+                        movq $Bool..new, %r14
+                        call *%r14
+                        popq %r12
+                        popq %rbp
+                        movq $1, %r14
                         movq %r14, 24(%r13)
-                        pushq %r13
-                        pushq %r12
-                        ## obtain vtable for self object of type Main
-                        movq 16(%r12), %r14
-                        ## look up out_int() at offset 7 in vtable
-                        movq 56(%r14), %r14
-                        call *%r14
-                        addq $16, %rsp
-                        popq %rbp
-                        popq %r12
-                        ## out_string(...)
-                        pushq %r12
-                        pushq %rbp
-                        ## new String
-                        pushq %rbp
-                        pushq %r12
-                        movq $String..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        ## string9 holds "Hello, world.\n"
-                        movq $string9, %r14
-                        movq %r14, 24(%r13)
-                        pushq %r13
-                        pushq %r12
-                        ## obtain vtable for self object of type Main
-                        movq 16(%r12), %r14
-                        ## look up out_string() at offset 8 in vtable
-                        movq 64(%r14), %r14
-                        call *%r14
-                        addq $16, %rsp
-                        popq %rbp
-                        popq %r12
+.globl l5
+l5:                     ## end of isvoid
 .globl Main.main.end
 Main.main.end:          ## method body ends
                         ## return address handling
@@ -639,7 +565,7 @@ String.concat:          ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## fp[3] holds argument s (?)
+                        ## fp[3] holds argument s (String)
                         ## method body begins
                         ## new String
                         pushq %rbp
@@ -710,8 +636,8 @@ String.substr:          ## method definition
                         movq $16, %r14
                         subq %r14, %rsp
                         ## return address handling
-                        ## fp[4] holds argument i (?)
-                        ## fp[3] holds argument l (?)
+                        ## fp[4] holds argument i (Int)
+                        ## fp[3] holds argument l (Int)
                         ## method body begins
                         ## new String
                         pushq %rbp
@@ -734,8 +660,8 @@ String.substr:          ## method definition
 			call coolsubstr
 			movq %rax, %r13
                         cmpq $0, %r13
-			jne l3
-                        movq $string10, %r13
+			jne l6
+                        movq $string9, %r13
                         ## guarantee 16-byte alignment before call
 			andq $0xFFFFFFFFFFFFFFF0, %rsp
 			movq %r13, %rdi
@@ -744,8 +670,8 @@ String.substr:          ## method definition
 			andq $0xFFFFFFFFFFFFFFF0, %rsp
 			movl $0, %edi
 			call exit
-.globl l3
-l3:                     movq %r13, 24(%r15)
+.globl l6
+l6:                     movq %r13, 24(%r15)
                         movq %r15, %r13
 .globl String.substr.end
 String.substr.end:      ## method body ends
@@ -840,26 +766,7 @@ string8:                # "abort\\n"
 .byte 0
 
 .globl string9
-string9:                # "Hello, world.\\n"
-.byte  72 # 'H'
-.byte 101 # 'e'
-.byte 108 # 'l'
-.byte 108 # 'l'
-.byte 111 # 'o'
-.byte  44 # ','
-.byte  32 # ' '
-.byte 119 # 'w'
-.byte 111 # 'o'
-.byte 114 # 'r'
-.byte 108 # 'l'
-.byte 100 # 'd'
-.byte  46 # '.'
-.byte  92 # '\\'
-.byte 110 # 'n'
-.byte 0
-
-.globl string10
-string10:               # "ERROR: 0: Exception: String.substr out of range\\n"
+string9:                # "ERROR: 0: Exception: String.substr out of range\\n"
 .byte  69 # 'E'
 .byte  82 # 'R'
 .byte  82 # 'R'

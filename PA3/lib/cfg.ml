@@ -53,3 +53,5 @@ let tac_to_cfg (tacs, class_name, method_name, temp_count) :
   (List.rev (create_cfg tacs [] []), class_name, method_name, temp_count)
 
 and print_cfg bbl = List.iter (List.iter print_tac_elem) bbl
+
+let cfg_list = List.map tac_to_cfg Tac.tacs

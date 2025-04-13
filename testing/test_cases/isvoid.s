@@ -128,14 +128,17 @@ IO.in_int:
 	xorl	%eax, %eax
 	movq	$percent.ld, %rsi
 	call	sscanf
-	movq	8(%rsp), %rax
+	movq	8(%rsp), %rcx
 	movl	$2147483648, %edx
-	movl	$4294967295, %ecx
-	addq	%rax, %rdx
-	cmpq	%rdx, %rcx
-	movl	$0, %edx
-	cmovb	%rdx, %rax
-	movq	%rax, 24(%rbx)
+	addq	%rcx, %rdx
+	shrq	$32, %rdx
+	jne	.in_int_zero
+	testl	%eax, %eax
+	jg	.in_int_nonzero
+.in_int_zero:
+	xorl	%ecx, %ecx
+.in_int_nonzero:
+	movq	%rcx, 24(%rbx)
 	addq	$4120, %rsp
 	movq	%rbx, %rax
 	popq	%rbx
@@ -147,99 +150,65 @@ IO.in_int:
 	.type	IO.out_int, @function
 IO.out_int:
 	pushq	%rbx
-	subq	$8, %rsp
 	movq	24(%rsi), %rsi
 	movq	%rdi, %rbx
 	xorl	%eax, %eax
 	movq	$percent.d, %rdi
 	call	printf
 	movq	%rbx, %rax
-	addq	$8, %rsp
 	popq	%rbx
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#;comment start
-#;label Main_main_0
-#;t$2 <- int 3
-#;t$3 <- int 5
-#;t$1 <- + t$2 t$3
-#;t$0 <- call out_int t$1
-#;return t$0
 	.p2align 4
 	.globl	Main.main
 	.type	Main.main, @function
 Main.main:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	subq	$32, %rsp
+	subq	$16, %rsp
+#;comment start
 	#Comment start
 #start
 	#Comment end
+#;label Main_main_0
 	#Label
 Main_main_0:
-	#iconst start
-	call	Int..new
-	movq	$3, 24(%rax)
-	movq	%rax, -0(%rbp)
-	#iconst end
+#;t$1 <- int 5
 	#iconst start
 	call	Int..new
 	movq	$5, 24(%rax)
-	movq	%rax, -8(%rbp)
+	movq	%rax, -0(%rbp)
 	#iconst end
-	#Plus start
-	movq	-0(%rbp), %rax
-	movq	24(%rax), %rax
-	movq	-8(%rbp), %rdx
-	movq	24(%rdx), %rdx
-	addl	%edx, %eax
+#;t$0 <- isvoid t$1
+	cmpq	$0, %rax
+	je	l2
+	 #false branch of isvoid
 	pushq	%rbp
-	pushq	%rax
-	call	Int..new
-	movq	%rax, %r10
-	popq	%rax
-	popq	%rbp
-	movq	%rax, 24(%r10)
-	movq	%r10, -16(%rbp)
-	#Plus end
-	#Call w/ args start
-	pushq	%rax
-	pushq	%rbx
-	pushq	%rbp
-	pushq	%rdi
-	pushq	%rsi
-	pushq	%rcx
-	pushq	%rdx
-	pushq	%r8
-	pushq	%r9
-	pushq	%r10
-	pushq	%r11
 	pushq	%r12
-	pushq	%r13
-	pushq	%r14
-	movq	-16(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -24(%rbp)
-	popq	%r14
-	popq	%r13
+	movq	$Bool..new, %r14
+	call	*%r14
 	popq	%r12
-	popq	%r11
-	popq	%r10
-	popq	%r9
-	popq	%r8
-	popq	%rdx
-	popq	%rcx
-	popq	%rsi
-	popq	%rdi
 	popq	%rbp
-	popq	%rbx
-	popq	%rax
-	#Call w/ args end
+	jmp	l3
+.globl l2
+l2:
+	 #true branch of isvoid
+	pushq	%rbp
+	pushq	%r12
+	movq	$Bool..new, %r14
+	call	*%r14
+	popq	%r12
+	popq	%rbp
+	movq	$1, %r14
+	movq	%r14, 24(%rax)
+.globl l3
+l3:
+#;return t$0
 	#Return start
 	jmp	.main.end
 	#Return end
 .main.end:
-	addq	$32, %rsp
+	addq	$16, %rsp
 	popq	%rbp
 	ret
 	.section	.rodata
@@ -294,7 +263,7 @@ lt_handler:
 .lt_num:
 	movq	24(%r12), %rax
 	cmpq	%rax, 24(%rbx)
-	setge	%al
+	setl	%al
 	movzbl	%al, %eax
 	movq	%rax, 24(%rbp)
 	movq	%rbp, %rax
@@ -359,7 +328,7 @@ le_handler:
 	xorl	%edx, %edx
 	cmpq	%rax, 24(%rbx)
 	movq	%r12, %rax
-	setg	%dl
+	setle	%dl
 	movq	%rdx, 24(%r12)
 	popq	%rbx
 	popq	%rbp
@@ -424,7 +393,7 @@ eq_handler:
 	xorl	%edx, %edx
 	cmpq	%rax, 24(%rbx)
 	movq	%r12, %rax
-	setne	%dl
+	sete	%dl
 	movq	%rdx, 24(%r12)
 	popq	%rbx
 	popq	%rbp

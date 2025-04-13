@@ -123,7 +123,7 @@ let print_tac_elem t =
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
-let print_tac_elem_commented t =
+let get_tac_elem_commented t =
   match t.operand with
   | Label -> Printf.sprintf "#;label %s" t.arg1
   | Jmp -> Printf.sprintf "#;jmp %s" t.arg1
@@ -145,6 +145,9 @@ let print_tac_elem_commented t =
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
+let print_tac_elem_commented t =
+  Printf.fprintf out_file "%s\n" (get_tac_elem_commented t)
+
 let print_tac_elems (t : tac_elem list) =
   List.iter
     (fun t ->
@@ -152,7 +155,7 @@ let print_tac_elems (t : tac_elem list) =
         Printf.fprintf out_file "";
         exit 1))
     t;
-  List.iter print_tac_elem t
+  List.iter print_tac_elem_commented t
 
 let rec parse_tac_expressions (ast : annotated_ast_elem list) :
     (tac_elem list * string * string * int) list =
@@ -287,8 +290,8 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let condResult = get_id !var_ctr in
       let cond_tac = exp_to_tac pred_exp.sub_expr condResult cname mname in
-      let then_tac = exp_to_tac then_exp.sub_expr (result) cname mname in
-      let else_tac = exp_to_tac else_exp.sub_expr (result) cname mname in
+      let then_tac = exp_to_tac then_exp.sub_expr result cname mname in
+      let else_tac = exp_to_tac else_exp.sub_expr result cname mname in
       var_ctr := !var_ctr + 1;
       let jump_else_value = get_id !var_ctr in
       label_ctr := !label_ctr + 1;
@@ -515,3 +518,38 @@ let print_methods (ast_elem : annotated_ast_elem) =
       | Method (name, _, _, _) -> Printf.printf "\t%s\n" name.name
       | Attribute _ -> ())
     (get_all_methods ast_elem)
+
+let default_classes : Parser.annotated_ast_elem list =
+  [
+    {
+      class_name = { line_num = 0; name = "Object" };
+      inherits = None;
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "Bool" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "String" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "Int" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+    {
+      class_name = { line_num = 0; name = "IO" };
+      inherits = Some { line_num = 0; name = "Object" };
+      features = [];
+    };
+  ]
+
+let () =
+  List.iter add_class default_classes;
+  List.iter add_class Parser.annotated_ast
+
+let tacs = parse_tac_expressions Parser.annotated_ast

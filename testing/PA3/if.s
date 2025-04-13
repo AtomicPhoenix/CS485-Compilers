@@ -173,51 +173,86 @@ Main.main:
 #;label Main_main_0
 	#Label
 Main_main_0:
-#;t$3 <- my_attribute
-	#Ident Expr start
-	movq	my_attribute, %rax
+#;t$1 <- bool true
+	#bconst start
+	call	Bool..new
+	movq	$1, 24(%rax)
 	movq	%rax, -0(%rbp)
-	#Ident Expr end
-#;t$4 <- int 5
-	#iconst start
-	call	Int..new
-	movq	$5, 24(%rax)
-	movq	%rax, -8(%rbp)
-	#iconst end
-#;t$2 <- + t$3 t$4
-	#Plus start
+	#bconst end
+#;t$4 <- not t$1
+	#Not start
 	movq	-0(%rbp), %rax
 	movq	24(%rax), %rax
-	movq	-8(%rbp), %rdx
-	movq	24(%rdx), %rdx
-	addl	%edx, %eax
+	testq	%rax, %rax
+	movl	$1, %eax
+	movl	$0, %edx
+	cmovel	%eax, %edx
 	pushq	%rbp
-	pushq	%rax
-	call	Int..new
-	movq	%rax, %r10
-	popq	%rax
+	pushq	%rdx
+	call	Bool..new
+	popq	%rdx
 	popq	%rbp
-	movq	%rax, 24(%r10)
-	movq	%r10, -16(%rbp)
-	#Plus end
-#;t$1 <- call out_int t$2
-	#Call w/ args start
-	movq	-16(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -24(%rbp)
-	#Call w/ args end
-#;t$5 <- Hello, world.\n
+	movq	%rdx, 24(%rax)
+	movq	%rax, -8(%rbp)
+	#Not end
+#;bt t$4 main_Main_2
+	#Branch True start
+	movq	-8(%rbp), %rax
+	movq	24(%rax), %rax
+	testq	%rax, %rax
+	jne	main_Main_2
+	#Branch True end
+#;comment then branch
+	#Comment start
+#then branch
+	#Comment end
+#;label main_Main_1
+	#Label
+main_Main_1:
+#;t$2 <- true
 	#sconst start
 	call	String..new
 	movq	$string6, 24(%rax)
+	movq	%rax, -16(%rbp)
+	#sconst end
+#;t$0 <- call out_string t$2
+	#Call w/ args start
+	movq	-16(%rbp), %rsi
+	call	IO.out_string
+	movq	%rax, -24(%rbp)
+	#Call w/ args end
+#;jmp main_Main_3
+	#Jump
+	jmp	main_Main_3
+#;comment else branch
+	#Comment start
+#else branch
+	#Comment end
+#;label main_Main_2
+	#Label
+main_Main_2:
+#;t$3 <- not true
+	#sconst start
+	call	String..new
+	movq	$string7, 24(%rax)
 	movq	%rax, -32(%rbp)
 	#sconst end
-#;t$0 <- call out_string t$5
+#;t$0 <- call out_string t$3
 	#Call w/ args start
 	movq	-32(%rbp), %rsi
 	call	IO.out_string
-	movq	%rax, -40(%rbp)
+	movq	%rax, -24(%rbp)
 	#Call w/ args end
+#;jmp main_Main_3
+	#Jump
+	jmp	main_Main_3
+#;comment if-join
+	#Comment start
+#if-join
+	#Comment end
+#;label main_Main_3
+	#Label
+main_Main_3:
 #;return t$0
 	#Return start
 	jmp	.main.end
@@ -233,12 +268,14 @@ string3:
 	.string	"Object"
 string4:
 	.string	"String"
+string6:
+	.string	"true"
 string0:
 	.string	"Bool"
-string6:
-	.string	"Hello, world.\n"
 string2:
 	.string	"Int"
+string7:
+	.string	"not true"
 	.globl empty.string
 empty.string:
 	.string	""
