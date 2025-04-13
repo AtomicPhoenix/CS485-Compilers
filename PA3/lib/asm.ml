@@ -1055,14 +1055,42 @@ let new_funcs =
   ]
 
 let generate_class_new_asm asm_class_var =
-  let func_name = Printf.sprintf "%s..new:" asm_class_var.vtable.name_id in
+  let func_name = Printf.sprintf "\t%s..new:" asm_class_var.vtable.name_id in
   let class_tag = Printf.sprintf "$%d" asm_class_var.class_tag in
-  let object_size = Printf.sprintf "$%d" asm_class_var.object_size in
-  let pointer_size = Printf.sprintf "$%d" 8 in
+  (* let object_size = Printf.sprintf "$%d" asm_class_var.object_size in *)
+  (* let pointer_size = Printf.sprintf "$%d" 8 in *)
   let vtable_name = Printf.sprintf "$%s..vtable" asm_class_var.vtable.name_id in
   ( asm_class_var.vtable.name_id,
     [
-      (* NOTE: May need to decrease / increase stack pointer by more *)
+      Line func_name;
+      Line
+        (Printf.sprintf "\t## constructor for %s" asm_class_var.vtable.name_id);
+      Instruction ("pushq", "%rbp", "", "");
+      Instruction ("movq", "%rsp", "%rbp", "");
+      Line "\t## stack room for temporaries: 2";
+      Instruction ("subq", "$16", "%rsp", "");
+      Line "\t## return address handling";
+      Instruction ("movq", "$3", "%rax", "");
+      Line "\t## guarantee 16-byte alignment before call";
+      Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+      Instruction ("movq", "$8", "%rsi", "");
+      Instruction ("movq", "%rax", "%rdi", "");
+      Instruction ("call", "calloc", "", "");
+      Instruction ("movq", "%rax", "%rax", "");
+      Line "\t## store class tag, object size and vtable pointer";
+      Instruction ("movq", class_tag, "0(%rax)", "");
+      Instruction ("movq", "$3", "%r14", "");
+      Instruction ("movq", "%r14", "8(%rax)", "");
+      Instruction ("movq", vtable_name, "%r14", "");
+      Instruction ("movq", "%r14", "16(%rax)", "");
+      Instruction ("movq", "%rax", "%r13", "");
+      Line "\t## return address handling";
+      Instruction ("movq", "%rbp", "%rsp", "");
+      Instruction ("popq", "%rbp", "", "");
+      Instruction ("ret", "", "", "");
+      Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
+    ] )
+(*
       Line func_name;
       Instruction ("subq", pointer_size, "%rsp", "");
       Instruction ("movl", object_size, "%esi", "");
@@ -1075,7 +1103,7 @@ let generate_class_new_asm asm_class_var =
       Instruction ("movq", vtable_name, "16(%rax)", "");
       Instruction ("addq", pointer_size, "%rsp", "");
       Instruction ("ret", "", "", "");
-    ] )
+     *)
 
 let handlers =
   [

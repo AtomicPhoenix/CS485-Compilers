@@ -191,32 +191,62 @@ String..new:
 	.p2align 4
 	.globl	A..new
 	.type	A..new, @function
-A..new:
-	subq	$8, %rsp
-	movl	$0, %esi
-	movl	$8, %edi
+	A..new:
+	## constructor for A
+	pushq	%rbp
+	movq	%rsp, %rbp
+	## stack room for temporaries: 2
+	subq	$16, %rsp
+	## return address handling
+	movq	$3, %rax
+	## guarantee 16-byte alignment before call
+	andq	$0xFFFFFFFFFFFFFFF0, %rsp
+	movq	$8, %rsi
+	movq	%rax, %rdi
 	call	calloc
-	#Set class tag, object size, vtable pointer
-	movq	$9, (%rax)
-	movq	$0, 8(%rax)
-	movq	$A..vtable, 16(%rax)
-	addq	$8, %rsp
+	movq	%rax, %rax
+	## store class tag, object size and vtable pointer
+	movq	$9, 0(%rax)
+	movq	$3, %r14
+	movq	%r14, 8(%rax)
+	movq	$A..vtable, %r14
+	movq	%r14, 16(%rax)
+	movq	%rax, %r13
+	## return address handling
+	movq	%rbp, %rsp
+	popq	%rbp
 	ret
+	## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.p2align 4
 	.globl	Main..new
 	.type	Main..new, @function
-Main..new:
-	subq	$8, %rsp
-	movl	$0, %esi
-	movl	$8, %edi
+	Main..new:
+	## constructor for Main
+	pushq	%rbp
+	movq	%rsp, %rbp
+	## stack room for temporaries: 2
+	subq	$16, %rsp
+	## return address handling
+	movq	$3, %rax
+	## guarantee 16-byte alignment before call
+	andq	$0xFFFFFFFFFFFFFFF0, %rsp
+	movq	$8, %rsi
+	movq	%rax, %rdi
 	call	calloc
-	#Set class tag, object size, vtable pointer
-	movq	$9, (%rax)
-	movq	$0, 8(%rax)
-	movq	$Main..vtable, 16(%rax)
-	addq	$8, %rsp
+	movq	%rax, %rax
+	## store class tag, object size and vtable pointer
+	movq	$9, 0(%rax)
+	movq	$3, %r14
+	movq	%r14, 8(%rax)
+	movq	$Main..vtable, %r14
+	movq	%r14, 16(%rax)
+	movq	%rax, %r13
+	## return address handling
+	movq	%rbp, %rsp
+	popq	%rbp
 	ret
+	## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.p2align 4
 	.globl	IO.in_int
