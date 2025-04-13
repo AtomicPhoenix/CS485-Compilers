@@ -1071,23 +1071,26 @@ let generate_class_new_asm asm_class_var =
             (Printf.sprintf "\t## self[%d] holds field x (%s)" var_index
                attr.type_name);
           Line (Printf.sprintf "\t## new %s" attr.type_name);
+          Instruction ("pushq", "%rax", "", "");
           Instruction ("pushq", "%rbp", "", "");
           Instruction ("pushq", "%r12", "", "");
           Instruction ("movq", type_new, "%r14", "");
           Instruction ("call", "*%r14", "", "");
+          Instruction ("movq", "%rax", "%r13", "");
           Instruction ("popq", "%r12", "", "");
           Instruction ("popq", "%rbp", "", "");
+          Instruction ("pushq", "%rax", "", "");
           Instruction ("movq", "%r13", stack_location, "");
-        ]
-        (* 
-and attribute = {
-  field_name : string;
-  index : int;
-  type_name : string;
-  expression : expr option;
-*))
+        ])
       asm_class_var.attributes
     |> List.flatten
+  in
+  let return_lines =
+    [
+      Instruction ("movq", "%rbp", "%rsp", "");
+      Instruction ("popq", "%rbp", "", "");
+      Instruction ("ret", "", "", "");
+    ]
   in
   ( asm_class_var.vtable.name_id,
     [
@@ -1121,13 +1124,10 @@ and attribute = {
       (* Instruction ("movq", "%rax", "%r13", ""); *)
       Line "\t## return address handling";
       (* Reset stack pointer *)
-      Instruction ("movq", "%rbp", "%rsp", "");
-      Instruction ("popq", "%rbp", "", "");
-      Instruction ("ret", "", "", "");
       Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
       Line "\t## initialize attributes";
     ]
-    @ attr_init_lines )
+    @ attr_init_lines @ return_lines )
 (*
       Line func_name;
       Instruction ("subq", pointer_size, "%rsp", "");
