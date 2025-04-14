@@ -7,4 +7,9 @@ cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml bin/main.ml |
 	     /^open/d
 	     /PA3/d
 	     s/Asm\.//
+	     s/Tac\.// 
 	     w ./main.ml' >main.ml
+ocamlc main.ml
+rm ./a.out
+rm ./main.cmi
+rm ./main.cmo

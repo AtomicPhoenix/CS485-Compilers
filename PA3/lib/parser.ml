@@ -360,7 +360,7 @@ and parse_annotated_ast () : annotated_ast_elem list =
   |> List.sort (fun el1 el2 ->
          String.compare el1.class_name.name el2.class_name.name)
 
-let class_map = parse_class_map ()
+let parser_class_map = parse_class_map ()
 let implementation_map = parse_implementation_map ()
 let parent_map = parse_parent_map ()
 let annotated_ast = parse_annotated_ast ()

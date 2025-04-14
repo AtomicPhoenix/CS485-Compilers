@@ -115,7 +115,7 @@ let class_id_map = Hashtbl.create 32
 let class_vtable_map = Hashtbl.create 32
 let string_counter = ref 8
 let class_tag_ctr = ref 9
-let class_map = Parser.class_map
+let parser_class_map : class_map_elem list = Parser.parser_class_map
 let implementation_map = Parser.implementation_map
 let parent_map = Parser.parent_map
 let vtable_list : vtable list ref = ref []
@@ -1753,48 +1753,9 @@ let tac_to_as (tac : tac_elem) cur_method =
           Instruction ("movq", "%rax", result, "");
           Line "\t#bconst end";
         ]
-  | Case ->
-      assert false
-      (* 
-                              pushq %rbp
-                              pushq %r12
-                              movq $Bool..new, %r14
-                              call *%r14
-                              popq %r12
-                              popq %rbp
-                              movq $1, %r14
-                              movq %r14, 24(%r13)
-                              movq 24(%r13), %r13
-                              cmpq $0, %r13
-      		              jne l3
-      .globl l4
-      l4:                     ## false branch
-                              ## new Int
-                              pushq %rbp
-                              pushq %r12
-                              movq $Int..new, %r14
-                              call *%r14
-                              popq %r12
-                              popq %rbp
-                              movq $2005, %r14
-                              movq %r14, 24(%r13)
-                              jmp l5
-      .globl l3
-      l3:                     ## true branch
-                              ## new Int
-                              pushq %rbp
-                              pushq %r12
-                              movq $Int..new, %r14
-                              call *%r14
-                              popq %r12
-                              popq %rbp
-                              movq $1985, %r14
-                              movq %r14, 24(%r13)
-      .globl l5
-      l5:                     ## end of if conditional
-     *)
-  | Default -> assert false
-  | New ->
+  | Case -> assert false
+  (* NOTE: I'm assuming default works the same as new based on our implementation of the default class new statements. This also assumes we dont use the default keyword for any user-defined classes *)
+  | Default | New ->
       [
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%r12", "", "");
@@ -1883,5 +1844,7 @@ let method_asm =
       @ get_end_method_boilerplate method_name stack_space)
     Cfg.cfg_list
 
-let asm_classes = List.filter_map make_asm_class class_map
+let asm_classes : asm_class list =
+  List.filter_map make_asm_class parser_class_map
+
 let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
