@@ -6,6 +6,7 @@ class Main inherits IO {
       else 
         out_int(1)
       fi;
+
       if (isvoid(new A)) then 
         out_int(0)
       else 
@@ -18,3 +19,4 @@ class Main inherits IO {
 
 class A {
 };
+

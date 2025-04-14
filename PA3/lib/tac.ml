@@ -5,6 +5,40 @@ open Parser
 NOTE: Expression to Three-Address Code
 "The traditional approach to converting expressions to three-address code involves a recursive descent traversal of the abstract syntax tree. The recursive descent traversal returns both a three-address code instruction as well as a list of additional instructions that should be prepended to the output."
 *)
+type tac_elem = {
+  operand : tac_operand;
+  arg1 : string;
+  arg2 : string;
+  result : string;
+}
+
+and tac_operand =
+  | Assignment
+  | Bt
+  | Call
+  | Comment
+  | Label
+  | Jmp
+  | Case
+  | Default
+  | Return
+  | LetNoInit
+  | Ident_Expr of string
+  | New
+  | Isvoid
+  | Plus
+  | Minus
+  | Divide
+  | Times
+  | LessThan
+  | LessEqual
+  | Equal
+  | Not
+  | Negate
+  | Int_Constant
+  | String_Constant
+  | Boolean_Constant
+  | ClassId
 
 let var_ctr = ref 0
 let label_ctr = ref 0
@@ -99,6 +133,7 @@ let operand_to_string (operand : tac_operand) : string =
   | Int_Constant -> "int"
   | String_Constant -> "string"
   | Boolean_Constant -> "bool"
+  | ClassId -> "classId"
 
 let print_tac_elem t =
   match t.operand with
@@ -492,7 +527,69 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
         |> List.flatten
       in
       b @ exp_to_tac exp.sub_expr result cname mname
-  | Case _ -> [ { operand = Case; arg1 = ""; arg2 = ""; result = "" } ]
+  | Case (case_expr, case_elements) ->
+      let init_label_ctr = !label_ctr in
+      var_ctr := !var_ctr + 1;
+      let caseResult = get_id !var_ctr in
+      let case_expr_value =
+        exp_to_tac case_expr.sub_expr caseResult mname cname
+      in
+      let caseExprResult = get_id !var_ctr in
+      var_ctr := !var_ctr + 1;
+      let caseClassResult = get_id !var_ctr in
+      let case_class_id =
+        [
+          {
+            operand = ClassId;
+            arg1 = caseExprResult;
+            arg2 = "";
+            result = caseClassResult;
+          };
+        ]
+      in
+      let case_element_values =
+        List.map
+          (fun elem ->
+            var_ctr := !var_ctr + 1;
+            let caseElemClassResult = get_id !var_ctr in
+            var_ctr := !var_ctr + 1;
+            let equalResult = get_id !var_ctr in
+            label_ctr := !label_ctr + 1;
+            let case_label = get_label !label_ctr mname cname in
+            [
+              {
+                operand = ClassId;
+                arg1 = elem.typename.name;
+                arg2 = "";
+                result = caseElemClassResult;
+              };
+              {
+                operand = Equal;
+                arg1 = caseElemClassResult;
+                arg2 = caseClassResult;
+                result = equalResult;
+              };
+              { operand = Bt; arg1 = equalResult; arg2 = case_label; result };
+            ])
+          case_elements
+        |> List.flatten
+      in
+      label_ctr := init_label_ctr;
+      let case_expressions =
+        List.map
+          (fun elem ->
+            (* var_ctr := !var_ctr + 1;
+            let var_id = get_id !var_ctr in
+            Hashtbl.add letTable elem.variable.name var_id; *)
+            Hashtbl.add letTable elem.variable.name caseExprResult;
+            label_ctr := !label_ctr + 1;
+            let case_label = get_label !label_ctr mname cname in
+            [ { operand = Label; arg1 = case_label; arg2 = ""; result } ]
+            @ exp_to_tac elem.elem_body.sub_expr result mname cname)
+          case_elements
+        |> List.flatten
+      in
+      case_expr_value @ case_class_id @ case_element_values @ case_expressions
   | Internal _ ->
       Printf.fprintf out_file
         "Something is fundamentally wrong (We should not be parsing Internal \

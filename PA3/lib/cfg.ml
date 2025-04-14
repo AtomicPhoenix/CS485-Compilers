@@ -1,4 +1,3 @@
-open Parser
 open Tac
 
 (* Traverse AST to find parts where the control flow changes *)

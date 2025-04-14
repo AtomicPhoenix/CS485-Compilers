@@ -5,38 +5,20 @@
 #; No vtable found for class String
 #;comment start
 #;label Main_main_0
-#;t$3 <- int 5
-#;t$2 <- isvoid t$3
-#;t$6 <- not t$2
+#;t$1 <- my_attribute
+#;t$2 <- classId t$1
+#;t$3 <- classId Int
+#;t$4 <- equal t$3 t$2
+#;bt t$4 main_Main_1
+#;t$5 <- classId String
+#;t$6 <- equal t$5 t$2
 #;bt t$6 main_Main_2
-#;comment then branch
 #;label main_Main_1
-#;t$4 <- int 0
-#;t$1 <- call out_int t$4
-#;jmp main_Main_3
-#;comment else branch
+#;t$7 <- t$1
+#;t$0 <- call out_int t$7
 #;label main_Main_2
-#;t$5 <- int 1
-#;t$1 <- call out_int t$5
-#;jmp main_Main_3
-#;comment if-join
-#;label main_Main_3
-#;t$8 <- new A
-#;t$7 <- isvoid t$8
-#;t$11 <- not t$7
-#;bt t$11 main_Main_5
-#;comment then branch
-#;label main_Main_4
-#;t$9 <- int 0
-#;t$0 <- call out_int t$9
-#;jmp main_Main_6
-#;comment else branch
-#;label main_Main_5
-#;t$10 <- int 1
-#;t$0 <- call out_int t$10
-#;jmp main_Main_6
-#;comment if-join
-#;label main_Main_6
+#;t$8 <- t$1
+#;t$0 <- call out_string t$8
 #;return t$0
 .globl Bool..vtable
 Bool..vtable:
@@ -85,16 +67,9 @@ String..vtable:
 	.quad String.length
 	.quad String.substr
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-.globl A..vtable
-A..vtable:
-	.quad string9
-	.quad Object.abort
-	.quad Object.copy
-	.quad Object.type_name
-	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .globl Main..vtable
 Main..vtable:
-	.quad string10
+	.quad string9
 	.quad Object.abort
 	.quad Object.copy
 	.quad Object.type_name
@@ -189,35 +164,6 @@ String..new:
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.p2align 4
-	.globl	A..new
-	.type	A..new, @function
-A..new:
-## constructor for A
-	pushq	%rbp
-	movq	%rsp, %rbp
-	## stack room for temporaries: ?
-	subq	$16, %rsp
-	## return address handling
-	movq	$3, %rax
-	## guarantee 16-byte alignment before call
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movq	$8, %rsi
-	movq	%rax, %rdi
-	call	calloc
-	## store class tag, object size and vtable pointer
-	movq	$9, 0(%rax)
-	movq	$3, %r14
-	movq	%r14, 8(%rax)
-	movq	$A..vtable, %r14
-	movq	%r14, 16(%rax)
-	## return address handling
-	## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	## initialize attributes
-	movq	%rbp, %rsp
-	popq	%rbp
-	ret
-	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	.p2align 4
 	.globl	Main..new
 	.type	Main..new, @function
 Main..new:
@@ -227,7 +173,7 @@ Main..new:
 	## stack room for temporaries: ?
 	subq	$16, %rsp
 	## return address handling
-	movq	$3, %rax
+	movq	$4, %rax
 	## guarantee 16-byte alignment before call
 	andq	$0xFFFFFFFFFFFFFFF0, %rsp
 	movq	$8, %rsi
@@ -235,13 +181,25 @@ Main..new:
 	call	calloc
 	## store class tag, object size and vtable pointer
 	movq	$9, 0(%rax)
-	movq	$3, %r14
+	movq	$4, %r14
 	movq	%r14, 8(%rax)
 	movq	$Main..vtable, %r14
 	movq	%r14, 16(%rax)
 	## return address handling
 	## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	## initialize attributes
+	## self[3] holds field x (Int)
+	## new Int
+	pushq	%rax
+	pushq	%rbp
+	pushq	%r12
+	movq	$Int..new, %r14
+	call	*%r14
+	movq	%rax, %r13
+	popq	%r12
+	popq	%rbp
+	pushq	%rax
+	movq	%r13, 24(%rax)
 	movq	%rbp, %rsp
 	popq	%rbp
 	ret
@@ -851,7 +809,7 @@ String.concat.end:
 Main.main:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	subq	$96, %rsp
+	subq	$80, %rsp
 #;comment start
 	#Comment start
 #start
@@ -859,53 +817,46 @@ Main.main:
 #;label Main_main_0
 	#Label
 Main_main_0:
-#;t$3 <- int 5
-	#iconst start
-	call	Int..new
-	movq	$5, 24(%rax)
+#;t$1 <- my_attribute
+	#Ident Expr start
+	movq	my_attribute, %rax
 	movq	%rax, -0(%rbp)
-	#iconst end
-#;t$2 <- isvoid t$3
-	cmpq	$0, %rax
-	je	l2
-	 #false branch of isvoid
-	pushq	%rbp
-	pushq	%r12
-	movq	$Bool..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	jmp	l3
-.globl l2
-l2:
-	 #true branch of isvoid
-	pushq	%rbp
-	pushq	%r12
-	movq	$Bool..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	$1, %r14
-	movq	%r14, 24(%rax)
-	jmp	l3
-.globl l3
-l3:
-#;t$6 <- not t$2
-	#Not start
+	#Ident Expr end
+#;t$2 <- classId t$1
+	# TODO: Cases to ASM
+#;t$3 <- classId Int
+	# TODO: Cases to ASM
+#;t$4 <- equal t$3 t$2
+	#Equal start
+	pushq	%rdi
+	pushq	%rsi
+	movq	t$3, %rdi
+	movq	t$2, %rsi
+	call	eq_handler
+	popq	%rsi
+	popq	%rdi
+	movq	%rax, -8(%rbp)
+	#Equal end
+#;bt t$4 main_Main_1
+	#Branch True start
 	movq	-8(%rbp), %rax
 	movq	24(%rax), %rax
 	testq	%rax, %rax
-	movl	$1, %eax
-	movl	$0, %edx
-	cmovel	%eax, %edx
-	pushq	%rbp
-	pushq	%rdx
-	call	Bool..new
-	popq	%rdx
-	popq	%rbp
-	movq	%rdx, 24(%rax)
+	jne	main_Main_1
+	#Branch True end
+#;t$5 <- classId String
+	# TODO: Cases to ASM
+#;t$6 <- equal t$5 t$2
+	#Equal start
+	pushq	%rdi
+	pushq	%rsi
+	movq	t$5, %rdi
+	movq	t$2, %rsi
+	call	eq_handler
+	popq	%rsi
+	popq	%rdi
 	movq	%rax, -16(%rbp)
-	#Not end
+	#Equal end
 #;bt t$6 main_Main_2
 	#Branch True start
 	movq	-16(%rbp), %rax
@@ -913,175 +864,46 @@ l3:
 	testq	%rax, %rax
 	jne	main_Main_2
 	#Branch True end
-#;comment then branch
-	#Comment start
-#then branch
-	#Comment end
 #;label main_Main_1
 	#Label
 main_Main_1:
-#;t$4 <- int 0
-	#iconst start
-	call	Int..new
-	movq	$0, 24(%rax)
+#;t$7 <- t$1
+	#Ident Expr start
+	movq	-0(%rbp), %rax
 	movq	%rax, -24(%rbp)
-	#iconst end
-#;t$1 <- call out_int t$4
+	#Ident Expr end
+#;t$0 <- call out_int t$7
 	#Call w/ args start
 	movq	-24(%rbp), %rsi
 	call	IO.out_int
 	movq	%rax, -32(%rbp)
 	#Call w/ args end
-#;jmp main_Main_3
-	#Jump
-	jmp	main_Main_3
-#;comment else branch
-	#Comment start
-#else branch
-	#Comment end
 #;label main_Main_2
 	#Label
 main_Main_2:
-#;t$5 <- int 1
-	#iconst start
-	call	Int..new
-	movq	$1, 24(%rax)
+#;t$8 <- t$1
+	#Ident Expr start
+	movq	-0(%rbp), %rax
 	movq	%rax, -40(%rbp)
-	#iconst end
-#;t$1 <- call out_int t$5
+	#Ident Expr end
+#;t$0 <- call out_string t$8
 	#Call w/ args start
 	movq	-40(%rbp), %rsi
-	call	IO.out_int
+	call	IO.out_string
 	movq	%rax, -32(%rbp)
 	#Call w/ args end
-#;jmp main_Main_3
-	#Jump
-	jmp	main_Main_3
-#;comment if-join
-	#Comment start
-#if-join
-	#Comment end
-#;label main_Main_3
-	#Label
-main_Main_3:
-#;t$8 <- new A
-	pushq	%rbp
-	pushq	%r12
-	movq	$A..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-#;t$7 <- isvoid t$8
-	cmpq	$0, %rax
-	je	l4
-	 #false branch of isvoid
-	pushq	%rbp
-	pushq	%r12
-	movq	$Bool..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	jmp	l5
-.globl l4
-l4:
-	 #true branch of isvoid
-	pushq	%rbp
-	pushq	%r12
-	movq	$Bool..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	$1, %r14
-	movq	%r14, 24(%rax)
-	jmp	l5
-.globl l5
-l5:
-#;t$11 <- not t$7
-	#Not start
-	movq	-48(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	movl	$1, %eax
-	movl	$0, %edx
-	cmovel	%eax, %edx
-	pushq	%rbp
-	pushq	%rdx
-	call	Bool..new
-	popq	%rdx
-	popq	%rbp
-	movq	%rdx, 24(%rax)
-	movq	%rax, -56(%rbp)
-	#Not end
-#;bt t$11 main_Main_5
-	#Branch True start
-	movq	-56(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	jne	main_Main_5
-	#Branch True end
-#;comment then branch
-	#Comment start
-#then branch
-	#Comment end
-#;label main_Main_4
-	#Label
-main_Main_4:
-#;t$9 <- int 0
-	#iconst start
-	call	Int..new
-	movq	$0, 24(%rax)
-	movq	%rax, -64(%rbp)
-	#iconst end
-#;t$0 <- call out_int t$9
-	#Call w/ args start
-	movq	-64(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -72(%rbp)
-	#Call w/ args end
-#;jmp main_Main_6
-	#Jump
-	jmp	main_Main_6
-#;comment else branch
-	#Comment start
-#else branch
-	#Comment end
-#;label main_Main_5
-	#Label
-main_Main_5:
-#;t$10 <- int 1
-	#iconst start
-	call	Int..new
-	movq	$1, 24(%rax)
-	movq	%rax, -80(%rbp)
-	#iconst end
-#;t$0 <- call out_int t$10
-	#Call w/ args start
-	movq	-80(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -72(%rbp)
-	#Call w/ args end
-#;jmp main_Main_6
-	#Jump
-	jmp	main_Main_6
-#;comment if-join
-	#Comment start
-#if-join
-	#Comment end
-#;label main_Main_6
-	#Label
-main_Main_6:
 #;return t$0
 	#Return start
 	jmp	.main.end
 	#Return end
 .main.end:
-	addq	$96, %rsp
+	addq	$80, %rsp
 	popq	%rbp
 	ret
 	.section	.rodata
 string1:
 	.string	"IO"
-string10:
+string9:
 	.string	"Main"
 string3:
 	.string	"Object"
@@ -1091,8 +913,6 @@ string0:
 	.string	"Bool"
 string6:
 	.string	"abort"
-string9:
-	.string	"A"
 string2:
 	.string	"Int"
 string7:

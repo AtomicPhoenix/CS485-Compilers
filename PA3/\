@@ -1,6 +1,5 @@
 open Print
 open Parser
-open Tac
 (* ------------------------------------------------------------------CODE GEN CODE----------------------------------------------------------------------- *)
 
 (*NOTE: Write a program that generates assembly instructions for certain simple Cool programs.
@@ -1452,7 +1451,6 @@ let tac_to_as (tac : tac_elem) cur_method =
       (* Push all onto stack *)
       (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
       (*Printf.fprintf out_file "\tcallq %s\n" tac.arg1*)
-  | ClassId -> [ Line "\t# TODO: Cases to ASM" ]
   | Comment ->
       [ Line "\t#Comment start" ]
       @ [ Line ("#" ^ tac.arg1) ]

@@ -1,40 +1,6 @@
 open Print
 
-type tac_elem = {
-  operand : tac_operand;
-  arg1 : string;
-  arg2 : string;
-  result : string;
-}
-
-and tac_operand =
-  | Assignment
-  | Bt
-  | Call
-  | Comment
-  | Label
-  | Jmp
-  | Case
-  | Default
-  | Return
-  | LetNoInit
-  | Ident_Expr of string
-  | New
-  | Isvoid
-  | Plus
-  | Minus
-  | Divide
-  | Times
-  | LessThan
-  | LessEqual
-  | Equal
-  | Not
-  | Negate
-  | Int_Constant
-  | String_Constant
-  | Boolean_Constant
-
-and static_type =
+type static_type =
   | Class of string (* "Int" or "Object" *)
   | SELF_TYPE of string (* "Self_Type_c" *)
 

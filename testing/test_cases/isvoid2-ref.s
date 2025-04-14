@@ -515,15 +515,13 @@ Main.main:              ## method definition
                         subq %r14, %rsp
                         ## return address handling
                         ## method body begins
-                        ## new Int
+                        ## new A
                         pushq %rbp
                         pushq %r12
-                        movq $Int..new, %r14
+                        movq $A..new, %r14
                         call *%r14
                         popq %r12
                         popq %rbp
-                        movq $5, %r14
-                        movq %r14, 24(%r13)
                         cmpq $0, %r13
 			je l3
 .globl l4
@@ -603,92 +601,6 @@ l6:                     ## true branch
                         popq %r12
 .globl l8
 l8:                     ## end of if conditional
-                        ## new A
-                        pushq %rbp
-                        pushq %r12
-                        movq $A..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        cmpq $0, %r13
-			je l9
-.globl l10
-l10:                    ## false branch of isvoid
-                        ## new Bool
-                        pushq %rbp
-                        pushq %r12
-                        movq $Bool..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        jmp l11
-.globl l9
-l9:                     ## true branch of isvoid
-                        ## new Bool
-                        pushq %rbp
-                        pushq %r12
-                        movq $Bool..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        movq $1, %r14
-                        movq %r14, 24(%r13)
-.globl l11
-l11:                    ## end of isvoid
-                        movq 24(%r13), %r13
-                        cmpq $0, %r13
-			jne l12
-.globl l13
-l13:                    ## false branch
-                        ## out_int(...)
-                        pushq %r12
-                        pushq %rbp
-                        ## new Int
-                        pushq %rbp
-                        pushq %r12
-                        movq $Int..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        movq $1, %r14
-                        movq %r14, 24(%r13)
-                        pushq %r13
-                        pushq %r12
-                        ## obtain vtable for self object of type Main
-                        movq 16(%r12), %r14
-                        ## look up out_int() at offset 7 in vtable
-                        movq 56(%r14), %r14
-                        call *%r14
-                        addq $16, %rsp
-                        popq %rbp
-                        popq %r12
-                        jmp l14
-.globl l12
-l12:                    ## true branch
-                        ## out_int(...)
-                        pushq %r12
-                        pushq %rbp
-                        ## new Int
-                        pushq %rbp
-                        pushq %r12
-                        movq $Int..new, %r14
-                        call *%r14
-                        popq %r12
-                        popq %rbp
-                        movq $0, %r14
-                        movq %r14, 24(%r13)
-                        pushq %r13
-                        pushq %r12
-                        ## obtain vtable for self object of type Main
-                        movq 16(%r12), %r14
-                        ## look up out_int() at offset 7 in vtable
-                        movq 56(%r14), %r14
-                        call *%r14
-                        addq $16, %rsp
-                        popq %rbp
-                        popq %r12
-.globl l14
-l14:                    ## end of if conditional
 .globl Main.main.end
 Main.main.end:          ## method body ends
                         ## return address handling
@@ -800,7 +712,7 @@ String.substr:          ## method definition
 			call coolsubstr
 			movq %rax, %r13
                         cmpq $0, %r13
-			jne l15
+			jne l9
                         movq $string9, %r13
                         ## guarantee 16-byte alignment before call
 			andq $0xFFFFFFFFFFFFFFF0, %rsp
@@ -810,8 +722,8 @@ String.substr:          ## method definition
 			andq $0xFFFFFFFFFFFFFFF0, %rsp
 			movl $0, %edi
 			call exit
-.globl l15
-l15:                    movq %r13, 24(%r15)
+.globl l9
+l9:                     movq %r13, 24(%r15)
                         movq %r15, %r13
 .globl String.substr.end
 String.substr.end:      ## method body ends
