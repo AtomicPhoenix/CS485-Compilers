@@ -345,19 +345,23 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             arg2 = "";
             result = jump_else_value;
           };
+          { operand = Bt; arg1 = jump_else_value; arg2 = else_label; result };
+          (* @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result } ] *)
+          { operand = Comment; arg1 = "then branch"; arg2 = ""; result };
+          { operand = Label; arg1 = then_label; arg2 = ""; result };
         ]
-      @ [ { operand = Bt; arg1 = jump_else_value; arg2 = else_label; result } ]
-      (* @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result } ] *)
-      @ [ { operand = Comment; arg1 = "then branch"; arg2 = ""; result } ]
-      @ [ { operand = Label; arg1 = then_label; arg2 = ""; result } ]
       @ then_tac
-      @ [ { operand = Jmp; arg1 = join_label; arg2 = ""; result } ]
-      @ [ { operand = Comment; arg1 = "else branch"; arg2 = ""; result } ]
-      @ [ { operand = Label; arg1 = else_label; arg2 = ""; result } ]
+      @ [
+          { operand = Jmp; arg1 = join_label; arg2 = ""; result };
+          { operand = Comment; arg1 = "else branch"; arg2 = ""; result };
+          { operand = Label; arg1 = else_label; arg2 = ""; result };
+        ]
       @ else_tac
-      @ [ { operand = Jmp; arg1 = join_label; arg2 = ""; result } ]
-      @ [ { operand = Comment; arg1 = "if-join"; arg2 = ""; result } ]
-      @ [ { operand = Label; arg1 = join_label; arg2 = ""; result } ]
+      @ [
+          { operand = Jmp; arg1 = join_label; arg2 = ""; result };
+          { operand = Comment; arg1 = "if-join"; arg2 = ""; result };
+          { operand = Label; arg1 = join_label; arg2 = ""; result };
+        ]
   | While (pred_exp, body_exp) ->
       var_ctr := !var_ctr + 1;
       let pred_result = get_id !var_ctr in
@@ -375,9 +379,11 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       label_ctr := !label_ctr + 1;
       let body_label = get_label !label_ctr cname mname in
       let true_location = (List.hd (List.rev cond_tac)).result in
-      [ { operand = Jmp; arg1 = cond_label; arg2 = ""; result } ]
-      @ [ { operand = Comment; arg1 = "while-pred"; arg2 = ""; result } ]
-      @ [ { operand = Label; arg1 = cond_label; arg2 = ""; result } ]
+      [
+        { operand = Jmp; arg1 = cond_label; arg2 = ""; result };
+        { operand = Comment; arg1 = "while-pred"; arg2 = ""; result };
+        { operand = Label; arg1 = cond_label; arg2 = ""; result };
+      ]
       @ cond_tac
       @ [
           {
@@ -386,16 +392,18 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             arg2 = "";
             result = jump_else_value;
           };
+          { operand = Bt; arg1 = jump_else_value; arg2 = join_label; result };
+          { operand = Bt; arg1 = true_location; arg2 = body_label; result };
+          { operand = Comment; arg1 = "while-body"; arg2 = ""; result };
+          { operand = Label; arg1 = body_label; arg2 = ""; result };
         ]
-      @ [ { operand = Bt; arg1 = jump_else_value; arg2 = join_label; result } ]
-      @ [ { operand = Bt; arg1 = true_location; arg2 = body_label; result } ]
-      @ [ { operand = Comment; arg1 = "while-body"; arg2 = ""; result } ]
-      @ [ { operand = Label; arg1 = body_label; arg2 = ""; result } ]
       @ body_tac
-      @ [ { operand = Jmp; arg1 = cond_label; arg2 = ""; result } ]
-      @ [ { operand = Comment; arg1 = "while-join"; arg2 = ""; result } ]
-      @ [ { operand = Label; arg1 = join_label; arg2 = ""; result } ]
-      @ [ { operand = Default; arg1 = "Object"; arg2 = ""; result } ]
+      @ [
+          { operand = Jmp; arg1 = cond_label; arg2 = ""; result };
+          { operand = Comment; arg1 = "while-join"; arg2 = ""; result };
+          { operand = Label; arg1 = join_label; arg2 = ""; result };
+          { operand = Default; arg1 = "Object"; arg2 = ""; result };
+        ]
   | Block exp_list ->
       List.mapi
         (fun i elem ->

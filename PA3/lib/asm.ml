@@ -269,7 +269,7 @@ let make_asm_class (c : class_map_elem) =
       Some
         { class_tag = tag; object_size = siz; vtable = cv; attributes = attrs }
   | None ->
-      Printf.fprintf out_file "#; No vtable found for class %s\n" c.name;
+      (* Printf.fprintf out_file "#; No vtable found for class %s\n" c.name; *)
       None
 
 let abort =
