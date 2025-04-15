@@ -1,8 +1,3 @@
-#; No vtable found for class Bool
-#; No vtable found for class IO
-#; No vtable found for class Int
-#; No vtable found for class Object
-#; No vtable found for class String
 #;comment start
 #;label Main_main_0
 #;t$1 <- my_attribute
@@ -819,47 +814,48 @@ Main.main:
 Main_main_0:
 #;t$1 <- my_attribute
 	#Ident Expr start
-	movq	my_attribute, %rax
+	movq	Attr Index: 24, %rax
 	movq	%rax, -0(%rbp)
 	#Ident Expr end
 #;t$2 <- classId t$1
-	# TODO: Cases to ASM
+	movq	-0(%rbp), %r13
+	movq	%r13, -8(%rbp)
 #;t$3 <- classId Int
-	# TODO: Cases to ASM
+	movq	$9, -16(%rbp)
 #;t$4 <- equal t$3 t$2
 	#Equal start
 	pushq	%rdi
 	pushq	%rsi
-	movq	t$3, %rdi
-	movq	t$2, %rsi
+	movq	-16(%rbp), %rdi
+	movq	-8(%rbp), %rsi
 	call	eq_handler
 	popq	%rsi
 	popq	%rdi
-	movq	%rax, -8(%rbp)
+	movq	%rax, -24(%rbp)
 	#Equal end
 #;bt t$4 main_Main_1
 	#Branch True start
-	movq	-8(%rbp), %rax
+	movq	-24(%rbp), %rax
 	movq	24(%rax), %rax
 	testq	%rax, %rax
 	jne	main_Main_1
 	#Branch True end
 #;t$5 <- classId String
-	# TODO: Cases to ASM
+	movq	$9, -32(%rbp)
 #;t$6 <- equal t$5 t$2
 	#Equal start
 	pushq	%rdi
 	pushq	%rsi
-	movq	t$5, %rdi
-	movq	t$2, %rsi
+	movq	-32(%rbp), %rdi
+	movq	-8(%rbp), %rsi
 	call	eq_handler
 	popq	%rsi
 	popq	%rdi
-	movq	%rax, -16(%rbp)
+	movq	%rax, -40(%rbp)
 	#Equal end
 #;bt t$6 main_Main_2
 	#Branch True start
-	movq	-16(%rbp), %rax
+	movq	-40(%rbp), %rax
 	movq	24(%rax), %rax
 	testq	%rax, %rax
 	jne	main_Main_2
@@ -870,13 +866,13 @@ main_Main_1:
 #;t$7 <- t$1
 	#Ident Expr start
 	movq	-0(%rbp), %rax
-	movq	%rax, -24(%rbp)
+	movq	%rax, -48(%rbp)
 	#Ident Expr end
 #;t$0 <- call out_int t$7
 	#Call w/ args start
-	movq	-24(%rbp), %rsi
+	movq	-48(%rbp), %rsi
 	call	IO.out_int
-	movq	%rax, -32(%rbp)
+	movq	%rax, -56(%rbp)
 	#Call w/ args end
 #;label main_Main_2
 	#Label
@@ -884,13 +880,13 @@ main_Main_2:
 #;t$8 <- t$1
 	#Ident Expr start
 	movq	-0(%rbp), %rax
-	movq	%rax, -40(%rbp)
+	movq	%rax, -64(%rbp)
 	#Ident Expr end
 #;t$0 <- call out_string t$8
 	#Call w/ args start
-	movq	-40(%rbp), %rsi
+	movq	-64(%rbp), %rsi
 	call	IO.out_string
-	movq	%rax, -32(%rbp)
+	movq	%rax, -56(%rbp)
 	#Call w/ args end
 #;return t$0
 	#Return start

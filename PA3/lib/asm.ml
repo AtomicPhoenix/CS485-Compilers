@@ -113,6 +113,7 @@ let var_locations = Hashtbl.create 32
 let string_map = Hashtbl.create 32
 let class_id_map = Hashtbl.create 32
 let class_vtable_map = Hashtbl.create 32
+let class_attribute_map = Hashtbl.create 32
 let string_counter = ref 8
 let class_tag_ctr = ref 9
 let parser_class_map : class_map_elem list = Parser.parser_class_map
@@ -247,7 +248,7 @@ let create_default_vtables () =
     };
   ]
 
-let get_class_attributes attrs =
+let get_class_attributes class_name attrs =
   let get_attribute i (attr : ast_attribute) =
     let name = attr.name in
     let index = i in
@@ -255,7 +256,9 @@ let get_class_attributes attrs =
     let expr = attr.attr_expr in
     { field_name = name; index; type_name = typename; expression = expr }
   in
-  List.mapi get_attribute attrs
+  let attributes = List.mapi get_attribute attrs in
+  Hashtbl.add class_attribute_map class_name attributes;
+  attributes
 
 let make_asm_class (c : class_map_elem) =
   let tag = !class_tag_ctr in
@@ -263,7 +266,7 @@ let make_asm_class (c : class_map_elem) =
   (* 8 bytes/64 bits since every attribute is a pointer *)
   let siz = List.length c.attrs in
   let class_vtable = Hashtbl.find_opt class_vtable_map c.name in
-  let attrs = get_class_attributes c.attrs in
+  let attrs = get_class_attributes c.name c.attrs in
   match class_vtable with
   | Some cv ->
       Some
@@ -1339,7 +1342,10 @@ let handlers =
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * Hashtbl.length var_locations in
   match Hashtbl.find_opt var_locations var_name with
-  | None -> Hashtbl.add var_locations var_name fp_offset
+  | None ->
+      (* Printf.fprintf out_file "# Adding var %s at position -%d(%%rbp)\n"
+        var_name fp_offset; *)
+      Hashtbl.add var_locations var_name fp_offset
   | Some _ -> ()
 
 let get_var_addr (var_name : string) : string =
@@ -1392,13 +1398,11 @@ let get_jump () =
   !jump_number
 
 (** Method to convert a TAC element to assembly code *)
-let tac_to_as (tac : tac_elem) cur_method =
+let tac_to_as (tac : tac_elem) cur_method class_name =
   [ Line (Tac.get_tac_elem_commented tac) ]
   @
   match tac.operand with
-  (****************** TODO ******************)
   | Assignment ->
-      (*add_var_addr tac.result;*)
       let result = get_var_addr tac.result in
       let arg1 = get_var_addr tac.arg1 in
       [
@@ -1422,52 +1426,43 @@ let tac_to_as (tac : tac_elem) cur_method =
       let result = get_var_addr tac.result in
       if tac.arg2 = "" then
         [ Line "\t#Call w/ args start" ]
-        (*@ pusha*)
         @ [
-            (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
             Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
-        (*@ popa*)
         @ [ Line "\t#Call w/ args end" ]
       else
-        (*let args = String.split_on_char ' ' tac.arg2 in*)
-        (*let arglist =*)
-        (*List.fold_left*)
-        (*(fun acc itm -> acc @ [ Instruction ("pushq", itm, "", "") ])*)
-        (*[] args*)
         let arglist =
           [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
         in
         [ Line "\t#Call w/ args start" ]
-        (*@ pusha *) @ arglist
+        @ arglist
         @ [
-            (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
             Instruction ("call", "IO." ^ tac.arg1, "", "");
             Instruction ("movq", "%rax", result, "");
           ]
-        (*@ popa*)
         @ [ Line "\t#Call w/ args end" ]
-      (* Push all variables onto stack *)
-      (* Push all onto stack *)
-      (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
-      (*Printf.fprintf out_file "\tcallq %s\n" tac.arg1*)
-  | ClassId -> [ Line "\t# TODO: Cases to ASM" ]
+  | ClassId -> (
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      let class_name = get_var_addr tac.arg1 in
+      let class_tag = Hashtbl.find_opt class_id_map class_name in
+      match class_tag with
+      | Some class_tag ->
+          [ Instruction ("movq", Printf.sprintf "$%d" class_tag, result, "") ]
+      | None ->
+          [
+            Instruction ("movq", class_name, "%r13", "");
+            Instruction ("movq", "%r13", result, "");
+          ])
   | Comment ->
       [ Line "\t#Comment start" ]
       @ [ Line ("#" ^ tac.arg1) ]
       @ [ Line "\t#Comment end" ]
-      (*Printf.sprintf out_file "\t%s\n" ("#" ^ tac.arg1)*)
   | Label -> [ Line "\t#Label" ] @ [ Line (Printf.sprintf "%s:" tac.arg1) ]
   | Jmp -> [ Line "\t#Jump" ] @ [ Instruction ("jmp", tac.arg1, "", "") ]
-  (* | Case *)
-  (* | Default *)
-  (****************** TODO ******************)
   | Return ->
       [
-        (*Instruction ("movq", "%rbp", "%rsp", "");*)
-        (*Instruction ("popq", "%rbp", "%rsp", "");*)
-        (*Instruction ("ret", "", "", "");*)
         Line "\t#Return start";
         Instruction ("jmp", "." ^ cur_method ^ ".end", "", "");
         Line "\t#Return end";
@@ -1487,18 +1482,27 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("movq", "%r10", result, "");
         Line "\t#Let No Init end";
       ]
-  (****************** TODO ******************)
-  | Ident_Expr s ->
+  | Ident_Expr ident_name ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+      let val_addr =
+        match Hashtbl.find_opt var_locations ident_name with
+        | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
+        | None -> (
+            match
+              List.find_opt
+                (fun attr -> attr.field_name = ident_name)
+                (Hashtbl.find class_attribute_map class_name)
+            with
+            | Some v -> Printf.sprintf "Attr Index: %d" ((v.index + 3) * 8)
+            | None -> assert false)
+      in
       [
         Line "\t#Ident Expr start";
-        Instruction ("movq", get_var_addr s, "%rax", "");
+        Instruction ("movq", val_addr, "%rax", "");
         Instruction ("movq", "%rax", result, "");
         Line "\t#Ident Expr end";
       ]
-  (*| New *)
-  (* | Isvoid *)
   | Plus ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
@@ -1698,7 +1702,6 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("movq", "%rax", result, "");
         Line "\t#iconst end";
       ]
-      (****************** TODO ******************)
   | String_Constant -> (
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -1756,15 +1759,24 @@ let tac_to_as (tac : tac_elem) cur_method =
   | Case -> assert false
   (* NOTE: I'm assuming default works the same as new based on our implementation of the default class new statements. This also assumes we dont use the default keyword for any user-defined classes *)
   | Default | New ->
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
+        result;
       [
         Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%r12", "", "");
         Instruction ("movq", Printf.sprintf "$%s..new" tac.arg1, "%r14", "");
         Instruction ("call", "*%r14", "", "");
+        Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
         Instruction ("popq", "%r12", "", "");
         Instruction ("popq", "%rbp", "", "");
       ]
   | Isvoid ->
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      Printf.fprintf out_file "# Isvoid: Adding var %s at position %s\n"
+        tac.result result;
       let true_jump = get_jump () in
       let post_jump = get_jump () in
       let post_jump_label =
@@ -1784,6 +1796,7 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("call", "*%r14", "", "");
         Instruction ("popq", "%r12", "", "");
         Instruction ("popq", "%rbp", "", "");
+        Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
         Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
         Line true_jump_label;
         Line "\t #true branch of isvoid";
@@ -1793,14 +1806,12 @@ let tac_to_as (tac : tac_elem) cur_method =
         Instruction ("call", "*%r14", "", "");
         Instruction ("popq", "%r12", "", "");
         Instruction ("popq", "%rbp", "", "");
-        Instruction ("movq", "$1", "%r14", "");
         (* This works bc the bool created a few lines ago is stored in %r13, 24(%r13) is the third field of the bool (initially zero) *)
-        Instruction ("movq", "%r14", "24(%rax)", "");
+        Instruction ("movq", "$1", "24(%rax)", "");
+        Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
         Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
         Line post_jump_label;
       ]
-
-let tac_list_to_asm lst = List.map tac_to_as lst
 
 let get_start_method_boilerplate method_name class_name stack_space =
   let name = class_name ^ "." ^ method_name in
@@ -1826,6 +1837,11 @@ let vtables =
   create_vtables ();
   create_default_vtables () @ !vtable_list
 
+let asm_classes : asm_class list =
+  List.filter_map make_asm_class parser_class_map
+
+let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
+
 (* A list of (the assembly code for) methods *)
 let method_asm =
   List.map
@@ -1838,13 +1854,10 @@ let method_asm =
       in
       let method_tac = cfg |> List.flatten in
       get_start_method_boilerplate method_name class_name stack_space
-      @ (List.map (fun tac -> tac_to_as tac method_name) method_tac
+      @ (List.map (fun tac -> tac_to_as tac method_name class_name) method_tac
         |> List.flatten)
         (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
       @ get_end_method_boilerplate method_name stack_space)
     Cfg.cfg_list
 
-let asm_classes : asm_class list =
-  List.filter_map make_asm_class parser_class_map
-
-let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
+let tac_list_to_asm lst = List.map tac_to_as lst
