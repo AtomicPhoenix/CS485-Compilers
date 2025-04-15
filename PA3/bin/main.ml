@@ -3,6 +3,7 @@ module Parser = PA3.Parser
 module Tac = PA3.Tac
 module Asm = PA3.Asm
 module Cfg = PA3.Cfg
+module Intrinsics = PA3.Intrinsics
 
 let () =
   (* Print all tacs *)
@@ -20,7 +21,7 @@ let () =
     Printf.fprintf Print.out_file
       "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
   in
-  List.iter print_instrinsic_func Asm.intrinsic_funcs;
+  List.iter print_instrinsic_func Intrinsics.intrinsic_funcs;
 
   (* Assembly for methods *)
   List.iter (List.iter Asm.print_asm) Asm.method_asm;
@@ -30,7 +31,7 @@ let () =
   Asm.print_string_map ();
 
   (* Value comparison handlers *)
-  List.iter Asm.print_asm Asm.handlers;
+  List.iter Asm.print_asm Intrinsics.handlers;
 
   (* Print start *)
   Asm.print_start ()
