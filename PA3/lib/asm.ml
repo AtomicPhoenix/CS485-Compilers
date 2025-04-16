@@ -714,7 +714,19 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       (* Push all onto stack *)
       (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
       (*Printf.fprintf out_file "\tcallq %s\n" tac.arg1*)
-  | ClassId -> [ Line "\t# TODO: Cases to ASM" ]
+  | ClassId -> (
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      let class_name = get_var_addr tac.arg1 in
+      let class_tag = Hashtbl.find_opt class_id_map class_name in
+      match class_tag with
+      | Some class_tag ->
+          [ Instruction ("movq", Printf.sprintf "$%d" class_tag, result, "") ]
+      | None ->
+          [
+            Instruction ("movq", class_name, "%r13", "");
+            Instruction ("movq", "%r13", result, "");
+          ])
   | Comment ->
       [ Line "\t#Comment start" ]
       @ [ Line ("#" ^ tac.arg1) ]
