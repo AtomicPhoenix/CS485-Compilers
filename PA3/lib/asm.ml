@@ -147,6 +147,7 @@ let implementation_map = Parser.implementation_map
 let parent_map = Parser.parent_map
 let vtable_list : vtable list ref = ref []
 let label_ctr = ref 1
+let prev_tac = ref {operand = New; arg1 = ""; arg2 = ""; result = ""; line = 0; static_type = None}
 
 let print_string_map () =
   Hashtbl.iter
@@ -225,6 +226,7 @@ let create_vtables () =
   let tables = List.filter_map create_vtable implementation_map in
   List.iter
     (fun i ->
+      Printf.printf "adding vtable %s\n" i.name_id;
       Hashtbl.add class_vtable_map i.name_id i;
       vtable_list := !vtable_list @ [ i ])
     tables
@@ -352,6 +354,10 @@ let popa =
     Instruction ("popq", "%rax", "", "");
   ]
 
+let get_unique_label () =
+  label_ctr := !label_ctr + 1;
+  ".label" ^ string_of_int !label_ctr
+ 
 let get_class_attributes class_name attrs =
   let get_attribute i (attr : ast_attribute) =
     let name = attr.name in
@@ -541,6 +547,7 @@ let get_jump () =
 let get_offset method_name static_type current_class =
   match static_type with
   | Class c ->
+      let c = if c = "SELF_TYPE" then current_class else c in
       let vtab = Hashtbl.find class_vtable_map c in
       let res =
         Option.get
@@ -556,7 +563,7 @@ let get_offset method_name static_type current_class =
       string_of_int ((res + 1) * 8)
 
 (** Method to convert a TAC element to assembly code *)
-let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
+let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   [ Line (Tac.get_tac_elem_commented tac) ]
   @
   match tac.operand with
@@ -582,8 +589,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
   | Call ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      let prev_addr = get_var_addr prev_result in
-      let arg1 = get_var_addr tac.arg1 in
+      let prev_addr = get_var_addr prev_tac.result in
+      let meth = tac.arg1 in
       let void_dispatch_label = get_unique_label () in
       let finish_void_dispatch_label = get_unique_label () in
       [
@@ -593,17 +600,18 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("je", void_dispatch_label, "", "");
       ]
       @ (if tac.arg2 = "" then
+           (Printf.printf "getting no arg call with class %s function %s\n" class_name cur_method;
            [ Line "\t#Call w/o args start" ]
            (*@ pusha*)
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
                Instruction ("pushq", "%rdi", "", "");
-               Instruction ("movq", arg1, "%r11", "");
+               Instruction ("movq", prev_addr, "%r11", "");
                Instruction ("movq", "16(%r11)", "%r11", "");
                Instruction
                  ( "movq",
-                   get_offset cur_method tac.static_type class_name ^ "%r11",
+                   get_offset meth (Option.get prev_tac.static_type) class_name ^ "%r11",
                    "%r11",
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
@@ -612,9 +620,9 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
                Instruction ("jmp", finish_void_dispatch_label, "", "");
              ]
            (*@ popa*)
-           @ [ Line "\t#Call w/o args end" ]
+           @ [ Line "\t#Call w/o args end" ])
          else
-           let gen_register_arglist args =
+          ( let gen_register_arglist args =
              let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
              List.mapi
                (fun i arg ->
@@ -636,15 +644,16 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
              if List.length args <= 5 then gen_register_arglist args
              else gen_mixed_arglist args
            in
+           Printf.printf "getting arg call with class %s function %s\n" class_name cur_method;
            [ Line "\t#Call w/ args start" ]
            @ pusha @ arglist
            @ [
                Instruction ("pushq", "%rdi", "", "");
-               Instruction ("movq", arg1, "%r11", "");
+               Instruction ("movq", prev_addr, "%r11", "");
                Instruction ("movq", "16(%r11)", "%r11", "");
                Instruction
                  ( "movq",
-                   get_offset cur_method tac.static_type class_name ^ "%r11",
+                   get_offset meth (Option.get prev_tac.static_type) class_name ^ "%r11",
                    "%r11",
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
@@ -653,12 +662,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
                Instruction ("jmp", finish_void_dispatch_label, "", "");
              ]
            @ popa
-           @ [ Line "\t#Call w/ args end" ])
+           @ [ Line "\t#Call w/ args end" ]))
       @
       (***** TODO: finish void dispatch label and void dispatch err handling *****)
       [
         Line (void_dispatch_label ^ ":");
-        Instruction ("movl", "$" ^ string_of_int tac.line_num, "esi", "");
+        Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
         Instruction ("movl", "$" ^ err_to_num ERR_VOID_DISPATCH, "", "");
         Instruction ("call", "cool_error", "", "");
         Line (finish_void_dispatch_label ^ ":");
@@ -816,7 +825,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", "%r11", result, "");
         Instruction ("jmp", div_end_label, "", "");
         Line (error_label ^ ":");
-        Instruction ("movl", "$" ^ string_of_int tac.line_num, "esi", "");
+        Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
         Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "", "");
         Instruction ("call", "cool_error", "", "");
         Line (div_end_label ^ ":");
@@ -1152,7 +1161,7 @@ let generate_class_new_asm asm_class_var =
             ]
             @ (List.map
                  (fun tac ->
-                   tac_to_as tac attr.field_name asm_class_var.vtable.name_id)
+                   let t = tac_to_as tac attr.field_name asm_class_var.vtable.name_id !prev_tac in prev_tac := tac; t)
                  tacs
               |> List.flatten)
             @ [
@@ -1253,7 +1262,6 @@ let asm_classes : asm_class list =
 let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
 
 (* A list of (the assembly code for) methods *)
-let prev_result = ref ""
 
 let method_asm =
   List.map
@@ -1265,8 +1273,8 @@ let method_asm =
       get_start_method_boilerplate method_name class_name stack_space
       @ (List.map
            (fun tac ->
-             let t = tac_to_as tac method_name class_name !prev_result in
-             prev_result := tac.result;
+             let t = tac_to_as tac method_name class_name !prev_tac in
+             prev_tac := tac;
              t)
            method_tac
         |> List.flatten)
