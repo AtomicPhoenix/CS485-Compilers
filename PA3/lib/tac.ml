@@ -19,8 +19,10 @@ and tac_operand =
   | Comment
   | Label
   | Jmp
-  | Case
   | Default
+  | Case of string
+  | VoidCase
+  | EmptyCase
   | Return
   | LetNoInit
   | Ident_Expr of string
@@ -111,11 +113,13 @@ let operand_to_string (operand : tac_operand) : string =
   | Assignment -> "assignment"
   | Bt -> "bt"
   | Call -> "call"
+  | Case jump -> Printf.sprintf "jump to :%s after comparison of" jump
   | Comment -> "comment"
   | Label -> "label"
   | Jmp -> "jmp"
-  | Case -> "case"
   | Default -> "default"
+  | VoidCase -> "VoidCase"
+  | EmptyCase -> "EmptyCase"
   | Return -> "return"
   | LetNoInit -> "letnoinit"
   | Ident_Expr v -> v
@@ -145,6 +149,9 @@ let print_tac_elem t =
   | Assignment -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
   | LetNoInit -> Printf.fprintf out_file "%s <- %s %s\n" t.result t.arg1 t.arg2
   | String_Constant -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
+  | Case c -> Printf.fprintf out_file "Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
+  | VoidCase -> Printf.fprintf out_file "VoidCase: %s" t.arg1
+  | EmptyCase -> Printf.fprintf out_file "EmptyCase: %s" t.arg1
   | _ ->
       if t.arg2 = "" && t.arg1 = "" then
         Printf.fprintf out_file "%s <- %s\n" t.result
@@ -168,6 +175,9 @@ let get_tac_elem_commented t =
   | Assignment -> Printf.sprintf "#;%s <- %s" t.result t.arg1
   | LetNoInit -> Printf.sprintf "#;%s <- %s %s" t.result t.arg1 t.arg2
   | String_Constant -> Printf.sprintf "#;%s <- %s" t.result t.arg1
+  | Case c -> Printf.sprintf "#Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
+  | VoidCase -> Printf.sprintf "#VoidCase: %s" t.arg1
+  | EmptyCase -> Printf.sprintf "#EmptyCase: %s" t.arg1
   | _ ->
       if t.arg2 = "" && t.arg1 = "" then
         Printf.sprintf "#;%s <- %s" t.result (operand_to_string t.operand)
@@ -183,14 +193,7 @@ let get_tac_elem_commented t =
 let print_tac_elem_commented t =
   Printf.fprintf out_file "%s\n" (get_tac_elem_commented t)
 
-let print_tac_elems (t : tac_elem list) =
-  List.iter
-    (fun t ->
-      if t.operand = Case then (
-        Printf.fprintf out_file "";
-        exit 1))
-    t;
-  List.iter print_tac_elem_commented t
+let print_tac_elems (t : tac_elem list) = List.iter print_tac_elem_commented t
 
 let rec parse_tac_expressions (ast : annotated_ast_elem list) :
     (tac_elem list * string * string * int) list =
@@ -544,18 +547,31 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       in
       let caseExprResult = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
-      let caseClassResult = get_id !var_ctr in
-      let case_class_id =
+      let case_id = get_id !var_ctr in
+      let case_expr_id =
         [
           {
             operand = ClassId;
             arg1 = caseExprResult;
             arg2 = "";
-            result = caseClassResult;
+            result = case_id;
           };
         ]
       in
-      let case_element_values =
+      label_ctr := !label_ctr + 1;
+      let null_case_label = get_label !label_ctr mname cname in
+      let null_case_jump =
+        [
+          {
+            operand = Case null_case_label;
+            arg1 = "$0";
+            arg2 = case_id;
+            result = "";
+          };
+        ]
+      in
+      let join_label = cname ^ "_" ^ mname ^ "_join" in
+      let defined_case_jumps =
         List.map
           (fun elem ->
             var_ctr := !var_ctr + 1;
@@ -572,18 +588,28 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
                 result = caseElemClassResult;
               };
               {
-                operand = Equal;
+                operand = Case case_label;
                 arg1 = caseElemClassResult;
-                arg2 = caseClassResult;
+                arg2 = case_id;
                 result = equalResult;
               };
-              { operand = Bt; arg1 = equalResult; arg2 = case_label; result };
+              { operand = Comment; arg1 = "case-join"; arg2 = ""; result };
             ])
           case_elements
         |> List.flatten
       in
+      let empty_case_jump =
+        label_ctr := !label_ctr + 1;
+        let jump_label = get_label !label_ctr mname cname in
+        [ { operand = Jmp; arg1 = jump_label; arg2 = ""; result = "" } ]
+      in
       label_ctr := init_label_ctr;
-      let case_expressions =
+      label_ctr := !label_ctr + 1;
+      let case_label = get_label !label_ctr mname cname in
+      let null_case =
+        [ { operand = VoidCase; arg1 = case_label; arg2 = ""; result } ]
+      in
+      let defined_cases =
         List.map
           (fun elem ->
             (* var_ctr := !var_ctr + 1;
@@ -593,11 +619,25 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             label_ctr := !label_ctr + 1;
             let case_label = get_label !label_ctr mname cname in
             [ { operand = Label; arg1 = case_label; arg2 = ""; result } ]
-            @ exp_to_tac elem.elem_body.sub_expr result mname cname)
+            @ exp_to_tac elem.elem_body.sub_expr result mname cname
+            @ [ { operand = Jmp; arg1 = join_label; arg2 = ""; result } ])
           case_elements
         |> List.flatten
       in
-      case_expr_value @ case_class_id @ case_element_values @ case_expressions
+      label_ctr := !label_ctr + 1;
+      let case_label = get_label !label_ctr mname cname in
+      let empty_case =
+        [ { operand = EmptyCase; arg1 = case_label; arg2 = ""; result } ]
+      in
+
+      (* case_expr_value @ case_class_id @ null_case @ case_element_values
+      @ case_expressions  *)
+      let case_join =
+        [ { operand = Label; arg1 = join_label; arg2 = ""; result } ]
+      in
+      let jumps = null_case_jump @ defined_case_jumps @ empty_case_jump in
+      let cases = null_case @ defined_cases @ empty_case @ case_join in
+      case_expr_value @ case_expr_id @ jumps @ cases
   | Internal _ ->
       Printf.fprintf out_file
         "Something is fundamentally wrong (We should not be parsing Internal \
