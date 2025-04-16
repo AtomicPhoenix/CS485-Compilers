@@ -1,4 +1,4 @@
-#;comment start
+#; #; #; #; #; #; t$1#; t$2#; #; t$3#; t$4#; t$0#; t$5#; t$6#; t$0#; #; t$0#; t$0#; t$7#; t$0#; t$0#; t$0#; t$8#; t$0#; t$0#; t$0#; t$0#;comment start
 #;label Main_main_0
 #;t$1 <- my_attribute
 #;t$2 <- classId t$1
@@ -24,7 +24,7 @@
 #;return t$0
 .globl Bool..vtable
 Bool..vtable:
-	.quad string0
+	.quad .string0
 	.quad Bool..new
 	.quad Object.abort
 	.quad Object.copy
@@ -32,7 +32,7 @@ Bool..vtable:
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .globl IO..vtable
 IO..vtable:
-	.quad string1
+	.quad .string1
 	.quad IO..new
 	.quad Object.abort
 	.quad Object.copy
@@ -44,7 +44,7 @@ IO..vtable:
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .globl Int..vtable
 Int..vtable:
-	.quad string2
+	.quad .string2
 	.quad Int..new
 	.quad Object.abort
 	.quad Object.copy
@@ -52,7 +52,7 @@ Int..vtable:
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .globl Object..vtable
 Object..vtable:
-	.quad string3
+	.quad .string3
 	.quad Object..new
 	.quad Object.abort
 	.quad Object.copy
@@ -60,7 +60,7 @@ Object..vtable:
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .globl String..vtable
 String..vtable:
-	.quad string4
+	.quad .string4
 	.quad String..new
 	.quad Object.abort
 	.quad Object.copy
@@ -71,7 +71,7 @@ String..vtable:
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .globl Main..vtable
 Main..vtable:
-	.quad string11
+	.quad .string11
 	.quad Object.abort
 	.quad Object.copy
 	.quad Object.type_name
@@ -92,8 +92,8 @@ Bool..new:
 	#Set class tag, object size, vtable pointer
 	movq	$0, (%rax)
 	movq	$4, 8(%rax)
-	movq	$Bool..vtable, %r10
-	movq	%r10, 16(%rax)
+	movq	$Bool..vtable, %r11
+	movq	%r11, 16(%rax)
 	movq	$0, 24(%rax)
 	addq	$8, %rsp
 	ret
@@ -109,8 +109,8 @@ IO..new:
 	#Set class tag, object size, vtable pointer
 	movq	$1, (%rax)
 	movq	$3, 8(%rax)
-	movq	$IO..vtable, %r10
-	movq	%r10, 16(%rax)
+	movq	$IO..vtable, %r11
+	movq	%r11, 16(%rax)
 	addq	$8, %rsp
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -125,8 +125,8 @@ Int..new:
 	#Set class tag, object size, vtable pointer
 	movq	$2, (%rax)
 	movq	$4, 8(%rax)
-	movq	$Int..vtable, %r10
-	movq	%r10, 16(%rax)
+	movq	$Int..vtable, %r11
+	movq	%r11, 16(%rax)
 	movq	$0, 24(%rax)
 	addq	$8, %rsp
 	ret
@@ -142,8 +142,8 @@ Object..new:
 	#Set class tag, object size, vtable pointer
 	movq	$3, (%rax)
 	movq	$3, 8(%rax)
-	movq	$Object..vtable, %r10
-	movq	%r10, 16(%rax)
+	movq	$Object..vtable, %r11
+	movq	%r11, 16(%rax)
 	addq	$8, %rsp
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -158,10 +158,10 @@ String..new:
 	#Set class tag, object size, vtable pointer
 	movq	$4, (%rax)
 	movq	$4, 8(%rax)
-	movq	$String..vtable, %r10
-	movq	%r10, 16(%rax)
-	movq	$empty.string, %r10
-	movq	%r10, 24(%rax)
+	movq	$String..vtable, %r11
+	movq	%r11, 16(%rax)
+	movq	$empty.string, %r11
+	movq	%r11, 24(%rax)
 	addq	$8, %rsp
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -226,102 +226,191 @@ Main..new:
 	.globl	IO.in_int
 	.type	IO.in_int, @function
 IO.in_int:
-	pushq	%rbp
 	pushq	%rbx
-	subq	$4120, %rsp
-	call	Int..new
-	leaq	16(%rsp), %rbp
-	movl	$4096, %esi
+	subq	$32, %rsp
 	movq	stdin(%rip), %rdx
-	movq	%rbp, %rdi
+	leaq	8(%rsp), %rdi
+	leaq	16(%rsp), %rsi
+	movq	$0, 8(%rsp)
+	movq	$0, 16(%rsp)
+	movq	$0, 24(%rsp)
+	call	getline
+	movq	8(%rsp), %rdi
+	cmpq	$-1, %rax
+	je	.in_int_string_error
+	testq	%rdi, %rdi
+	je	.in_int_string_error
+.in_int_bounds_check:
+	leaq	24(%rsp), %rsi
+	movl	$10, %edx
+	call	strtol
+	movl	$4294967295, %edx
 	movq	%rax, %rbx
-	call	fgets
-	leaq	8(%rsp), %rdx
-	movq	%rbp, %rdi
-	xorl	%eax, %eax
-	movq	$percent.ld, %rsi
-	call	sscanf
-	movq	8(%rsp), %rcx
-	movl	$2147483648, %edx
-	addq	%rcx, %rdx
-	shrq	$32, %rdx
-	jne	.in_int_zero
-	testl	%eax, %eax
-	jg	.in_int_nonzero
-.in_int_zero:
-	xorl	%ecx, %ecx
-.in_int_nonzero:
-	movq	%rcx, 24(%rbx)
-	addq	$4120, %rsp
-	movq	%rbx, %rax
+	movl	$2147483648, %eax
+	addq	%rbx, %rax
+	cmpq	%rax, %rdx
+	movl	$0, %eax
+	cmovb	%rax, %rbx
+	call	Bool..new
+	movq	%rbx, 24(%rax)
+	addq	$32, %rsp
 	popq	%rbx
-	popq	%rbp
 	ret
+	.p2align 4,,10
+	.p2align 3
+.in_int_string_error:
+	call	free
+	movl	$1, %edi
+	movl	$1, %esi
+	call	calloc
+	movq	%rax, 8(%rsp)
+	movq	%rax, %rdi
+	jmp	.in_int_bounds_check
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.p2align 4
 	.globl	IO.out_int
 	.type	IO.out_int, @function
 IO.out_int:
 	pushq	%rbx
-	movq	24(%rsi), %rsi
+	movl	24(%rsi), %esi
 	movq	%rdi, %rbx
 	xorl	%eax, %eax
-	movq	$percent.d, %rdi
+	movl	$.percent.d, %edi
 	call	printf
 	movq	%rbx, %rax
 	popq	%rbx
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-.globl	IO.in_string
+	.p2align 4
+	.globl	IO.in_string
+	.type	IO.in_string, @function
 IO.in_string:
-	## method definition
 	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-	## stack room for temporaries: 2
-	movq	$16, %r14
-	subq	%r14, %rsp
-	## return address handling
-	## method body begins
-	## new String
-	pushq	%rbp
-	pushq	%r12
-	movq	$String..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	%r13, %r14
-	## guarantee 16-byte alignment before call
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	call	coolgetstr
-	movq	%rax, %r13
-	movq	%r13, 24(%r14)
-	movq	%r14, %r13
-.globl	IO.in_string.end
-IO.in_string.end:
-	## method body ends
-	## return address handling
-	movq	%rbp, %rsp
+	pushq	%rbx
+	subq	$24, %rsp
+	movq	stdin(%rip), %rdx
+	leaq	8(%rsp), %rsi
+	movq	%rsp, %rdi
+	movq	$0, (%rsp)
+	movq	$0, 8(%rsp)
+	call	getline
+	movq	(%rsp), %rbp
+	cmpq	$-1, %rax
+	je	.in_string_null
+	testq	%rbp, %rbp
+	je	.in_string_null
+	xorl	%esi, %esi
+	movq	%rax, %rdx
+	movq	%rbp, %rdi
+	movq	%rax, %rbx
+	call	memchr
+	testq	%rax, %rax
+	jne	.in_string_null
+	leaq	-1(%rbp,%rbx), %rax
+	cmpb	$10, (%rax)
+	jne	.in_string_newline
+	movb	$0, (%rax)
+	movq	(%rsp), %rbp
+.in_string_resize:
+	movq	%rbx, %rsi
+	movq	%rbp, %rdi
+	call	realloc
+.in_string_end:
+	movq	%rax, (%rsp)
+	call	String..new
+	movq	24(%rax), %rdi
+	movq	%rax, %rbx
+	call	free
+	movq	(%rsp), %rax
+	movq	%rax, 24(%rbx)
+	addq	$24, %rsp
+	movq	%rbx, %rax
+	popq	%rbx
 	popq	%rbp
 	ret
-	## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	.p2align 4,,10
+	.p2align 3
+.in_string_null:
+	movq	%rbp, %rdi
+	call	free
+	movl	$1, %esi
+	movl	$1, %edi
+	call	calloc
+	jmp	.in_string_end
+	.p2align 4,,10
+	.p2align 3
+.in_string_newline:
+	addq	$1, %rbx
+	jmp	.in_string_resize
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.p2align 4
 	.globl	IO.out_string
+	.type	IO.out_string, @function
 IO.out_string:
+	pushq	%r12
+	movq	%rdi, %r12
 	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-	movq $16, %r14
-	subq %r14, %rsp
-	movq 24(%rbp), %r14
-	movq 24(%r14), %r13
-	andq $0xFFFFFFFFFFFFFFF0, %rsp
-	movq %r13, %rdi
-	call cooloutstr
-	movq %r12, %r13
-	movq %rbp, %rsp
-	popq %rbp
+	pushq	%rbx
+	movq	24(%rsi), %rbx
+	movsbl	(%rbx), %edi
+	testb	%dil, %dil
+	jne	.L44
+	jmp	.L57
+	.p2align 4,,10
+	.p2align 3
+.L61:
+	call	putchar
+.L49:
+	movsbl	1(%rbx), %edi
+	addq	$1, %rbx
+	testb	%dil, %dil
+	je	.L57
+.L44:
+	cmpb	$92, %dil
+	jne	.L61
+	movzbl	1(%rbx), %ebp
+	addq	$1, %rbx
+	testb	%bpl, %bpl
+	je	.L51
+	cmpb	$110, %bpl
+	je	.L62
+	cmpb	$116, %bpl
+	je	.L46
+	movl	$92, %edi
+	addq	$1, %rbx
+	call	putchar
+	movsbl	%bpl, %edi
+	call	putchar
+	movsbl	(%rbx), %edi
+	testb	%dil, %dil
+	jne	.L44
+.L57:
+	movq	%r12, %rax
+	popq	%rbx
+	popq	%rbp
+	popq	%r12
+	ret
+	.p2align 4,,10
+	.p2align 3
+.L62:
+	movl	$10, %edi
+	call	putchar
+	jmp	.L49
+	.p2align 4,,10
+	.p2align 3
+.L46:
+	movl	$9, %edi
+	call	putchar
+	jmp	.L49
+	.p2align 4,,10
+	.p2align 3
+.L51:
+	movl	$92, %edi
+	call	putchar
+	movq	%r12, %rax
+	popq	%rbx
+	popq	%rbp
+	popq	%r12
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.globl	cooloutstr
@@ -416,410 +505,190 @@ IO.out_string:
 	.globl	coolstrlen
 	.type	coolstrlen, @function
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	.p2align 4
+	.globl	cool_error
+	.type	cool_error, @function
+cool_error:
+	subq	$8, %rsp
+	cmpq	$4, %rdi
+	ja	.error_exit
+	jmp	*.jump_table(,%rdi,8)
 	.section	.rodata
-.LC1:
-	.string	""
+	.align 8
+	.align 4
+.jump_table:
+	.quad	.error_dispatch_void
+	.quad	.error_case_void
+	.quad	.error_case_no_match
+	.quad	.error_div_by_zero
+	.quad	.error_substr_index_bad
 	.text
-	.globl	coolgetstr
-	.type	coolgetstr, @function
-coolgetstr:
-.LFB9:
-	.cfi_startproc
-	endbr64
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset 6, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register 6
-	subq	$16, %rsp
-	movl	$1, %esi
-	movl	$40960, %edi
-	call	calloc@PLT
-	movq	%rax, -8(%rbp)
-	movl	$0, -16(%rbp)
-.L21:
-	movq	stdin(%rip), %rax
-	movq	%rax, %rdi
-	call	fgetc@PLT
-	movl	%eax, -12(%rbp)
-	cmpl	$-1, -12(%rbp)
-	je	.L15
-	cmpl	$10, -12(%rbp)
-	jne	.L16
-.L15:
-	cmpl	$0, -16(%rbp)
-	je	.L17
-	leaq	.LC1(%rip), %rax
-	jmp	.L18
-.L17:
-	movq	-8(%rbp), %rax
-	jmp	.L18
-.L16:
-	cmpl	$0, -12(%rbp)
-	jne	.L19
-	movl	$1, -16(%rbp)
-	jmp	.L21
-.L19:
-	movq	-8(%rbp), %rax
-	movq	%rax, %rdi
-	call	coolstrlen
-	movl	%eax, %edx
-	movq	-8(%rbp), %rax
-	addq	%rdx, %rax
-	movl	-12(%rbp), %edx
-	movb	%dl, (%rax)
-	jmp	.L21
-.L18:
-	leave
-	.cfi_def_cfa 7, 8
-	ret
-	.cfi_endproc
-.LFE9:
-	.size	coolgetstr, .-coolgetstr
-	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	.section	.rodata
-.LC0:
-	.string	"%s%s"
-	.text
-	.globl	coolstrcat
-	.type	coolstrcat, @function
-coolstrcat:
-.LFB8:
-	.cfi_startproc
-	endbr64
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset 6, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register 6
-	pushq	%rbx
-	subq	$40, %rsp
-	.cfi_offset 3, -24
-	movq	%rdi, -40(%rbp)
-	movq	%rsi, -48(%rbp)
-	cmpq	$0, -40(%rbp)
-	jne	.L11
-	movq	-48(%rbp), %rax
-	jmp	.L12
-.L11:
-	cmpq	$0, -48(%rbp)
-	jne	.L13
-	movq	-40(%rbp), %rax
-	jmp	.L12
-.L13:
-	movq	-40(%rbp), %rax
-	movq	%rax, %rdi
-	call	coolstrlen
-	movl	%eax, %ebx
-	movq	-48(%rbp), %rax
-	movq	%rax, %rdi
-	call	coolstrlen
-	addl	%ebx, %eax
-	addl	$1, %eax
-	movl	%eax, -28(%rbp)
-	movl	-28(%rbp), %eax
-	cltq
-	movl	$1, %esi
-	movq	%rax, %rdi
-	call	calloc@PLT
-	movq	%rax, -24(%rbp)
-	movl	-28(%rbp), %eax
-	movslq	%eax, %rsi
-	movq	-48(%rbp), %rcx
-	movq	-40(%rbp), %rdx
-	movq	-24(%rbp), %rax
-	movq	%rcx, %r8
-	movq	%rdx, %rcx
-	leaq	.LC0(%rip), %rdx
-	movq	%rax, %rdi
-	movl	$0, %eax
-	call	snprintf@PLT
-	movq	-24(%rbp), %rax
-.L12:
-	movq	-8(%rbp), %rbx
-	leave
-	.cfi_def_cfa 7, 8
-	ret
-	.cfi_endproc
-.LFE8:
-	.size	coolstrcat, .-coolstrcat
-	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	.globl	coolstrlen
-	.type	coolstrlen, @function
-coolstrlen:
-.LFB7:
-	.cfi_startproc
-	endbr64
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset 6, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register 6
-	movq	%rdi, -24(%rbp)
-	movl	$0, -4(%rbp)
-	jmp	.L7
-.L8:
-	movl	-4(%rbp), %eax
-	addl	$1, %eax
-	movl	%eax, -4(%rbp)
-.L7:
-	movl	-4(%rbp), %eax
-	movl	%eax, %edx
-	movq	-24(%rbp), %rax
-	addq	%rdx, %rax
-	movzbl	(%rax), %eax
-	testb	%al, %al
-	jne	.L8
-	movl	-4(%rbp), %eax
-	popq	%rbp
-	.cfi_def_cfa 7, 8
-	ret
-	.cfi_endproc
-.LFE7:
-	.size	coolstrlen, .-coolstrlen
-	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-coolsubstr:
-.LFB10:
-	.cfi_startproc
-	endbr64
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset 6, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register 6
-	subq	$48, %rsp
-	movq	%rdi, -24(%rbp)
-	movq	%rsi, -32(%rbp)
-	movq	%rdx, -40(%rbp)
-	movq	-24(%rbp), %rax
-	movq	%rax, %rdi
-	call	coolstrlen
-	movl	%eax, -4(%rbp)
-	cmpq	$0, -32(%rbp)
-	js	.L23
-	cmpq	$0, -40(%rbp)
-	js	.L23
-	movq	-32(%rbp), %rdx
-	movq	-40(%rbp), %rax
-	addq	%rax, %rdx
-	movl	-4(%rbp), %eax
-	cltq
-	cmpq	%rax, %rdx
-	jle	.L24
-.L23:
-	movl	$0, %eax
-	jmp	.L25
-.L24:
-	movq	-40(%rbp), %rax
-	movq	-32(%rbp), %rcx
-	movq	-24(%rbp), %rdx
-	addq	%rcx, %rdx
-	movq	%rax, %rsi
-	movq	%rdx, %rdi
-	call	strndup@PLT
-.L25:
-	leave
-	.cfi_def_cfa 7, 8
-	ret
-	.cfi_endproc
-.LFE10:
-	.size	coolsubstr, .-coolsubstr
-	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	.globl	Object.abort
-Object.abort:
-	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-	movq	$16, %r14
-	subq	%r14, %rsp
-	movq	$string6, %r13
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movq	%r13, %rdi
-	call	cooloutstr
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movl	$0, %edi
+.error_div_by_zero:
+	movl	$.error_div_by_zero_string, %edi
+	xorl	%eax, %eax
+	call	printf
+.error_exit:
+	xorl	%edi, %edi
 	call	exit
-Object.abort.end:
-	movq	%rbp, %rsp
-	popq	%rbp
-	ret
+.error_substr_index_bad:
+	movl	$.error_substr_index_bad_string, %edi
+	xorl	%eax, %eax
+	call	printf
+	jmp	.error_exit
+.error_dispatch_void:
+	movl	$.error_dispatch_void_string, %edi
+	xorl	%eax, %eax
+	call	printf
+	jmp	.error_exit
+.error_case_void:
+	movl	$.error_case_void_string, %edi
+	xorl	%eax, %eax
+	call	printf
+	jmp	.error_exit
+.error_case_no_match:
+	movl	$.error_case_no_match_string, %edi
+	xorl	%eax, %eax
+	call	printf
+	jmp	.error_exit
+	.size	cool_error, .-cool_error
+	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	.p2align 4
+	.globl	Object.abort
+	.type	Object.abort, @function
+Object.abort:
+	movl	$.abort_string, %edi
+	subq	$8, %rsp
+	call	puts
+	xorl	%edi, %edi
+	call	exit
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.p2align 4
 	.globl	Object.copy
+	.type	Object.copy, @function
 Object.copy:
 	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-	movq	$16, %r14
-	subq	%r14, %rsp
-	movq	8(%r12), %r14
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movq	$8, %rsi
-	movq	%r14, %rdi
-	call	calloc
-	movq	%rax, %r13
-	pushq	%r13
-	.globl	Object.copy.end
-Object.copy.end:
-	movq	%rbp, %rsp
+	pushq	%rbx
+	movq	%rdi, %rbx
+	subq	$8, %rsp
+	movq	8(%rdi), %rax
+	leaq	0(,%rax,8), %rbp
+	movq	%rbp, %rdi
+	call	malloc
+	addq	$8, %rsp
+	movq	%rbp, %rdx
+	movq	%rbx, %rsi
+	movq	%rax, %rdi
+	popq	%rbx
 	popq	%rbp
-	ret
+	jmp	memcpy
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Object.type_name:
+	.p2align 4
 	.globl	Object.type_name
-	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-	movq	$16, %r14
-	subq	%r14, %rsp
-	pushq	%rbp
-	pushq	%r12
-	movq	$String..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	16(%r12), %r14
-	movq	0(%r14), %r14
-	movq	%r14, 24(%r13)
-Object.type_name.end:
-	movq	%rbp, %rsp
-	popq	%rbp
+	.type	Object.type_name, @function
+Object.type_name:
+	pushq	%rbx
+	movq	%rdi, %rbx
+	call	String..new
+	movq	16(%rbx), %rdx
+	movq	(%rdx), %rdx
+	movq	%rdx, 24(%rax)
+	popq	%rbx
 	ret
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-.globl String.length
+	.p2align 4
+	.globl	String.length
+	.type	String.length, @function
 String.length:
-## method definition
 	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-## stack room for temporaries: 2
-	movq	$16, %r14
-	subq	%r14, %rsp
-## return address handling
-## method body begins
-## new Int
-	pushq	%rbp
-	pushq	%r12
-	movq	$Int..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	%r13, %r14
-	movq	24(%r12), %r13
-## guarantee 16-byte alignment before call
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movq	%r13, %rdi
-	movl	$0, %eax
-	call	coolstrlen
-	movq	%rax, %r13
-	movq	%r13, 24(%r14)
-	movq	%r14, %r13
-.globl String.length.end
-String.length.end:
-## method body ends
-## return address handling
-	movq	%rbp, %rsp
+	movq	%rdi, %rbp
+	pushq	%rbx
+	subq	$8, %rsp
+	call	Int..new
+	movq	24(%rbp), %rdi
+	movq	%rax, %rbx
+	call	strlen
+	movq	%rax, 24(%rbx)
+	addq	$8, %rsp
+	movq	%rbx, %rax
+	popq	%rbx
 	popq	%rbp
 	ret
-## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-.globl String.substr
 String.substr:
-## method definition
-	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-## stack room for temporaries: 2
-	movq	$16, %r14
-	subq	%r14, %rsp
-## return address handling
-## fp[4] holds argument i (Int)
-## fp[3] holds argument l (Int)
-## method body begins
-## new String
-	pushq	%rbp
+	pushq	%r13
+	movq	%rdx, %r13
 	pushq	%r12
-	movq	$String..new, %r14
-	call	*%r14
+	movq	%rsi, %r12
+	pushq	%rbp
+	movq	%rdi, %rbp
+	pushq	%rbx
+	subq	$8, %rsp
+	movq	24(%rdi), %rdi
+	call	strlen
+	movq	%rax, %rdx
+	movq	24(%r13), %rax
+	addq	24(%r12), %rax
+	cmpq	%rax, %rdx
+	jb	.substr_error
+	call	String..new
+	movq	24(%rax), %rdi
+	movq	%rax, %rbx
+	call	free
+	movq	24(%r13), %rsi
+	movq	24(%r12), %rdi
+	addq	24(%rbp), %rdi
+	call	strndup
+	movq	%rax, 24(%rbx)
+	addq	$8, %rsp
+	movq	%rbx, %rax
+	popq	%rbx
+	popq	%rbp
 	popq	%r12
-	popq	%rbp
-	movq	%r13, %r15
-	movq	24(%rbp), %r14
-	movq	24(%r14), %r14
-	movq	32(%rbp), %r13
-	movq	24(%r13), %r13
-	movq	24(%r12), %r12
-## guarantee 16-byte alignment before call
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movq	%r12, %rdi
-	movq	%r13, %rsi
-	movq	%r14, %rdx
-	call	coolsubstr
-	movq	%rax, %r13
-	cmpq	$0, %r13
-	jne	l6
-	movq	$string7, %r13
-## guarantee 16-byte alignment before call
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movq	%r13, %rdi
-	call	cooloutstr
-## guarantee 16-byte alignment before call
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movl	$0, %edi
-	call	exit
-.globl l6
-l6:
-	movq	%r13, 24(%r15)
-	movq	%r15, %r13
-.globl String.substr.end
-String.substr.end:
-## method body ends
-## return address handling
-	movq	%rbp, %rsp
-	popq	%rbp
+	popq	%r13
 	ret
-## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-## global string constants
+	.p2align 4,,10
+	.p2align 3
+.substr_error:
+	xorl	%esi, %esi
+	movl	$4, %edi
+	call	cool_error
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-.globl String.concat
+	.p2align 4
+	.globl	String.concat
+	.type	String.concat, @function
 String.concat:
-## method definition
-	pushq	%rbp
-	movq	%rsp, %rbp
-	movq	16(%rbp), %r12
-## stack room for temporaries: 2
-	movq	$16, %r14
-	subq	%r14, %rsp
-## return address handling
-## fp[3] holds argument s (String)
-## method body begins
-## new String
-	pushq	%rbp
+	pushq	%r13
 	pushq	%r12
-	movq	$String..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	%r13, %r15
-	movq	24(%rbp), %r14
-	movq	24(%r14), %r14
-	movq	24(%r12), %r13
-## guarantee 16-byte alignment before call
-	andq	$0xFFFFFFFFFFFFFFF0, %rsp
-	movq	%r13, %rdi
-	movq	%r14, %rsi
-	call	coolstrcat
+	movq	%rsi, %r12
+	pushq	%rbp
+	movq	%rdi, %rbp
+	pushq	%rbx
+	subq	$8, %rsp
+	call	String..new
+	movq	24(%rbp), %rdi
+	movq	%rax, %rbx
+	call	strlen
+	movq	24(%r12), %rdi
 	movq	%rax, %r13
-	movq	%r13, 24(%r15)
-	movq	%r15, %r13
-.globl String.concat.end
-String.concat.end:
-## method body ends
-## return address handling
-	movq	%rbp, %rsp
+	call	strlen
+	movq	24(%rbx), %rdi
+	leaq	1(%r13,%rax), %rsi
+	call	realloc
+	movq	%rax, 24(%rbx)
+	movq	24(%rbp), %rsi
+	movq	%rax, %rdi
+	movq	24(%r12), %r12
+	call	stpcpy
+	movq	%r12, %rsi
+	movq	%rax, %rdi
+	call	strcpy
+	addq	$8, %rsp
+	movq	%rbx, %rax
+	popq	%rbx
 	popq	%rbp
+	popq	%r12
+	popq	%r13
 	ret
-## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.p2align 4
 	.globl	Main.main
@@ -889,7 +758,7 @@ Main_main_0:
 #VoidCase: main_Main_1
 main_Main_1:
 ## case expression: error case
-	movq	 $string9, %r13
+	movq	 $.string9, %r13
 ## guarantee 16-byte alignment before call
 	andq	 $0xFFFFFFFFFFFFFFF0, %rsp
 	movq	 %r13, %rdi
@@ -935,7 +804,7 @@ main_Main_3:
 #EmptyCase: main_Main_4
 main_Main_4:
 ## case expression: error case
-	movq	 $string8, %r13
+	movq	 $.string8, %r13
 ## guarantee 16-byte alignment before call
 	andq	 $0xFFFFFFFFFFFFFFF0, %rsp
 	movq	 %r13, %rdi
@@ -956,35 +825,82 @@ Main_main_join:
 	popq	%rbp
 	ret
 	.section	.rodata
-string1:
+	.align 8
+.globl .string1
+.string1:
 	.string	"IO"
-string11:
+	.align 8
+.globl .string11
+.string11:
 	.string	"Main"
-string9:
+	.align 8
+.globl .string9
+.string9:
 	.string	"ERROR: 6: Exception: case on void\n"
-string3:
+	.align 8
+.globl .string3
+.string3:
 	.string	"Object"
-string4:
+	.align 8
+.globl .string4
+.string4:
 	.string	"String"
-string0:
+	.align 8
+.globl .string0
+.string0:
 	.string	"Bool"
-string8:
+	.align 8
+.globl .string8
+.string8:
 	.string	"ERROR: 6: Exception: case without matching branch\n"
-string6:
+	.align 8
+.globl .string6
+.string6:
 	.string	"abort"
-string2:
+	.align 8
+.globl .string2
+.string2:
 	.string	"Int"
-string7:
+	.align 8
+.globl .string7
+.string7:
 	.string	"ERROR: 0: Exception: String.substr out of range\n"
+	.align 8
 	.globl empty.string
 empty.string:
 	.string	""
-	.globl percent.ld
-percent.ld:
+	.align 8
+	.globl .percent.ld
+.percent.ld:
 	.string	"%ld"
-	.globl percent.d
-percent.d:
+	.align 8
+	.globl .percent.d
+.percent.d:
 	.string	"%d"
+	.align 8
+	.globl .error_dispatch_void_string
+.error_dispatch_void_string:
+	.string	"ERROR: %zd: Exception: dispatch on void\n"
+	.align 8
+	.globl .error_case_void_string
+.error_case_void_string:
+	.string	"ERROR: %zd: Exception: case on void\n"
+	.align 8
+	.globl .error_case_no_match_string
+.error_case_no_match_string:
+	.string	"ERROR: %zd: Exception: case without matching branch\n"
+	.align 8
+	.globl .error_div_by_zero_string
+.error_div_by_zero_string:
+	.string	"ERROR: %zd: Exception: division by zero\n"
+	.align 8
+	.globl .error_substr_index_bad_string
+.error_substr_index_bad_string:
+	.string	"ERROR: %zd: Exception: String.substr out of range\n"
+	.align 8
+	.globl .abort_string
+.abort_string:
+	.string	"abort"
 	.text
 lt_handler:
 	pushq	%r12
