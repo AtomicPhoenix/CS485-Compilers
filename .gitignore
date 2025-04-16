@@ -1,5 +1,6 @@
 PA1/
 *.cm?
+*.s
 out
 main
 a.out

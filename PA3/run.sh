@@ -1,4 +1,4 @@
-cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml bin/main.ml |
+cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.ml bin/main.ml |
 	sed 's/Print\.//
              s/Parser\.//  
 	     s/Tac\.// 
@@ -7,16 +7,34 @@ cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml bin/main.ml |
 	     /^open/d
 	     /PA3/d
 	     s/Asm\.//
+	     s/Tac\.// 
+	     s/Intrinsics\.//
 	     w ./main.ml' >main.ml
 
-ocamlc main.ml
-cp "$1" .
-file=$(basename "$1" .cl-type)
-./a.out "$file.cl-type"
+EXTENSION=$(echo "$1" | cut -d'.' -f4)
 
-gcc -static -fno-pie -g3 -o program "$file".s
+FILE="$1"
+if [ "$EXTENSION" = "cl" ]; then
+	../testing/cool --type "$1"
+	FILE="$1-type"
+elif [ "$EXTENSION" != "cl-type" ]; then
+	echo "Input a cool file, not $1"
+	exit 1
+fi
+
+echo "Running $FILE"
+TESTNAME="./test-case.cl-type"
+cp "$FILE" $TESTNAME
+
+ocamlc main.ml
+./a.out "$TESTNAME"
+
+TESTNAME="$(basename "$TESTNAME" .cl-type)"
+
+gcc -static -fno-pie -g3 -o program "$TESTNAME".s
 ./program
 
-rm "./$file".cl* 2>/dev/null
-rm "./$file.s" 2>/dev/null
+TESTNAME="$(basename "$TESTNAME" .s)"
+rm "$TESTNAME.cl"* 2>/dev/null
 rm main.cm*
+printf "\nFinished Running %s\n" "$TESTNAME"
