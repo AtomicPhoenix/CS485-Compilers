@@ -68,7 +68,6 @@ and asm_class = {
 
 and new_func = string * asm
 
-
 and error_reason =
   | ERR_VOID_DISPATCH
   | ERR_VOID_CASE
@@ -152,17 +151,17 @@ let print_string_map () =
   Hashtbl.iter
     (fun k v ->
       Printf.fprintf Print.out_file
-        "\t.align 8\n.string%d:\n\t.string\t\"%s\"\n" v k)
+        "\t.align 8\n.globl .string%d\n.string%d:\n\t.string\t\"%s\"\n" v v k)
     string_map;
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
     "\t.globl empty.string\nempty.string:\n\t.string\t\"\"\n";
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
-    "\t.globl percent.ld\npercent.ld:\n\t.string\t\"%%ld\"\n";
+    "\t.globl .percent.ld\n.percent.ld:\n\t.string\t\"%%ld\"\n";
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
-    "\t.globl percent.d\npercent.d:\n\t.string\t\"%%d\"\n";
+    "\t.globl .percent.d\n.percent.d:\n\t.string\t\"%%d\"\n";
   (*Printf.fprintf Print.out_file "\t.align 8\n";*)
   (*Printf.fprintf Print.out_file*)
   (*"\t.globl percent.s\npercent.s:\n\t.string\t\"%%s\"\n";*)
@@ -174,26 +173,26 @@ let print_string_map () =
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
     "\t.globl .error_case_void_string\n\
-     error_case_void_string:\n\
+     .error_case_void_string:\n\
      \t.string\t\"ERROR: %%zd: Exception: case on void\\n\"\n";
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
     "\t.globl .error_case_no_match_string\n\
-     error_case_no_match_string:\n\
+     .error_case_no_match_string:\n\
      \t.string\t\"ERROR: %%zd: Exception: case without matching branch\\n\"\n";
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
     "\t.globl .error_div_by_zero_string\n\
-     error_div_by_zero_string:\n\
+     .error_div_by_zero_string:\n\
      \t.string\t\"ERROR: %%zd: Exception: division by zero\\n\"\n";
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
     "\t.globl .error_substr_index_bad_string\n\
-     error_substr_index_bad_string:\n\
+     .error_substr_index_bad_string:\n\
      \t.string\t\"ERROR: %%zd: Exception: String.substr out of range\\n\"\n";
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
-    "\t.globl .abort_string\nabort_string:\n\t.string\t\"abort\"\n";
+    "\t.globl .abort_string\n.abort_string:\n\t.string\t\"abort\"\n";
   Printf.fprintf Print.out_file "\t.text\n"
 
 let create_vtable (itm : implementation_map_elem) : vtable option =
@@ -516,7 +515,6 @@ let new_funcs =
     ("String", string_new);
   ]
 
-
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * Hashtbl.length var_locations in
   match Hashtbl.find_opt var_locations var_name with
@@ -531,32 +529,43 @@ let get_var_addr (var_name : string) : string =
   | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
   | None -> var_name
 
-
 let jump_number = ref 1
 
 let get_jump () =
   jump_number := !jump_number + 1;
   !jump_number
 
-let get_offset method_name static_type current_class =
-  match static_type with
-  | Class c ->
-      let vtab = Hashtbl.find class_vtable_map c in
-      let res =
-        Option.get
-          (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
-      in
-      string_of_int ((res + 1) * 8)
-  | SELF_TYPE _ ->
-      let vtab = Hashtbl.find class_vtable_map current_class in
-      let res =
-        Option.get
-          (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
-      in
-      string_of_int ((res + 1) * 8)
+(* let get_offset method_name static_type current_class =
+   match static_type with
+  | Some static_type -> (
+      match static_type with
+      | Class c ->
+          let vtab = Hashtbl.find class_vtable_map c in
+          let res =
+            Option.get
+              (List.find_index
+                 (fun s -> s.method_name = method_name)
+                 vtab.methods)
+          in
+          string_of_int ((res + 1) * 8)
+      | SELF_TYPE _ ->
+          let vtab = Hashtbl.find class_vtable_map current_class in
+          let res =
+            Option.get
+              (List.find_index
+                 (fun s -> s.method_name = method_name)
+                 vtab.methods)
+          in
+          string_of_int ((res + 1) * 8))
+  | None -> assert false *)
+
+let get_unique_label class_name method_name =
+  label_ctr := !label_ctr + 1;
+  class_name ^ "_" ^ method_name ^ "_" ^ string_of_int !label_ctr
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
+  Printf.fprintf out_file "#; %s" prev_result;
   [ Line (Tac.get_tac_elem_commented tac) ]
   @
   match tac.operand with
@@ -582,10 +591,30 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
   | Call ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
+      if tac.arg2 = "" then
+        [ Line "\t#Call w/ args start" ]
+        @ [
+            Instruction ("call", "IO." ^ tac.arg1, "", "");
+            Instruction ("movq", "%rax", result, "");
+          ]
+        @ [ Line "\t#Call w/ args end" ]
+      else
+        let arglist =
+          [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
+        in
+        [ Line "\t#Call w/ args start" ]
+        @ arglist
+        @ [
+            Instruction ("call", "IO." ^ tac.arg1, "", "");
+            Instruction ("movq", "%rax", result, "");
+          ]
+        @ [ Line "\t#Call w/ args end" ]
+      (* add_var_addr tac.result;
+      let result = get_var_addr tac.result in
       let prev_addr = get_var_addr prev_result in
       let arg1 = get_var_addr tac.arg1 in
-      let void_dispatch_label = get_unique_label () in
-      let finish_void_dispatch_label = get_unique_label () in
+      let void_dispatch_label = get_unique_label class_name cur_method in
+      let finish_void_dispatch_label = get_unique_label class_name cur_method in
       [
         Instruction ("movq", prev_addr, "%rax", "");
         Instruction ("movq", "(%rax)", "%rax", "");
@@ -658,11 +687,11 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       (***** TODO: finish void dispatch label and void dispatch err handling *****)
       [
         Line (void_dispatch_label ^ ":");
-        Instruction ("movl", "$" ^ string_of_int tac.line_num, "esi", "");
+        Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
         Instruction ("movl", "$" ^ err_to_num ERR_VOID_DISPATCH, "", "");
         Instruction ("call", "cool_error", "", "");
         Line (finish_void_dispatch_label ^ ":");
-      ]
+      ] *)
       (* Push all variables onto stack *)
       (* Push all onto stack *)
       (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
@@ -793,8 +822,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      let error_label = get_unique_label () in
-      let div_end_label = get_unique_label () in
+      let error_label = get_unique_label class_name cur_method in
+      let div_end_label = get_unique_label class_name cur_method in
 
       [
         Line "\t#Divide start";
@@ -816,7 +845,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", "%r11", result, "");
         Instruction ("jmp", div_end_label, "", "");
         Line (error_label ^ ":");
-        Instruction ("movl", "$" ^ string_of_int tac.line_num, "esi", "");
+        Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
         Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "", "");
         Instruction ("call", "cool_error", "", "");
         Line (div_end_label ^ ":");
@@ -1025,7 +1054,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       [
         Line (Printf.sprintf "%s:" tac.arg1);
         Line "## case expression: error case";
-        Instruction ("movq", " $string8, %r13", "", "");
+        Instruction ("movq", " $.string8, %r13", "", "");
         Line "## guarantee 16-byte alignment before call";
         Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
         Instruction ("movq", " %r13, %rdi", "", "");
@@ -1039,7 +1068,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       [
         Line (Printf.sprintf "%s:" tac.arg1);
         Line "## case expression: error case";
-        Instruction ("movq", " $string9, %r13", "", "");
+        Instruction ("movq", " $.string9, %r13", "", "");
         Line "## guarantee 16-byte alignment before call";
         Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
         Instruction ("movq", " %r13, %rdi", "", "");
@@ -1145,14 +1174,19 @@ let generate_class_new_asm asm_class_var =
             let stack_location =
               Printf.sprintf "%d(%%rax)" (8 * (attr.index + 3))
             in
-
+            let prev_result = ref "" in
             [
               Instruction ("pushq", "%rax", "", "");
               Instruction ("pushq", "%r13", "", "");
             ]
             @ (List.map
                  (fun tac ->
-                   tac_to_as tac attr.field_name asm_class_var.vtable.name_id)
+                   let t =
+                     tac_to_as tac attr.field_name asm_class_var.vtable.name_id
+                       !prev_result
+                   in
+                   prev_result := tac.result;
+                   t)
                  tacs
               |> List.flatten)
             @ [
