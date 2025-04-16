@@ -2,18 +2,25 @@
 #;label Main_main_0
 #;t$1 <- my_attribute
 #;t$2 <- classId t$1
+#Cmp $0, t$2 -> jump to main_Main_1
 #;t$3 <- classId Int
-#;t$4 <- equal t$3 t$2
-#;bt t$4 main_Main_1
+#Cmp t$3, t$2 -> jump to main_Main_2
+#;comment case-join
 #;t$5 <- classId String
-#;t$6 <- equal t$5 t$2
-#;bt t$6 main_Main_2
-#;label main_Main_1
+#Cmp t$5, t$2 -> jump to main_Main_3
+#;comment case-join
+#;jmp main_Main_4
+#VoidCase: main_Main_1
+#;label main_Main_2
 #;t$7 <- t$1
 #;t$0 <- call out_int t$7
-#;label main_Main_2
+#;jmp Main_main_join
+#;label main_Main_3
 #;t$8 <- t$1
 #;t$0 <- call out_string t$8
+#;jmp Main_main_join
+#EmptyCase: main_Main_4
+#;label Main_main_join
 #;return t$0
 .globl Bool..vtable
 Bool..vtable:
@@ -64,7 +71,7 @@ String..vtable:
 	#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .globl Main..vtable
 Main..vtable:
-	.quad string9
+	.quad string11
 	.quad Object.abort
 	.quad Object.copy
 	.quad Object.type_name
@@ -100,7 +107,7 @@ IO..new:
 	movl	$8, %edi
 	call	calloc
 	#Set class tag, object size, vtable pointer
-	movq	$8, (%rax)
+	movq	$1, (%rax)
 	movq	$3, 8(%rax)
 	movq	$IO..vtable, %r10
 	movq	%r10, 16(%rax)
@@ -116,7 +123,7 @@ Int..new:
 	movl	$8, %edi
 	call	calloc
 	#Set class tag, object size, vtable pointer
-	movq	$1, (%rax)
+	movq	$2, (%rax)
 	movq	$4, 8(%rax)
 	movq	$Int..vtable, %r10
 	movq	%r10, 16(%rax)
@@ -133,7 +140,7 @@ Object..new:
 	movl	$8, %edi
 	call	calloc
 	#Set class tag, object size, vtable pointer
-	movq	$7, (%rax)
+	movq	$3, (%rax)
 	movq	$3, 8(%rax)
 	movq	$Object..vtable, %r10
 	movq	%r10, 16(%rax)
@@ -149,7 +156,7 @@ String..new:
 	movl	$8, %edi
 	call	calloc
 	#Set class tag, object size, vtable pointer
-	movq	$3, (%rax)
+	movq	$4, (%rax)
 	movq	$4, 8(%rax)
 	movq	$String..vtable, %r10
 	movq	%r10, 16(%rax)
@@ -195,6 +202,22 @@ Main..new:
 	popq	%rbp
 	pushq	%rax
 	movq	%r13, 24(%rax)
+	pushq	%rax
+	pushq	%r13
+#;comment attr start
+	#Comment start
+#attr start
+	#Comment end
+#;t$0 <- int 5
+	#iconst start
+	call	Int..new
+	movq	$5, 24(%rax)
+	movq	%rax, -0(%rbp)
+	#iconst end
+	movq	-0(%rbp), %r13
+	popq	%rax
+	movq	%r13, 24(%rax)
+	popq	%r13
 	movq	%rbp, %rsp
 	popq	%rbp
 	ret
@@ -814,80 +837,116 @@ Main.main:
 Main_main_0:
 #;t$1 <- my_attribute
 	#Ident Expr start
-	movq	Attr Index: 24, %rax
-	movq	%rax, -0(%rbp)
+	movq	24(%rdi), %rax
+	movq	%rax, -8(%rbp)
 	#Ident Expr end
 #;t$2 <- classId t$1
-	movq	-0(%rbp), %r13
-	movq	%r13, -8(%rbp)
+	movq	-8(%rbp), %r13
+	movq	0(%r13), %r13
+	movq	%r13, -16(%rbp)
+#Cmp $0, t$2 -> jump to main_Main_1
+	pushq	%r13
+	pushq	%r14
+	movq	$0, %r13
+	movq	-16(%rbp), %r14
+	cmpq	%r13, %r14
+	popq	%r14
+	popq	%r13
+	je	main_Main_1
 #;t$3 <- classId Int
-	movq	$9, -16(%rbp)
-#;t$4 <- equal t$3 t$2
-	#Equal start
-	pushq	%rdi
-	pushq	%rsi
-	movq	-16(%rbp), %rdi
-	movq	-8(%rbp), %rsi
-	call	eq_handler
-	popq	%rsi
-	popq	%rdi
-	movq	%rax, -24(%rbp)
-	#Equal end
-#;bt t$4 main_Main_1
-	#Branch True start
-	movq	-24(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	jne	main_Main_1
-	#Branch True end
+	movq	$2, -24(%rbp)
+#Cmp t$3, t$2 -> jump to main_Main_2
+	pushq	%r13
+	pushq	%r14
+	movq	-24(%rbp), %r13
+	movq	-16(%rbp), %r14
+	cmpq	%r13, %r14
+	popq	%r14
+	popq	%r13
+	je	main_Main_2
+#;comment case-join
+	#Comment start
+#case-join
+	#Comment end
 #;t$5 <- classId String
-	movq	$9, -32(%rbp)
-#;t$6 <- equal t$5 t$2
-	#Equal start
-	pushq	%rdi
-	pushq	%rsi
-	movq	-32(%rbp), %rdi
-	movq	-8(%rbp), %rsi
-	call	eq_handler
-	popq	%rsi
-	popq	%rdi
-	movq	%rax, -40(%rbp)
-	#Equal end
-#;bt t$6 main_Main_2
-	#Branch True start
-	movq	-40(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	jne	main_Main_2
-	#Branch True end
-#;label main_Main_1
-	#Label
+	movq	$4, -32(%rbp)
+#Cmp t$5, t$2 -> jump to main_Main_3
+	pushq	%r13
+	pushq	%r14
+	movq	-32(%rbp), %r13
+	movq	-16(%rbp), %r14
+	cmpq	%r13, %r14
+	popq	%r14
+	popq	%r13
+	je	main_Main_3
+#;comment case-join
+	#Comment start
+#case-join
+	#Comment end
+#;jmp main_Main_4
+	#Jump
+	jmp	main_Main_4
+#VoidCase: main_Main_1
 main_Main_1:
-#;t$7 <- t$1
-	#Ident Expr start
-	movq	-0(%rbp), %rax
-	movq	%rax, -48(%rbp)
-	#Ident Expr end
-#;t$0 <- call out_int t$7
-	#Call w/ args start
-	movq	-48(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -56(%rbp)
-	#Call w/ args end
+## case expression: error case
+	movq	 $string9, %r13
+## guarantee 16-byte alignment before call
+	andq	 $0xFFFFFFFFFFFFFFF0, %rsp
+	movq	 %r13, %rdi
+	call	 cooloutstr
+## guarantee 16-byte alignment before call
+	andq	 $0xFFFFFFFFFFFFFFF0, %rsp
+	movl	 $0, %edi
+	call	 exit
 #;label main_Main_2
 	#Label
 main_Main_2:
+#;t$7 <- t$1
+	#Ident Expr start
+	movq	-8(%rbp), %rax
+	movq	%rax, -40(%rbp)
+	#Ident Expr end
+#;t$0 <- call out_int t$7
+	#Call w/ args start
+	movq	-40(%rbp), %rsi
+	call	IO.out_int
+	movq	%rax, -0(%rbp)
+	#Call w/ args end
+#;jmp Main_main_join
+	#Jump
+	jmp	Main_main_join
+#;label main_Main_3
+	#Label
+main_Main_3:
 #;t$8 <- t$1
 	#Ident Expr start
-	movq	-0(%rbp), %rax
-	movq	%rax, -64(%rbp)
+	movq	-8(%rbp), %rax
+	movq	%rax, -48(%rbp)
 	#Ident Expr end
 #;t$0 <- call out_string t$8
 	#Call w/ args start
-	movq	-64(%rbp), %rsi
+	movq	-48(%rbp), %rsi
 	call	IO.out_string
-	movq	%rax, -56(%rbp)
+	movq	%rax, -0(%rbp)
 	#Call w/ args end
+#;jmp Main_main_join
+	#Jump
+	jmp	Main_main_join
+#EmptyCase: main_Main_4
+main_Main_4:
+## case expression: error case
+	movq	 $string8, %r13
+## guarantee 16-byte alignment before call
+	andq	 $0xFFFFFFFFFFFFFFF0, %rsp
+	movq	 %r13, %rdi
+	call	 cooloutstr
+## guarantee 16-byte alignment before call
+	andq	 $0xFFFFFFFFFFFFFFF0, %rsp
+	movl	 $0, %edi
+	call	 exit
+#;label Main_main_join
+	#Label
+Main_main_join:
 #;return t$0
 	#Return start
 	jmp	.main.end
@@ -899,14 +958,18 @@ main_Main_2:
 	.section	.rodata
 string1:
 	.string	"IO"
-string9:
+string11:
 	.string	"Main"
+string9:
+	.string	"ERROR: 6: Exception: case on void\n"
 string3:
 	.string	"Object"
 string4:
 	.string	"String"
 string0:
 	.string	"Bool"
+string8:
+	.string	"ERROR: 6: Exception: case without matching branch\n"
 string6:
 	.string	"abort"
 string2:
@@ -1111,13 +1174,20 @@ eq_handler:
 	sete	%dl
 	jmp	.eq_cleanup
 		.size	eq_handler, .-eq_handler
-	.globl start
-start:
-	.globl main
-	.type main, @function
+.globl start
+start:                  ## program begins here
+.globl main
+.type main, @function
 main:
+	movq	$Main..new, %r14
 	pushq	%rbp
-	call	Main.main	
-andq	$-16, %rsp
-	xorq	%rdi, %rdi
+	call	*%r14
+	movq	%rax, %rdi
+	pushq	%rbp
+	pushq	%r13
+	movq	$Main.main, %r14
+	call	*%r14
+## guarantee 16-byte alignment before call
+	andq	$0xFFFFFFFFFFFFFFF0, %rsp
+	movl	$0, %edi
 	call	exit

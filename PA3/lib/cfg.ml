@@ -36,7 +36,7 @@ and cfg = control_flow_graph_elem list *)
 
 let is_break_point (tac : tac_elem) =
   match tac.operand with
-  | Bt | Call | Jmp | Case | Default | Return -> true
+  | Bt | Call | Jmp | Case _ | Default | Return -> true
   | _ -> false
 
 let tac_to_cfg (tacs, class_name, method_name, temp_count) :

@@ -1,40 +1,8 @@
-# Isvoid: Adding var t$2 at position -8(%rbp)
-# NEW: Adding var t$8 at position -48(%rbp)
-# Isvoid: Adding var t$7 at position -56(%rbp)
+# Isvoid: Adding var t$0 at position -8(%rbp)
 #;comment start
 #;label Main_main_0
-#;t$3 <- int 5
-#;t$2 <- isvoid t$3
-#;t$6 <- not t$2
-#;bt t$6 main_Main_2
-#;comment then branch
-#;label main_Main_1
-#;t$4 <- int 0
-#;t$1 <- call out_int t$4
-#;jmp main_Main_3
-#;comment else branch
-#;label main_Main_2
-#;t$5 <- int 1
-#;t$1 <- call out_int t$5
-#;jmp main_Main_3
-#;comment if-join
-#;label main_Main_3
-#;t$8 <- new A
-#;t$7 <- isvoid t$8
-#;t$11 <- not t$7
-#;bt t$11 main_Main_5
-#;comment then branch
-#;label main_Main_4
-#;t$9 <- int 0
-#;t$0 <- call out_int t$9
-#;jmp main_Main_6
-#;comment else branch
-#;label main_Main_5
-#;t$10 <- int 1
-#;t$0 <- call out_int t$10
-#;jmp main_Main_6
-#;comment if-join
-#;label main_Main_6
+#;t$1 <- int 5
+#;t$0 <- isvoid t$1
 #;return t$0
 .globl Bool..vtable
 Bool..vtable:
@@ -849,7 +817,7 @@ String.concat.end:
 Main.main:
 	pushq	%rbp
 	movq	%rsp, %rbp
-	subq	$96, %rsp
+	subq	$16, %rsp
 #;comment start
 	#Comment start
 #start
@@ -857,13 +825,13 @@ Main.main:
 #;label Main_main_0
 	#Label
 Main_main_0:
-#;t$3 <- int 5
+#;t$1 <- int 5
 	#iconst start
 	call	Int..new
 	movq	$5, 24(%rax)
 	movq	%rax, -0(%rbp)
 	#iconst end
-#;t$2 <- isvoid t$3
+#;t$0 <- isvoid t$1
 	cmpq	$0, %rax
 	je	l2
 	 #false branch of isvoid
@@ -889,194 +857,12 @@ l2:
 	jmp	l3
 .globl l3
 l3:
-#;t$6 <- not t$2
-	#Not start
-	movq	-8(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	movl	$1, %eax
-	movl	$0, %edx
-	cmovel	%eax, %edx
-	pushq	%rbp
-	pushq	%rdx
-	call	Bool..new
-	popq	%rdx
-	popq	%rbp
-	movq	%rdx, 24(%rax)
-	movq	%rax, -16(%rbp)
-	#Not end
-#;bt t$6 main_Main_2
-	#Branch True start
-	movq	-16(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	jne	main_Main_2
-	#Branch True end
-#;comment then branch
-	#Comment start
-#then branch
-	#Comment end
-#;label main_Main_1
-	#Label
-main_Main_1:
-#;t$4 <- int 0
-	#iconst start
-	call	Int..new
-	movq	$0, 24(%rax)
-	movq	%rax, -24(%rbp)
-	#iconst end
-#;t$1 <- call out_int t$4
-	#Call w/ args start
-	movq	-24(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -32(%rbp)
-	#Call w/ args end
-#;jmp main_Main_3
-	#Jump
-	jmp	main_Main_3
-#;comment else branch
-	#Comment start
-#else branch
-	#Comment end
-#;label main_Main_2
-	#Label
-main_Main_2:
-#;t$5 <- int 1
-	#iconst start
-	call	Int..new
-	movq	$1, 24(%rax)
-	movq	%rax, -40(%rbp)
-	#iconst end
-#;t$1 <- call out_int t$5
-	#Call w/ args start
-	movq	-40(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -32(%rbp)
-	#Call w/ args end
-#;jmp main_Main_3
-	#Jump
-	jmp	main_Main_3
-#;comment if-join
-	#Comment start
-#if-join
-	#Comment end
-#;label main_Main_3
-	#Label
-main_Main_3:
-#;t$8 <- new A
-	pushq	%rbp
-	pushq	%r12
-	movq	$A..new, %r14
-	call	*%r14
-	movq	%rax, -48(%rbp)
-	popq	%r12
-	popq	%rbp
-#;t$7 <- isvoid t$8
-	cmpq	$0, %rax
-	je	l4
-	 #false branch of isvoid
-	pushq	%rbp
-	pushq	%r12
-	movq	$Bool..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	%rax, -56(%rbp)
-	jmp	l5
-.globl l4
-l4:
-	 #true branch of isvoid
-	pushq	%rbp
-	pushq	%r12
-	movq	$Bool..new, %r14
-	call	*%r14
-	popq	%r12
-	popq	%rbp
-	movq	$1, 24(%rax)
-	movq	%rax, -56(%rbp)
-	jmp	l5
-.globl l5
-l5:
-#;t$11 <- not t$7
-	#Not start
-	movq	-56(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	movl	$1, %eax
-	movl	$0, %edx
-	cmovel	%eax, %edx
-	pushq	%rbp
-	pushq	%rdx
-	call	Bool..new
-	popq	%rdx
-	popq	%rbp
-	movq	%rdx, 24(%rax)
-	movq	%rax, -64(%rbp)
-	#Not end
-#;bt t$11 main_Main_5
-	#Branch True start
-	movq	-64(%rbp), %rax
-	movq	24(%rax), %rax
-	testq	%rax, %rax
-	jne	main_Main_5
-	#Branch True end
-#;comment then branch
-	#Comment start
-#then branch
-	#Comment end
-#;label main_Main_4
-	#Label
-main_Main_4:
-#;t$9 <- int 0
-	#iconst start
-	call	Int..new
-	movq	$0, 24(%rax)
-	movq	%rax, -72(%rbp)
-	#iconst end
-#;t$0 <- call out_int t$9
-	#Call w/ args start
-	movq	-72(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -80(%rbp)
-	#Call w/ args end
-#;jmp main_Main_6
-	#Jump
-	jmp	main_Main_6
-#;comment else branch
-	#Comment start
-#else branch
-	#Comment end
-#;label main_Main_5
-	#Label
-main_Main_5:
-#;t$10 <- int 1
-	#iconst start
-	call	Int..new
-	movq	$1, 24(%rax)
-	movq	%rax, -88(%rbp)
-	#iconst end
-#;t$0 <- call out_int t$10
-	#Call w/ args start
-	movq	-88(%rbp), %rsi
-	call	IO.out_int
-	movq	%rax, -80(%rbp)
-	#Call w/ args end
-#;jmp main_Main_6
-	#Jump
-	jmp	main_Main_6
-#;comment if-join
-	#Comment start
-#if-join
-	#Comment end
-#;label main_Main_6
-	#Label
-main_Main_6:
 #;return t$0
 	#Return start
 	jmp	.main.end
 	#Return end
 .main.end:
-	addq	$96, %rsp
+	addq	$16, %rsp
 	popq	%rbp
 	ret
 	.section	.rodata

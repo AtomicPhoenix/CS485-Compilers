@@ -56,7 +56,7 @@ and attribute = {
   field_name : string;
   index : int;
   type_name : string;
-  expression : expr option;
+  expression : (tac_elem list * string) option;
 }
 
 and asm_class = {
@@ -67,6 +67,7 @@ and asm_class = {
 }
 
 and new_func = string * asm
+
 
 and error_reason =
   | ERR_VOID_DISPATCH
@@ -82,19 +83,6 @@ let err_to_num = function
   | ERR_DIV_BY_ZERO -> "3"
   | ERR_SUBSTR_OUT_OF_RANGE -> "4"
 
-let print_start () =
-  Printf.fprintf Print.out_file
-    "\t.globl start\n\
-     start:\n\
-     \t.globl main\n\
-     \t.type main, @function\n\
-     main:\n\
-     \tpushq\t%%rbp\n\
-     \tcall\tMain.main\t\n\
-     andq\t$-16, %%rsp\n\
-     \txorq\t%%rdi, %%rdi\n\
-     \tcall\texit\n"
-
 let print_asm (asm : asm_line) =
   match asm with
   | Instruction (s1, s2, s3, s4) ->
@@ -107,6 +95,30 @@ let print_asm (asm : asm_line) =
       else if s1 <> "" then (*Printf.printf "\t%s\n" s1;*)
         Printf.fprintf out_file "\t%s\n" s1
   | Line s1 -> (*Printf.printf "%s\n" s1;*) Printf.fprintf out_file "%s\n" s1
+
+let print_start () =
+  let start =
+    [
+      Line ".globl start";
+      Line "start:                  ## program begins here";
+      Line ".globl main";
+      Line ".type main, @function";
+      Line "main:";
+      Instruction ("movq", "$Main..new", "%r14", "");
+      Instruction ("pushq", "%rbp", "", "");
+      Instruction ("call", "*%r14", "", "");
+      Instruction ("movq", "%rax", "%rdi", "");
+      Instruction ("pushq", "%rbp", "", "");
+      Instruction ("pushq", "%r13", "", "");
+      Instruction ("movq", "$Main.main", "%r14", "");
+      Instruction ("call", "*%r14", "", "");
+      Line "## guarantee 16-byte alignment before call";
+      Instruction ("andq", "$0xFFFFFFFFFFFFFFF0, %rsp", "", "");
+      Instruction ("movl", "$0", "%edi", "");
+      Instruction ("call", "exit", "", "");
+    ]
+  in
+  List.iter print_asm start
 
 let print_new_funcs funcs =
   let print_new_func func =
@@ -128,7 +140,7 @@ let string_map = Hashtbl.create 32
 let class_id_map = Hashtbl.create 32
 let class_vtable_map = Hashtbl.create 32
 let class_attribute_map = Hashtbl.create 32
-let string_counter = ref 8
+let string_counter = ref 10
 let class_tag_ctr = ref 9
 let parser_class_map : class_map_elem list = Parser.parser_class_map
 let implementation_map = Parser.implementation_map
@@ -204,8 +216,12 @@ let create_vtable (itm : implementation_map_elem) : vtable option =
 let create_vtables () =
   let string6 = "abort" in
   let string7 = "ERROR: 0: Exception: String.substr out of range\\n" in
+  let string8 = "ERROR: 6: Exception: case without matching branch\\n" in
+  let string9 = "ERROR: 6: Exception: case on void\\n" in
   Hashtbl.add string_map string6 6;
   Hashtbl.add string_map string7 7;
+  Hashtbl.add string_map string8 8;
+  Hashtbl.add string_map string9 9;
   let tables = List.filter_map create_vtable implementation_map in
   List.iter
     (fun i ->
@@ -298,12 +314,74 @@ let create_default_vtables () =
     };
   ]
 
+let pusha =
+  [
+    Instruction ("pushq", "%rax", "", "");
+    (*Instruction ("pushq", "%rbx", "", "");*)
+    (*Instruction ("pushq", "%rbp", "", "");*)
+    Instruction ("pushq", "%rdi", "", "");
+    Instruction ("pushq", "%rsi", "", "");
+    Instruction ("pushq", "%rcx", "", "");
+    Instruction ("pushq", "%rdx", "", "");
+    Instruction ("pushq", "%r8", "", "");
+    Instruction ("pushq", "%r9", "", "");
+    Instruction ("pushq", "%r10", "", "");
+    Instruction ("pushq", "%r11", "", "");
+    Instruction ("pushq", "%r12", "", "");
+    (*Instruction ("pushq", "%r13", "", "");*)
+    (*Instruction ("pushq", "%r14", "", "");*)
+    (*Instruction ("pushq", "%r15", "", "");*)
+  ]
+
+let popa =
+  [
+    (*Instruction ("popq", "%r15", "", "");*)
+    (*Instruction ("popq", "%r14", "", "");*)
+    (*Instruction ("popq", "%r13", "", "");*)
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("popq", "%r11", "", "");
+    Instruction ("popq", "%r10", "", "");
+    Instruction ("popq", "%r9", "", "");
+    Instruction ("popq", "%r8", "", "");
+    Instruction ("popq", "%rdx", "", "");
+    Instruction ("popq", "%rcx", "", "");
+    Instruction ("popq", "%rsi", "", "");
+    Instruction ("popq", "%rdi", "", "");
+    (*Instruction ("popq", "%rbp", "", "");*)
+    (*Instruction ("popq", "%rbx", "", "");*)
+    Instruction ("popq", "%rax", "", "");
+  ]
+
 let get_class_attributes class_name attrs =
   let get_attribute i (attr : ast_attribute) =
     let name = attr.name in
     let index = i in
     let typename = attr.type_name in
-    let expr = attr.attr_expr in
+    let expr =
+      match attr.attr_expr with
+      | Some attr_expr ->
+          var_ctr := 0;
+          label_ctr := 0;
+          let base_lst =
+            [
+              {
+                operand = Comment;
+                arg1 = "attr start";
+                arg2 = "";
+                result = "";
+                line = attr_expr.id.line_num;
+                static_type = attr_expr.static_type;
+              };
+            ]
+          in
+          let return_index = get_id !var_ctr in
+          let exp_list =
+            exp_to_tac attr_expr return_index class_name attr.name
+          in
+          (* let temps = !var_ctr + 1 in *)
+          Some (base_lst @ exp_list, return_index)
+      | None -> None
+    in
     { field_name = name; index; type_name = typename; expression = expr }
   in
   let attributes = List.mapi get_attribute attrs in
@@ -312,7 +390,11 @@ let get_class_attributes class_name attrs =
 
 let make_asm_class (c : class_map_elem) =
   let tag = !class_tag_ctr in
-  Hashtbl.add class_id_map c.name tag;
+
+  if
+    c.name <> "Bool" && c.name <> "IO" && c.name <> "Int" && c.name <> "Object"
+    && c.name <> "String"
+  then Hashtbl.add class_id_map c.name tag;
   (* 8 bytes/64 bits since every attribute is a pointer *)
   let siz = List.length c.attrs in
   let class_vtable = Hashtbl.find_opt class_vtable_map c.name in
@@ -356,7 +438,7 @@ let io_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$8", "(%rax)", "");
+    Instruction ("movq", "$1", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$IO..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -375,7 +457,7 @@ let int_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$1", "(%rax)", "");
+    Instruction ("movq", "$2", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Int..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -395,7 +477,7 @@ let object_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$7", "(%rax)", "");
+    Instruction ("movq", "$3", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$Object..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -414,7 +496,7 @@ let string_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$3", "(%rax)", "");
+    Instruction ("movq", "$4", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$String..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -434,94 +516,6 @@ let new_funcs =
     ("String", string_new);
   ]
 
-let generate_class_new_asm asm_class_var =
-  let func_name = Printf.sprintf "%s..new:" asm_class_var.vtable.name_id in
-  let class_tag = Printf.sprintf "$%d" asm_class_var.class_tag in
-  let object_size = Printf.sprintf "$%d" (3 + asm_class_var.object_size) in
-  let vtable_name = Printf.sprintf "$%s..vtable" asm_class_var.vtable.name_id in
-  let stack_room = Printf.sprintf "$%d" 16 in
-  let attr_init_lines =
-    List.map
-      (fun (attr : attribute) : asm_line list ->
-        let var_index = 3 + attr.index in
-        let type_new = Printf.sprintf "$%s..new" attr.type_name in
-        let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
-        [
-          Line
-            (Printf.sprintf "\t## self[%d] holds field x (%s)" var_index
-               attr.type_name);
-          Line (Printf.sprintf "\t## new %s" attr.type_name);
-          Instruction ("pushq", "%rax", "", "");
-          Instruction ("pushq", "%rbp", "", "");
-          Instruction ("pushq", "%r12", "", "");
-          Instruction ("movq", type_new, "%r14", "");
-          Instruction ("call", "*%r14", "", "");
-          Instruction ("movq", "%rax", "%r13", "");
-          Instruction ("popq", "%r12", "", "");
-          Instruction ("popq", "%rbp", "", "");
-          Instruction ("pushq", "%rax", "", "");
-          Instruction ("movq", "%r13", stack_location, "");
-        ])
-      asm_class_var.attributes
-    |> List.flatten
-  in
-  let return_lines =
-    [
-      Instruction ("movq", "%rbp", "%rsp", "");
-      Instruction ("popq", "%rbp", "", "");
-      Instruction ("ret", "", "", "");
-    ]
-  in
-  ( asm_class_var.vtable.name_id,
-    [
-      (* Name *)
-      Line func_name;
-      Line (Printf.sprintf "## constructor for %s" asm_class_var.vtable.name_id);
-      (* Set stack pointer (make room for temporaries *)
-      Instruction ("pushq", "%rbp", "", "");
-      Instruction ("movq", "%rsp", "%rbp", "");
-      Line "\t## stack room for temporaries: ?";
-      Instruction ("subq", stack_room, "%rsp", "");
-      (*  Return address handling *)
-      Line "\t## return address handling";
-      (* Will be used later for calloc? *)
-      Instruction ("movq", object_size, "%rax", "");
-      (*  16-byte alignment *)
-      Line "\t## guarantee 16-byte alignment before call";
-      Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
-      (*  Allocate space for the variable (rsi*rdi)=num*bytes *)
-      Instruction ("movq", "$8", "%rsi", "");
-      Instruction ("movq", "%rax", "%rdi", "");
-      Instruction ("call", "calloc", "", "");
-      (* Instruction ("movq", "%rax", "%rax", ""); *)
-      (* NOTE: Alot of these can be simplified to one line operations *)
-      Line "\t## store class tag, object size and vtable pointer";
-      Instruction ("movq", class_tag, "0(%rax)", "");
-      Instruction ("movq", object_size, "%r14", "");
-      Instruction ("movq", "%r14", "8(%rax)", "");
-      Instruction ("movq", vtable_name, "%r14", "");
-      Instruction ("movq", "%r14", "16(%rax)", "");
-      (* Instruction ("movq", "%rax", "%r13", ""); *)
-      Line "\t## return address handling";
-      (* Reset stack pointer *)
-      Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
-      Line "\t## initialize attributes";
-    ]
-    @ attr_init_lines @ return_lines )
-(*
-      Line func_name;
-      Instruction ("subq", pointer_size, "%rsp", "");
-      Instruction ("movl", object_size, "%esi", "");
-      Instruction ("movl", "$8", "%edi", "");
-      (* Call glibc calloc function which allocates (esi * dsi) bytes of memory ( count * size) *)
-      Instruction ("call", "calloc", "", "");
-      Line "\t#Set class tag, object size, vtable pointer";
-      Instruction ("movq", class_tag, "(%rax)", "");
-      Instruction ("movq", object_size, "8(%rax)", "");
-      Instruction ("movq", vtable_name, "16(%rax)", "");
-      Instruction ("addq", pointer_size, "%rsp", "");
-      Instruction ("ret", "", "", "");
-     *)
 
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * Hashtbl.length var_locations in
@@ -537,47 +531,6 @@ let get_var_addr (var_name : string) : string =
   | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
   | None -> var_name
 
-let get_unique_label () =
-  label_ctr := !label_ctr + 1;
-  ".label" ^ string_of_int !label_ctr
-
-let pusha =
-  [
-    Instruction ("pushq", "%rax", "", "");
-    (*Instruction ("pushq", "%rbx", "", "");*)
-    (*Instruction ("pushq", "%rbp", "", "");*)
-    Instruction ("pushq", "%rdi", "", "");
-    Instruction ("pushq", "%rsi", "", "");
-    Instruction ("pushq", "%rcx", "", "");
-    Instruction ("pushq", "%rdx", "", "");
-    Instruction ("pushq", "%r8", "", "");
-    Instruction ("pushq", "%r9", "", "");
-    Instruction ("pushq", "%r10", "", "");
-    Instruction ("pushq", "%r11", "", "");
-    Instruction ("pushq", "%r12", "", "");
-    (*Instruction ("pushq", "%r13", "", "");*)
-    (*Instruction ("pushq", "%r14", "", "");*)
-    (*Instruction ("pushq", "%r15", "", "");*)
-  ]
-
-let popa =
-  [
-    (*Instruction ("popq", "%r15", "", "");*)
-    (*Instruction ("popq", "%r14", "", "");*)
-    (*Instruction ("popq", "%r13", "", "");*)
-    Instruction ("popq", "%r12", "", "");
-    Instruction ("popq", "%r11", "", "");
-    Instruction ("popq", "%r10", "", "");
-    Instruction ("popq", "%r9", "", "");
-    Instruction ("popq", "%r8", "", "");
-    Instruction ("popq", "%rdx", "", "");
-    Instruction ("popq", "%rcx", "", "");
-    Instruction ("popq", "%rsi", "", "");
-    Instruction ("popq", "%rdi", "", "");
-    (*Instruction ("popq", "%rbp", "", "");*)
-    (*Instruction ("popq", "%rbx", "", "");*)
-    Instruction ("popq", "%rax", "", "");
-  ]
 
 let jump_number = ref 1
 
@@ -721,10 +674,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       let class_tag = Hashtbl.find_opt class_id_map class_name in
       match class_tag with
       | Some class_tag ->
+          (* Printf.fprintf out_file "\t#; Class Id of type %s is %d\n" class_name
+            class_tag; *)
           [ Instruction ("movq", Printf.sprintf "$%d" class_tag, result, "") ]
       | None ->
           [
             Instruction ("movq", class_name, "%r13", "");
+            Instruction ("movq", "0(%r13)", "%r13", "");
             Instruction ("movq", "%r13", result, "");
           ])
   | Comment ->
@@ -762,12 +718,15 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
         | None -> (
             match
-              List.find_opt
-                (fun attr -> attr.field_name = ident_name)
-                (Hashtbl.find class_attribute_map class_name)
+              match Hashtbl.find_opt class_attribute_map class_name with
+              | Some attr_list ->
+                  List.find_opt
+                    (fun attr -> attr.field_name = ident_name)
+                    attr_list
+              | None -> None
             with
-            | Some v -> Printf.sprintf "Attr Index: %d" ((v.index + 3) * 8)
-            | None -> assert false)
+            | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+            | None -> get_var_addr ident_name)
       in
       [
         Line "\t#Ident Expr start";
@@ -775,6 +734,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", "%rax", result, "");
         Line "\t#Ident Expr end";
       ]
+      (* 
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      [
+        Instruction ("movq", get_var_addr s, "%rax", "");
+        Instruction ("movq", "%rax", result, "");
+      ]
+         *)
   | Plus ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
@@ -1041,8 +1008,47 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
           Instruction ("movq", "%rax", result, "");
           Line "\t#bconst end";
         ]
-  | Case -> assert false
-  (* NOTE: I'm assuming default works the same as new based on our implementation of the default class new statements. This also assumes we dont use the default keyword for any user-defined classes *)
+  | Case jump ->
+      let arg1 = get_var_addr tac.arg1 in
+      let arg2 = get_var_addr tac.arg2 in
+      [
+        Instruction ("pushq", "%r13", "", "");
+        Instruction ("pushq", "%r14", "", "");
+        Instruction ("movq", arg1, "%r13", "");
+        Instruction ("movq", arg2, "%r14", "");
+        Instruction ("cmpq", "%r13", "%r14", "");
+        Instruction ("popq", "%r14", "", "");
+        Instruction ("popq", "%r13", "", "");
+        Instruction ("je", jump, "", "");
+      ]
+  | EmptyCase ->
+      [
+        Line (Printf.sprintf "%s:" tac.arg1);
+        Line "## case expression: error case";
+        Instruction ("movq", " $string8, %r13", "", "");
+        Line "## guarantee 16-byte alignment before call";
+        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
+        Instruction ("movq", " %r13, %rdi", "", "");
+        Instruction ("call", " cooloutstr", "", "");
+        Line "## guarantee 16-byte alignment before call";
+        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
+        Instruction ("movl", " $0, %edi", "", "");
+        Instruction ("call", " exit", "", "");
+      ]
+  | VoidCase ->
+      [
+        Line (Printf.sprintf "%s:" tac.arg1);
+        Line "## case expression: error case";
+        Instruction ("movq", " $string9, %r13", "", "");
+        Line "## guarantee 16-byte alignment before call";
+        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
+        Instruction ("movq", " %r13, %rdi", "", "");
+        Instruction ("call", " cooloutstr", "", "");
+        Line "## guarantee 16-byte alignment before call";
+        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
+        Instruction ("movl", " $0, %edi", "", "");
+        Instruction ("call", " exit", "", "");
+      ]
   | Default | New ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -1098,6 +1104,125 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Line post_jump_label;
       ]
 
+let generate_class_new_asm asm_class_var =
+  let func_name = Printf.sprintf "%s..new:" asm_class_var.vtable.name_id in
+  let class_tag = Printf.sprintf "$%d" asm_class_var.class_tag in
+  let object_size = Printf.sprintf "$%d" (3 + asm_class_var.object_size) in
+  let vtable_name = Printf.sprintf "$%s..vtable" asm_class_var.vtable.name_id in
+  let stack_room = Printf.sprintf "$%d" 16 in
+  let attr_creation_lines =
+    List.map
+      (fun (attr : attribute) : asm_line list ->
+        let var_index = 3 + attr.index in
+        let type_new = Printf.sprintf "$%s..new" attr.type_name in
+        let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
+        [
+          Line
+            (Printf.sprintf "\t## self[%d] holds field x (%s)" var_index
+               attr.type_name);
+          Line (Printf.sprintf "\t## new %s" attr.type_name);
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("pushq", "%rbp", "", "");
+          Instruction ("pushq", "%r12", "", "");
+          Instruction ("movq", type_new, "%r14", "");
+          Instruction ("call", "*%r14", "", "");
+          Instruction ("movq", "%rax", "%r13", "");
+          Instruction ("popq", "%r12", "", "");
+          Instruction ("popq", "%rbp", "", "");
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("movq", "%r13", stack_location, "");
+        ])
+      asm_class_var.attributes
+    |> List.flatten
+  in
+  let attr_init_lines =
+    List.map
+      (fun (attr : attribute) : asm_line list ->
+        match attr.expression with
+        | Some (tacs, retval) ->
+            add_var_addr retval;
+            let ret = get_var_addr retval in
+            let stack_location =
+              Printf.sprintf "%d(%%rax)" (8 * (attr.index + 3))
+            in
+
+            [
+              Instruction ("pushq", "%rax", "", "");
+              Instruction ("pushq", "%r13", "", "");
+            ]
+            @ (List.map
+                 (fun tac ->
+                   tac_to_as tac attr.field_name asm_class_var.vtable.name_id)
+                 tacs
+              |> List.flatten)
+            @ [
+                Instruction ("movq", ret, "%r13", "");
+                Instruction ("popq", "%rax", "", "");
+                Instruction ("movq", "%r13", stack_location, "");
+                Instruction ("popq", "%r13", "", "");
+              ]
+        | None -> [])
+      asm_class_var.attributes
+    |> List.flatten
+  in
+  let return_lines =
+    [
+      Instruction ("movq", "%rbp", "%rsp", "");
+      Instruction ("popq", "%rbp", "", "");
+      Instruction ("ret", "", "", "");
+    ]
+  in
+  ( asm_class_var.vtable.name_id,
+    [
+      (* Name *)
+      Line func_name;
+      Line (Printf.sprintf "## constructor for %s" asm_class_var.vtable.name_id);
+      (* Set stack pointer (make room for temporaries *)
+      Instruction ("pushq", "%rbp", "", "");
+      Instruction ("movq", "%rsp", "%rbp", "");
+      Line "\t## stack room for temporaries: ?";
+      Instruction ("subq", stack_room, "%rsp", "");
+      (*  Return address handling *)
+      Line "\t## return address handling";
+      (* Will be used later for calloc? *)
+      Instruction ("movq", object_size, "%rax", "");
+      (*  16-byte alignment *)
+      Line "\t## guarantee 16-byte alignment before call";
+      Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+      (*  Allocate space for the variable (rsi*rdi)=num*bytes *)
+      Instruction ("movq", "$8", "%rsi", "");
+      Instruction ("movq", "%rax", "%rdi", "");
+      Instruction ("call", "calloc", "", "");
+      (* Instruction ("movq", "%rax", "%rax", ""); *)
+      (* NOTE: Alot of these can be simplified to one line operations *)
+      Line "\t## store class tag, object size and vtable pointer";
+      Instruction ("movq", class_tag, "0(%rax)", "");
+      Instruction ("movq", object_size, "%r14", "");
+      Instruction ("movq", "%r14", "8(%rax)", "");
+      Instruction ("movq", vtable_name, "%r14", "");
+      Instruction ("movq", "%r14", "16(%rax)", "");
+      (* Instruction ("movq", "%rax", "%r13", ""); *)
+      Line "\t## return address handling";
+      (* Reset stack pointer *)
+      Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
+      Line "\t## initialize attributes";
+    ]
+    @ attr_creation_lines @ attr_init_lines @ return_lines )
+(*
+      Line func_name;
+      Instruction ("subq", pointer_size, "%rsp", "");
+      Instruction ("movl", object_size, "%esi", "");
+      Instruction ("movl", "$8", "%edi", "");
+      (* Call glibc calloc function which allocates (esi * dsi) bytes of memory ( count * size) *)
+      Instruction ("call", "calloc", "", "");
+      Line "\t#Set class tag, object size, vtable pointer";
+      Instruction ("movq", class_tag, "(%rax)", "");
+      Instruction ("movq", object_size, "8(%rax)", "");
+      Instruction ("movq", vtable_name, "16(%rax)", "");
+      Instruction ("addq", pointer_size, "%rsp", "");
+      Instruction ("ret", "", "", "");
+     *)
+
 let get_start_method_boilerplate method_name class_name stack_space =
   let name = class_name ^ "." ^ method_name in
   [
@@ -1133,9 +1258,6 @@ let prev_result = ref ""
 let method_asm =
   List.map
     (fun (cfg, class_name, method_name, temps) ->
-      (* Printf.fprintf stdout "Method %s of Class %s uses %d temps\n"
-          method_name class_name temps; *)
-      (*let name = class_name ^ "." ^ method_name in*)
       let stack_space =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
