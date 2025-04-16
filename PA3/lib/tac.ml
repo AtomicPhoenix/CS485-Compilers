@@ -10,6 +10,8 @@ type tac_elem = {
   arg1 : string;
   arg2 : string;
   result : string;
+  line : int;
+  static_type : static_type option;
 }
 
 and tac_operand =
@@ -114,12 +116,12 @@ let operand_to_string (operand : tac_operand) : string =
   | Bt -> "bt"
   | Call -> "call"
   | Case jump -> Printf.sprintf "jump to :%s after comparison of" jump
+  | VoidCase -> "VoidCase"
+  | EmptyCase -> "EmptyCase"
   | Comment -> "comment"
   | Label -> "label"
   | Jmp -> "jmp"
   | Default -> "default"
-  | VoidCase -> "VoidCase"
-  | EmptyCase -> "EmptyCase"
   | Return -> "return"
   | LetNoInit -> "letnoinit"
   | Ident_Expr v -> v
@@ -208,22 +210,37 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
             label_ctr := 0;
             let base_lst =
               [
-                { operand = Comment; arg1 = "start"; arg2 = ""; result = "" };
+                {
+                  operand = Comment;
+                  arg1 = "start";
+                  arg2 = "";
+                  result = "";
+                  line = exp.id.line_num;
+                  static_type = exp.static_type;
+                };
                 {
                   operand = Label;
                   arg1 = ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0";
                   arg2 = "";
                   result = "";
+                  line = exp.id.line_num;
+                  static_type = exp.static_type;
                 };
               ]
             in
             let exp_list =
-              exp_to_tac exp.sub_expr (get_id !var_ctr) ast_elem.class_name.name
-                id1.name
+              exp_to_tac exp (get_id !var_ctr) ast_elem.class_name.name id1.name
             in
             let rtrn =
               [
-                { operand = Return; arg1 = get_id !ret; arg2 = ""; result = "" };
+                {
+                  operand = Return;
+                  arg1 = get_id !ret;
+                  arg2 = "";
+                  result = "";
+                  line = 0;
+                  static_type = exp.static_type;
+                };
               ]
             in
             let temps = !var_ctr + 1 in
@@ -243,15 +260,15 @@ and get_id n = "t$" ^ string_of_int n
 and get_label n class_name method_name =
   class_name ^ "_" ^ method_name ^ "_" ^ string_of_int n
 
-and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
-  match exp with
+and exp_to_tac (exp : expr) result cname mname : tac_elem list =
+  match exp.sub_expr with
   | Assignment (id, exp) ->
       (* Printf.fprintf out_file "Assigning result of %s to %s\n" exp.id.name
         id.name; *)
       let var_id = Hashtbl.find_opt letTable id.name in
       let arg1 = match var_id with Some v -> v | None -> id.name in
       (*var_ctr := !var_ctr + 1;*)
-      let last_var = exp_to_tac exp.sub_expr arg1 cname mname in
+      let last_var = exp_to_tac exp arg1 cname mname in
       (*var_ctr := !var_ctr + 1;*)
       last_var
       (*@ [ { operand = Assignment; arg1; arg2 = ""; result = get_id !var_ctr } ]*)
@@ -267,15 +284,24 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
           List.map
             (fun arg ->
               var_ctr := !var_ctr + 1;
-              exp_to_tac arg.sub_expr (get_id !var_ctr) cname mname)
+              exp_to_tac arg (get_id !var_ctr) cname mname)
             args
           |> List.flatten
         else []
       in
       var_ctr := !var_ctr + 1;
       arg_tacs
-      @ exp_to_tac dispatch_exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = Call; arg1 = method_name.name; arg2; result } ]
+      @ exp_to_tac dispatch_exp (get_id !var_ctr) cname mname
+      @ [
+          {
+            operand = Call;
+            arg1 = method_name.name;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Static_Dispatch (dispatch_exp, _, method_name, args) ->
       let arg2 =
         if List.length args > 0 then
@@ -288,15 +314,24 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
           List.map
             (fun arg ->
               var_ctr := !var_ctr + 1;
-              exp_to_tac arg.sub_expr (get_id !var_ctr) cname mname)
+              exp_to_tac arg (get_id !var_ctr) cname mname)
             args
           |> List.flatten
         else []
       in
       var_ctr := !var_ctr + 1;
       arg_tacs
-      @ exp_to_tac dispatch_exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = Call; arg1 = method_name.name; arg2; result } ]
+      @ exp_to_tac dispatch_exp (get_id !var_ctr) cname mname
+      @ [
+          {
+            operand = Call;
+            arg1 = method_name.name;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Self_Dispatch (id, args) ->
       let arg2 =
         if List.length args > 0 then
@@ -308,10 +343,19 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
          (fun elem ->
            (* Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
            var_ctr := !var_ctr + 1;
-           exp_to_tac elem.sub_expr (get_id !var_ctr) cname mname)
+           exp_to_tac elem (get_id !var_ctr) cname mname)
          args
       |> List.flatten)
-      @ [ { operand = Call; arg1 = id.name; arg2; result } ]
+      @ [
+          {
+            operand = Call;
+            arg1 = id.name;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | If (pred_exp, then_exp, else_exp) ->
       (* 
         NOTE: Control-Flow to Three-Address Code
@@ -327,9 +371,9 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       (*ret := !var_ctr;*)
       var_ctr := !var_ctr + 1;
       let condResult = get_id !var_ctr in
-      let cond_tac = exp_to_tac pred_exp.sub_expr condResult cname mname in
-      let then_tac = exp_to_tac then_exp.sub_expr result cname mname in
-      let else_tac = exp_to_tac else_exp.sub_expr result cname mname in
+      let cond_tac = exp_to_tac pred_exp condResult cname mname in
+      let then_tac = exp_to_tac then_exp result cname mname in
+      let else_tac = exp_to_tac else_exp result cname mname in
       var_ctr := !var_ctr + 1;
       let jump_else_value = get_id !var_ctr in
       label_ctr := !label_ctr + 1;
@@ -347,23 +391,88 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             arg1 = true_location;
             arg2 = "";
             result = jump_else_value;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
           };
-          { operand = Bt; arg1 = jump_else_value; arg2 = else_label; result };
-          (* @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result } ] *)
-          { operand = Comment; arg1 = "then branch"; arg2 = ""; result };
-          { operand = Label; arg1 = then_label; arg2 = ""; result };
+          {
+            operand = Bt;
+            arg1 = jump_else_value;
+            arg2 = else_label;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          (* @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result; line=exp.id.line_num} ] *)
+          {
+            operand = Comment;
+            arg1 = "then branch";
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Label;
+            arg1 = then_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
         ]
       @ then_tac
       @ [
-          { operand = Jmp; arg1 = join_label; arg2 = ""; result };
-          { operand = Comment; arg1 = "else branch"; arg2 = ""; result };
-          { operand = Label; arg1 = else_label; arg2 = ""; result };
+          {
+            operand = Jmp;
+            arg1 = join_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Comment;
+            arg1 = "else branch";
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Label;
+            arg1 = else_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
         ]
       @ else_tac
       @ [
-          { operand = Jmp; arg1 = join_label; arg2 = ""; result };
-          { operand = Comment; arg1 = "if-join"; arg2 = ""; result };
-          { operand = Label; arg1 = join_label; arg2 = ""; result };
+          {
+            operand = Jmp;
+            arg1 = join_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Comment;
+            arg1 = "if-join";
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Label;
+            arg1 = join_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
         ]
   | While (pred_exp, body_exp) ->
       var_ctr := !var_ctr + 1;
@@ -371,8 +480,8 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let body_result = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
-      let cond_tac = exp_to_tac pred_exp.sub_expr pred_result cname mname in
-      let body_tac = exp_to_tac body_exp.sub_expr body_result cname mname in
+      let cond_tac = exp_to_tac pred_exp pred_result cname mname in
+      let body_tac = exp_to_tac body_exp body_result cname mname in
       var_ctr := !var_ctr + 1;
       let jump_else_value = get_id !var_ctr in
       label_ctr := !label_ctr + 1;
@@ -383,9 +492,30 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let body_label = get_label !label_ctr cname mname in
       let true_location = (List.hd (List.rev cond_tac)).result in
       [
-        { operand = Jmp; arg1 = cond_label; arg2 = ""; result };
-        { operand = Comment; arg1 = "while-pred"; arg2 = ""; result };
-        { operand = Label; arg1 = cond_label; arg2 = ""; result };
+        {
+          operand = Jmp;
+          arg1 = cond_label;
+          arg2 = "";
+          result;
+          line = exp.id.line_num;
+          static_type = exp.static_type;
+        };
+        {
+          operand = Comment;
+          arg1 = "while-pred";
+          arg2 = "";
+          result;
+          line = exp.id.line_num;
+          static_type = exp.static_type;
+        };
+        {
+          operand = Label;
+          arg1 = cond_label;
+          arg2 = "";
+          result;
+          line = exp.id.line_num;
+          static_type = exp.static_type;
+        };
       ]
       @ cond_tac
       @ [
@@ -394,18 +524,76 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             arg1 = true_location;
             arg2 = "";
             result = jump_else_value;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
           };
-          { operand = Bt; arg1 = jump_else_value; arg2 = join_label; result };
-          { operand = Bt; arg1 = true_location; arg2 = body_label; result };
-          { operand = Comment; arg1 = "while-body"; arg2 = ""; result };
-          { operand = Label; arg1 = body_label; arg2 = ""; result };
+          {
+            operand = Bt;
+            arg1 = jump_else_value;
+            arg2 = join_label;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Bt;
+            arg1 = true_location;
+            arg2 = body_label;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Comment;
+            arg1 = "while-body";
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Label;
+            arg1 = body_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
         ]
       @ body_tac
       @ [
-          { operand = Jmp; arg1 = cond_label; arg2 = ""; result };
-          { operand = Comment; arg1 = "while-join"; arg2 = ""; result };
-          { operand = Label; arg1 = join_label; arg2 = ""; result };
-          { operand = Default; arg1 = "Object"; arg2 = ""; result };
+          {
+            operand = Jmp;
+            arg1 = cond_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Comment;
+            arg1 = "while-join";
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Label;
+            arg1 = join_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
+            operand = Default;
+            arg1 = "Object";
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
         ]
   | Block exp_list ->
       List.mapi
@@ -419,83 +607,198 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
               var_ctr := !var_ctr + 1;
               get_id !var_ctr)
           in
-          exp_to_tac elem.sub_expr elem_result cname mname)
+          exp_to_tac elem elem_result cname mname)
         exp_list
       |> List.flatten
   | New id ->
-      [ { operand = New; arg1 = id.name; arg2 = ""; result = get_id !var_ctr } ]
+      [
+        {
+          operand = New;
+          arg1 = id.name;
+          arg2 = "";
+          result = get_id !var_ctr;
+          line = exp.id.line_num;
+          static_type = exp.static_type;
+        };
+      ]
   | Isvoid exp ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
-      exp_to_tac exp.sub_expr arg1 cname mname
-      @ [ { operand = Isvoid; arg1; arg2 = ""; result } ]
+      exp_to_tac exp arg1 cname mname
+      @ [
+          {
+            operand = Isvoid;
+            arg1;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Minus (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
-      let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = Minus; arg1; arg2; result } ]
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      exp1 @ exp2
+      @ [
+          {
+            operand = Minus;
+            arg1;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Divide (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
-      let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = Divide; arg1; arg2; result } ]
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      exp1 @ exp2
+      @ [
+          {
+            operand = Divide;
+            arg1;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Plus (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
-      let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = Plus; arg1; arg2; result } ]
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      exp1 @ exp2
+      @ [
+          {
+            operand = Plus;
+            arg1;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Times (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
-      let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = Times; arg1; arg2; result } ]
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      exp1 @ exp2
+      @ [
+          {
+            operand = Times;
+            arg1;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Equal (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
-      let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = Equal; arg1; arg2; result } ]
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      exp1 @ exp2
+      @ [
+          {
+            operand = Equal;
+            arg1;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | LessEqual (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
-      let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = LessEqual; arg1; arg2; result } ]
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      exp1 @ exp2
+      @ [
+          {
+            operand = LessEqual;
+            arg1;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | LessThan (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp.sub_expr arg1 cname mname in
-      let exp2 = exp_to_tac exp2.sub_expr arg2 cname mname in
-      exp1 @ exp2 @ [ { operand = LessThan; arg1; arg2; result } ]
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      exp1 @ exp2
+      @ [
+          {
+            operand = LessThan;
+            arg1;
+            arg2;
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Not exp ->
       var_ctr := !var_ctr + 1;
-      exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = Not; arg1 = get_id !var_ctr; arg2 = ""; result } ]
+      exp_to_tac exp (get_id !var_ctr) cname mname
+      @ [
+          {
+            operand = Not;
+            arg1 = get_id !var_ctr;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Negate exp ->
       (*let result = get_id !var_ctr in*)
       (*var_ctr := !var_ctr + 1;*)
-      exp_to_tac exp.sub_expr (get_id !var_ctr) cname mname
-      @ [ { operand = Negate; arg1 = get_id !var_ctr; arg2 = ""; result } ]
+      exp_to_tac exp (get_id !var_ctr) cname mname
+      @ [
+          {
+            operand = Negate;
+            arg1 = get_id !var_ctr;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Int_Constant i ->
-      [ { operand = Int_Constant; arg1 = string_of_int i; arg2 = ""; result } ]
+      [
+        {
+          operand = Int_Constant;
+          arg1 = string_of_int i;
+          arg2 = "";
+          result;
+          line = exp.id.line_num;
+          static_type = exp.static_type;
+        };
+      ]
   | String_Constant s ->
       [
         {
@@ -503,17 +806,46 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
           arg1 = Printf.sprintf "%s" s;
           arg2 = "";
           result;
+          line = exp.id.line_num;
+          static_type = exp.static_type;
         };
       ]
   | Ident_Expr s -> (
       match Hashtbl.find_opt letTable s.name with
       | Some t ->
           (* Printf.fprintf out_file "Retrieved variable %s as temp %s\n" s.name t; *)
-          [ { operand = Ident_Expr t; arg1 = ""; arg2 = ""; result } ]
+          [
+            {
+              operand = Ident_Expr t;
+              arg1 = "";
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
       | None ->
-          [ { operand = Ident_Expr s.name; arg1 = ""; arg2 = ""; result } ])
+          [
+            {
+              operand = Ident_Expr s.name;
+              arg1 = "";
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ])
   | Boolean_Constant v ->
-      [ { operand = Boolean_Constant; arg1 = get_bool v; arg2 = ""; result } ]
+      [
+        {
+          operand = Boolean_Constant;
+          arg1 = get_bool v;
+          arg2 = "";
+          result;
+          line = exp.id.line_num;
+          static_type = exp.static_type;
+        };
+      ]
   | Let_Expr (binding_list, exp) ->
       let b =
         List.map
@@ -524,7 +856,7 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
               result; *)
             Hashtbl.add letTable var.name result;
             match value with
-            | Some value -> exp_to_tac value.sub_expr result cname mname
+            | Some value -> exp_to_tac value result cname mname
             | None ->
                 [
                   {
@@ -532,19 +864,19 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
                     arg1 = "default";
                     arg2 = let_type.name;
                     result;
+                    line = exp.id.line_num;
+                    static_type = exp.static_type;
                   };
                 ])
           binding_list
         |> List.flatten
       in
-      b @ exp_to_tac exp.sub_expr result cname mname
+      b @ exp_to_tac exp result cname mname
   | Case (case_expr, case_elements) ->
       let init_label_ctr = !label_ctr in
       var_ctr := !var_ctr + 1;
       let caseResult = get_id !var_ctr in
-      let case_expr_value =
-        exp_to_tac case_expr.sub_expr caseResult mname cname
-      in
+      let case_expr_value = exp_to_tac case_expr caseResult mname cname in
       let caseExprResult = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let case_id = get_id !var_ctr in
@@ -555,6 +887,8 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             arg1 = caseExprResult;
             arg2 = "";
             result = case_id;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
           };
         ]
       in
@@ -567,6 +901,8 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             arg1 = "$0";
             arg2 = case_id;
             result = "";
+            line = exp.id.line_num;
+            static_type = exp.static_type;
           };
         ]
       in
@@ -586,14 +922,25 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
                 arg1 = elem.typename.name;
                 arg2 = "";
                 result = caseElemClassResult;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
               };
               {
                 operand = Case case_label;
                 arg1 = caseElemClassResult;
                 arg2 = case_id;
                 result = equalResult;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
               };
-              { operand = Comment; arg1 = "case-join"; arg2 = ""; result };
+              {
+                operand = Comment;
+                arg1 = "case-join";
+                arg2 = "";
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
             ])
           case_elements
         |> List.flatten
@@ -601,13 +948,31 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
       let empty_case_jump =
         label_ctr := !label_ctr + 1;
         let jump_label = get_label !label_ctr mname cname in
-        [ { operand = Jmp; arg1 = jump_label; arg2 = ""; result = "" } ]
+        [
+          {
+            operand = Jmp;
+            arg1 = jump_label;
+            arg2 = "";
+            result = "";
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
       in
       label_ctr := init_label_ctr;
       label_ctr := !label_ctr + 1;
       let case_label = get_label !label_ctr mname cname in
       let null_case =
-        [ { operand = VoidCase; arg1 = case_label; arg2 = ""; result } ]
+        [
+          {
+            operand = VoidCase;
+            arg1 = case_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
       in
       let defined_cases =
         List.map
@@ -618,22 +983,58 @@ and exp_to_tac (exp : sub_expr) result cname mname : tac_elem list =
             Hashtbl.add letTable elem.variable.name caseExprResult;
             label_ctr := !label_ctr + 1;
             let case_label = get_label !label_ctr mname cname in
-            [ { operand = Label; arg1 = case_label; arg2 = ""; result } ]
-            @ exp_to_tac elem.elem_body.sub_expr result mname cname
-            @ [ { operand = Jmp; arg1 = join_label; arg2 = ""; result } ])
+            [
+              {
+                operand = Label;
+                arg1 = case_label;
+                arg2 = "";
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ]
+            @ exp_to_tac elem.elem_body result mname cname
+            @ [
+                {
+                  operand = Jmp;
+                  arg1 = join_label;
+                  arg2 = "";
+                  result;
+                  line = exp.id.line_num;
+                  static_type = exp.static_type;
+                };
+              ])
           case_elements
         |> List.flatten
       in
       label_ctr := !label_ctr + 1;
       let case_label = get_label !label_ctr mname cname in
       let empty_case =
-        [ { operand = EmptyCase; arg1 = case_label; arg2 = ""; result } ]
+        [
+          {
+            operand = EmptyCase;
+            arg1 = case_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
       in
 
       (* case_expr_value @ case_class_id @ null_case @ case_element_values
       @ case_expressions  *)
       let case_join =
-        [ { operand = Label; arg1 = join_label; arg2 = ""; result } ]
+        [
+          {
+            operand = Label;
+            arg1 = join_label;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
       in
       let jumps = null_case_jump @ defined_case_jumps @ empty_case_jump in
       let cases = null_case @ defined_cases @ empty_case @ case_join in

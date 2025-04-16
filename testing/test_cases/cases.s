@@ -1,7 +1,3 @@
-# Attr: #;comment attr start
-# Attr: #;t$0 <- int 5
-	#; Class Id of type Int is 2
-	#; Class Id of type String is 4
 #;comment start
 #;label Main_main_0
 #;t$1 <- my_attribute

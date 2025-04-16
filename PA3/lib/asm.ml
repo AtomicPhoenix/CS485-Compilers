@@ -313,12 +313,19 @@ let get_class_attributes class_name attrs =
           label_ctr := 0;
           let base_lst =
             [
-              { operand = Comment; arg1 = "attr start"; arg2 = ""; result = "" };
+              {
+                operand = Comment;
+                arg1 = "attr start";
+                arg2 = "";
+                result = "";
+                line = attr_expr.id.line_num;
+                static_type = attr_expr.static_type;
+              };
             ]
           in
           let return_index = get_id !var_ctr in
           let exp_list =
-            exp_to_tac attr_expr.sub_expr return_index class_name attr.name
+            exp_to_tac attr_expr return_index class_name attr.name
           in
           (* let temps = !var_ctr + 1 in *)
           Some (base_lst @ exp_list, return_index)
@@ -530,8 +537,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name =
       let class_tag = Hashtbl.find_opt class_id_map class_name in
       match class_tag with
       | Some class_tag ->
-          Printf.fprintf out_file "\t#; Class Id of type %s is %d\n" class_name
-            class_tag;
+          (* Printf.fprintf out_file "\t#; Class Id of type %s is %d\n" class_name
+            class_tag; *)
           [ Instruction ("movq", Printf.sprintf "$%d" class_tag, result, "") ]
       | None ->
           [
@@ -574,12 +581,15 @@ let tac_to_as (tac : tac_elem) cur_method class_name =
         | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
         | None -> (
             match
-              List.find_opt
-                (fun attr -> attr.field_name = ident_name)
-                (Hashtbl.find class_attribute_map class_name)
+              match Hashtbl.find_opt class_attribute_map class_name with
+              | Some attr_list ->
+                  List.find_opt
+                    (fun attr -> attr.field_name = ident_name)
+                    attr_list
+              | None -> None
             with
             | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
-            | None -> assert false)
+            | None -> get_var_addr ident_name)
       in
       [
         Line "\t#Ident Expr start";
@@ -587,6 +597,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name =
         Instruction ("movq", "%rax", result, "");
         Line "\t#Ident Expr end";
       ]
+      (* 
+      add_var_addr tac.result;
+      let result = get_var_addr tac.result in
+      [
+        Instruction ("movq", get_var_addr s, "%rax", "");
+        Instruction ("movq", "%rax", result, "");
+      ]
+         *)
   | Plus ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
@@ -984,8 +1002,6 @@ let generate_class_new_asm asm_class_var =
             ]
             @ (List.map
                  (fun tac ->
-                   Printf.fprintf out_file "# Attr: ";
-                   print_tac_elem_commented tac;
                    tac_to_as tac attr.field_name asm_class_var.vtable.name_id)
                  tacs
               |> List.flatten)
@@ -1090,9 +1106,6 @@ let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
 let method_asm =
   List.map
     (fun (cfg, class_name, method_name, temps) ->
-      (* Printf.fprintf stdout "Method %s of Class %s uses %d temps\n"
-          method_name class_name temps; *)
-      (*let name = class_name ^ "." ^ method_name in*)
       let stack_space =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
