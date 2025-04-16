@@ -18,10 +18,17 @@ done
 for test in ../testing/PA3c3/*.cl-type; do
 	cp "$test" .
 	file=$(basename "$test" .cl-type)
+        cp ../testing/PA3c3/"$file".cl .
 	./a.out "$file.cl-type"
 	gcc -static -fno-pie -g3 -o program "$file".s
 	printf "Result of program %s:\n" "$file"
-	./program 2>/dev/null
+        out=$(./program 2>/dev/null)
+        ./newcool --x86 "$file".cl
+        gcc -static -fno-pie -g3 -o program "$file".s
+        refout=$(./program 2>/dev/null)
+        echo $out
+        echo $refout
+
 	rm "./$file".cl* 2>/dev/null
 	rm "./$file.s" 2>/dev/null
 	echo ""
