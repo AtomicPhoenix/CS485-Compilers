@@ -541,23 +541,26 @@ let get_jump () =
           in
           string_of_int ((res + 1) * 8))
   | None -> assert false *)
+(* Taken/modified from https://stackoverflow.com/questions/31279920/finding-an-item-in-a-list-and-returning-its-index-ocaml *)
+let rec find x lst =
+    match lst with
+    | [] -> assert false
+    | h :: t -> if x = h.method_name then 0 else 1 + find x t
 let get_offset method_name static_type current_class =
   match static_type with
   | Class c ->
       let c = if c = "SELF_TYPE" then current_class else c in
       let vtab = Hashtbl.find class_vtable_map c in
       let res =
-        Option.get
-          (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
+          find method_name vtab.methods
       in
-      string_of_int ((res + 1) * 8)
+      string_of_int ((res + 2) * 8)
   | SELF_TYPE _ ->
       let vtab = Hashtbl.find class_vtable_map current_class in
       let res =
-        Option.get
-          (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
+          find method_name vtab.methods
       in
-      string_of_int ((res + 1) * 8)
+      string_of_int ((res + 2) * 8)
 
 (*let get_unique_label () =*)
   (*label_ctr := !label_ctr + 1;*)
