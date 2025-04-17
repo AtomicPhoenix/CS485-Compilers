@@ -550,14 +550,14 @@ let get_offset method_name static_type current_class =
         Option.get
           (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
       in
-      string_of_int ((res + 2) * 8)
+      string_of_int ((res + 1) * 8)
   | SELF_TYPE _ ->
       let vtab = Hashtbl.find class_vtable_map current_class in
       let res =
         Option.get
           (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
       in
-      string_of_int ((res + 2) * 8)
+      string_of_int ((res + 1) * 8)
 
 (*let get_unique_label () =*)
   (*label_ctr := !label_ctr + 1;*)
