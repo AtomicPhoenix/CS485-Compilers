@@ -117,7 +117,7 @@ let class_id_map = Hashtbl.create 32
 let class_vtable_map = Hashtbl.create 32
 let class_attribute_map = Hashtbl.create 32
 let string_counter = ref 10
-let class_tag_ctr = ref 9
+let class_tag_ctr = ref 13
 let parser_class_map : class_map_elem list = Parser.parser_class_map
 let implementation_map = Parser.implementation_map
 let parent_map = Parser.parent_map
@@ -410,7 +410,7 @@ let bool_new =
     (*Instruction (".size", "Bool..new", ".-Bool..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "IO" 1
+let () = Hashtbl.add class_id_map "IO" 10
 
 let io_new =
   [
@@ -420,7 +420,7 @@ let io_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$1", "(%rax)", "");
+    Instruction ("movq", "$10", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$IO..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -429,7 +429,7 @@ let io_new =
     (*Instruction (".size", "IO..new", ".-IO..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "Int" 2
+let () = Hashtbl.add class_id_map "Int" 1
 
 let int_new =
   [
@@ -439,7 +439,7 @@ let int_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$2", "(%rax)", "");
+    Instruction ("movq", "$1", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Int..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -449,7 +449,7 @@ let int_new =
     (*Instruction (".size", "Int..new", ".-Int..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "Object" 3
+let () = Hashtbl.add class_id_map "Object" 12
 
 let object_new =
   [
@@ -459,7 +459,7 @@ let object_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$3", "(%rax)", "");
+    Instruction ("movq", "$12", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$Object..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -468,7 +468,7 @@ let object_new =
     (*Instruction (".size", "Object..new", ".-Object..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "String" 4
+let () = Hashtbl.add class_id_map "String" 3
 
 let string_new =
   [
@@ -478,7 +478,7 @@ let string_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$4", "(%rax)", "");
+    Instruction ("movq", "$3", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$String..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -603,8 +603,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("je", void_dispatch_label, "", "");
       ]
       @ (if tac.arg2 = "" then
-           (Printf.printf "getting no arg call with class %s function %s\n" class_name cur_method;
-           [ Line "\t#Call w/o args start" ]
+           (
+           [ Line ("\t#Call w/o args start for method " ^ meth) ]
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
@@ -623,7 +623,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("popq", "%rdi", "", "");
                Instruction ("popq", "%rbp", "", "");
              ]
-           @ [ Line "\t#Call w/o args end" ])
+           @ [ Line ("\t#Call w/o args end for method " ^ meth) ])
          else
           ( let gen_register_arglist args =
              let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
@@ -647,8 +647,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
              if List.length args <= 5 then gen_register_arglist args
              else gen_mixed_arglist args
            in
-           Printf.printf "getting arg call with class %s function %s\n" class_name cur_method;
-           [ Line "\t#Call w/ args start" ]
+           [ Line ("\t#Call w/ args start for method " ^ meth) ]
            @ arglist
            @ [
                Instruction ("pushq", "%rbp", "", "");
@@ -666,7 +665,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("popq", "%rdi", "", "");
                Instruction ("popq", "%rbp", "", "");
              ]
-           @ [ Line "\t#Call w/ args end" ])
+           @ [ Line ("\t#Call w/ args end for method" ^ meth) ])
       )
       (*@popa*)@
       (***** TODO: finish void dispatch label and void dispatch err handling *****)
