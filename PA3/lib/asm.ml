@@ -473,18 +473,22 @@ let () = Hashtbl.add class_id_map "String" 3
 let string_new =
   [
     Line "String..new:";
-    Instruction ("subq", "$8", "%rsp", "");
+    Instruction ("pushq", "%rbx", "", "");
     Instruction ("movl", "$4", "%esi", "");
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
+    Instruction ("movl", "$1", "%edi", "");
+    Instruction ("movq", "%rax", "%rbx", "");
     Line "\t#Set class tag, object size, vtable pointer";
     Instruction ("movq", "$3", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
-    Instruction ("movq", "$String..vtable", "%r11", "");
-    Instruction ("movq", "%r11", "16(%rax)", "");
-    Instruction ("movq", "$empty.string", "%r11", "");
-    Instruction ("movq", "%r11", "24(%rax)", "");
-    Instruction ("addq", "$8", "%rsp", "");
+    Instruction ("movl", "$String..vtable", "%eax", "");
+    Instruction ("movq", "%rax", "16(%rbx)", "");
+    Instruction ("call", "malloc", "", "");
+    Instruction ("movq", "%rax", "24(%rbx)", "");
+    Instruction ("movb", "$0", "(%rax)", "");
+    Instruction ("movq", "%rbx", "%rax", "");
+    Instruction ("popq", "%rbx", "", "");
     Instruction ("ret", "", "", "");
     (*Instruction (".size", "String..new", ".-String..new", "");*)
   ]
