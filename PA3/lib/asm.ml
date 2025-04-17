@@ -542,23 +542,23 @@ let get_jump () =
           string_of_int ((res + 1) * 8))
   | None -> assert false *)
 (* Taken/modified from https://stackoverflow.com/questions/31279920/finding-an-item-in-a-list-and-returning-its-index-ocaml *)
-let rec find x lst =
+let rec find x lst count =
     match lst with
     | [] -> assert false
-    | h :: t -> if x = h.method_name then 0 else 1 + find x t
+    | h :: t -> if x = h.method_name then count else find x t (count+1)
 let get_offset method_name static_type current_class =
   match static_type with
   | Class c ->
       let c = if c = "SELF_TYPE" then current_class else c in
       let vtab = Hashtbl.find class_vtable_map c in
       let res =
-          find method_name vtab.methods
+          find method_name vtab.methods 0
       in
       string_of_int ((res + 2) * 8)
   | SELF_TYPE _ ->
       let vtab = Hashtbl.find class_vtable_map current_class in
       let res =
-          find method_name vtab.methods
+          find method_name vtab.methods 0
       in
       string_of_int ((res + 2) * 8)
 
