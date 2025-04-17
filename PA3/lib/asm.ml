@@ -832,7 +832,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("jmp", div_end_label, "", "");
         Line (error_label ^ ":");
         Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
-        Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "", "");
+        Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "edi", "");
         Instruction ("call", "cool_error", "", "");
         Line (div_end_label ^ ":");
         Line "\t#Divide end";
@@ -1061,7 +1061,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Line (Printf.sprintf "%s:" tac.arg1);
         Line "## case expression: error case";
         Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
-        Instruction ("movl", "$" ^ err_to_num ERR_CASE_NO_BRANCH, "", "");
+        Instruction ("movl", "$" ^ err_to_num ERR_CASE_NO_BRANCH, "edi", "");
         Instruction ("call", "cool_error", "", "");
       ]
   | VoidCase ->
@@ -1069,7 +1069,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Line (Printf.sprintf "%s:" tac.arg1);
         Line "## case expression: error case";
         Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
-        Instruction ("movl", "$" ^ err_to_num ERR_VOID_CASE, "", "");
+        Instruction ("movl", "$" ^ err_to_num ERR_VOID_CASE, "edi", "");
         Instruction ("call", "cool_error", "", "");
       ]
   | Default | New ->
@@ -1164,8 +1164,8 @@ let generate_class_new_asm asm_class_var =
             in
             (*let prev_result = ref "" in*)
             [
-              Instruction ("pushq", "%rax", "", "");
               Instruction ("pushq", "%r13", "", "");
+              Instruction ("pushq", "%rax", "", "");
             ]
             @ (List.map
                  (fun tac ->
@@ -1207,14 +1207,10 @@ let generate_class_new_asm asm_class_var =
       Instruction ("subq", stack_room, "%rsp", "");
       (*  Return address handling *)
       (*Line "\t## return address handling";*)
-      (*  16-byte alignment *)
-      (*Line "\t## guarantee 16-byte alignment before call";*)
-      (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
       (*  Allocate space for the variable (rsi*rdi)=num*bytes *)
       Instruction ("movq", "$8", "%rsi", "");
       Instruction ("movq", object_size, "%rdi", "");
       Instruction ("call", "calloc", "", "");
-      (* Instruction ("movq", "%rax", "%rax", ""); *)
       (* NOTE: Alot of these can be simplified to one line operations *)
       Line "\t## store class tag, object size and vtable pointer";
       Instruction ("movq", class_tag, "0(%rax)", "");
