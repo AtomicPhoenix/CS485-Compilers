@@ -7,7 +7,7 @@ module Intrinsics = PA3.Intrinsics
 
 let () =
   (* Print all tacs *)
-  List.iter (fun (f, _, _, _) -> Tac.print_tac_elems f) Tac.tacs;
+  List.iter (fun (f, _, _, _, _) -> Tac.print_tac_elems f) Tac.tacs;
 
   (* Default vtables *)
   List.iter Asm.print_vtable Asm.vtables;

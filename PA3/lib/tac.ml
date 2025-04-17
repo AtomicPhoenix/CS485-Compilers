@@ -197,13 +197,13 @@ let print_tac_elem_commented t =
 
 let print_tac_elems (t : tac_elem list) = List.iter print_tac_elem_commented t
 
-let rec parse_tac_expressions (ast : annotated_ast_elem list) :
-    (tac_elem list * string * string * int) list =
+let rec ast_to_tac (ast : annotated_ast_elem list) :
+    (tac_elem list * string * string * ast_formal list * int) list =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
     List.filter_map
       (fun (feat, _) ->
         match feat with
-        | Method (id1, _, _, exp) ->
+        | Method (method_name, arguments, _, exp) ->
             (* Printf.printf "Parsing expression: %s in method %s in class %s\n"
               exp.id.name id1.name ast_elem.class_name.name;  *)
             var_ctr := 0;
@@ -220,7 +220,8 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
                 };
                 {
                   operand = Label;
-                  arg1 = ast_elem.class_name.name ^ "_" ^ id1.name ^ "_0";
+                  arg1 =
+                    ast_elem.class_name.name ^ "_" ^ method_name.name ^ "_0";
                   arg2 = "";
                   result = "";
                   line = exp.id.line_num;
@@ -229,7 +230,8 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
               ]
             in
             let exp_list =
-              exp_to_tac exp (get_id !var_ctr) ast_elem.class_name.name id1.name
+              exp_to_tac exp (get_id !var_ctr) ast_elem.class_name.name
+                method_name.name
             in
             let rtrn =
               [
@@ -247,7 +249,8 @@ let rec parse_tac_expressions (ast : annotated_ast_elem list) :
             Some
               ( base_lst @ exp_list @ rtrn,
                 ast_elem.class_name.name,
-                id1.name,
+                method_name.name,
+                arguments,
                 temps )
         | Attribute _ -> None)
       (get_all_methods ast_elem)
@@ -349,7 +352,14 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
          args
       |> List.flatten)
       @ [
-        {operand = Comment; arg1 = "self"; arg2 = ""; result = "%rdi"; line = exp.id.line_num; static_type = Some (SELF_TYPE cname)};
+          {
+            operand = Comment;
+            arg1 = "self";
+            arg2 = "";
+            result = "%rdi";
+            line = exp.id.line_num;
+            static_type = Some (SELF_TYPE cname);
+          };
           {
             operand = Call;
             arg1 = id.name;
@@ -1101,4 +1111,4 @@ let () =
   List.iter add_class default_classes;
   List.iter add_class Parser.annotated_ast
 
-let tacs = parse_tac_expressions Parser.annotated_ast
+let tacs = ast_to_tac Parser.annotated_ast

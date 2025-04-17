@@ -512,6 +512,11 @@ let new_funcs =
     ("String", string_new);
   ]
 
+let print_var_locations () =
+  Hashtbl.iter
+    (fun k v -> Printf.fprintf out_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
+    var_locations
+
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * Hashtbl.length var_locations in
   match Hashtbl.find_opt var_locations var_name with
@@ -523,12 +528,21 @@ let add_var_addr (var_name : string) =
 
 let get_var_addr (var_name : string) : string =
   match Hashtbl.find_opt var_locations var_name with
-  | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
+  | Some addr ->
+      if addr < 0 then (
+        let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+        let register = List.nth registers (addr + 5) in
+        Printf.fprintf out_file "#; Argument %s is stored in register %s\n"
+          var_name register;
+        register)
+      else Printf.sprintf "-%d(%%rbp)" addr
   | None ->
       if var_name = "self" || var_name = "%rdi" then "%rdi"
-      else
-        (* Printf.fprintf stderr "Failed to find a temp for variable %s\n" var_name; *)
-        var_name
+      else (
+        Printf.fprintf out_file "#; Failed to find a temp for variable %s\n"
+          var_name;
+        print_var_locations ();
+        var_name)
 
 let jump_number = ref 1
 
@@ -647,6 +661,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
              let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
              List.mapi
                (fun i arg ->
+                 Hashtbl.add var_locations arg (i - 5);
                  Instruction ("movq", get_var_addr arg, List.nth registers i, ""))
                args
            in
@@ -1153,8 +1168,8 @@ let generate_class_new_asm asm_class_var =
         let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
         [
           Line
-            (Printf.sprintf "\t## self[%d] holds field x (%s)" var_index
-               attr.type_name);
+            (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
+               attr.field_name attr.type_name);
           Line (Printf.sprintf "\t## new %s" attr.type_name);
           Instruction ("pushq", "%rbp", "", "");
           Instruction ("pushq", "%rax", "", "");
@@ -1329,7 +1344,37 @@ let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
 
 let method_asm =
   List.map
-    (fun (cfg, class_name, method_name, temps) ->
+    (fun (cfg, class_name, method_name, attrs, temps) ->
+      Hashtbl.reset var_locations;
+      (*let gen_register_arglist args =
+        let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+        List.mapi
+          (fun i arg ->
+            Hashtbl.add var_locations arg (i - 5);
+            Instruction ("movq", get_var_addr arg, List.nth registers i, ""))
+          args
+      in
+      let gen_mixed_arglist args =
+        let first_five = List.filteri (fun i _ -> i <= 4) args in
+        let remaining = List.rev (List.filteri (fun i _ -> i > 4) args) in
+        gen_register_arglist first_five
+        @ List.map
+            (fun arg -> Instruction ("pushq", get_var_addr arg, "", ""))
+            remaining
+      in
+
+      let args = String.split_on_char ' ' tac.arg2 in
+      (* While there ARE 6 argument registers in the SysV convention, we are dedicating rdi to always be the self pointer *)
+      let arglist =
+        if List.length args <= 5 then gen_register_arglist args
+        else gen_mixed_arglist args
+      in *)
+      Printf.fprintf out_file "#; %s.%s:\n" class_name method_name;
+      List.iteri
+        (fun i (attr : ast_formal) ->
+          Printf.fprintf out_file "\t#; Argument %d: %s\n" i attr.name.name)
+        attrs;
+
       let stack_space =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
