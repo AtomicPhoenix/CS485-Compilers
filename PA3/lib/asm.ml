@@ -526,9 +526,9 @@ let get_var_addr (var_name : string) : string =
   | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
   | None ->
       if var_name = "self" || var_name = "%rdi" then "%rdi"
-      else (
-        Printf.fprintf stderr "Failed to find a temp for variable %s\n" var_name;
-        var_name)
+      else
+        (* Printf.fprintf stderr "Failed to find a temp for variable %s\n" var_name; *)
+        var_name
 
 let jump_number = ref 1
 
@@ -722,7 +722,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | Return ->
       [
         Line "\t#Return start";
-        Instruction ("jmp", "." ^ cur_method ^ ".end", "", "");
+        Instruction ("jmp", class_name ^ "." ^ cur_method ^ ".end", "", "");
         Line "\t#Return end";
       ]
   | LetNoInit ->
@@ -1272,9 +1272,9 @@ let get_start_method_boilerplate method_name class_name stack_space =
     Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
   ]
 
-let get_end_method_boilerplate method_name stack_space =
+let get_end_method_boilerplate class_name method_name stack_space =
   [
-    Line (Printf.sprintf ".%s.end:" method_name);
+    Line (Printf.sprintf "%s.%s.end:" class_name method_name);
     Instruction ("addq", "$" ^ string_of_int stack_space, "%rsp", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("ret", "", "", "");
@@ -1343,7 +1343,7 @@ let method_asm =
            method_tac
         |> List.flatten)
         (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
-      @ get_end_method_boilerplate method_name stack_space)
+      @ get_end_method_boilerplate class_name method_name stack_space)
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst
