@@ -339,6 +339,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             (List.mapi (fun i _ -> get_id (!var_ctr + 1 + i)) args)
         else ""
       in
+      (*var_ctr := !var_ctr + 1;*)
+      (*let selfvar = get_id !var_ctr in*)
       (List.map
          (fun elem ->
            (* Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
@@ -347,6 +349,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
          args
       |> List.flatten)
       @ [
+        {operand = Comment; arg1 = "self"; arg2 = ""; result = "%rdi"; line = exp.id.line_num; static_type = Some (SELF_TYPE cname)};
           {
             operand = Call;
             arg1 = id.name;

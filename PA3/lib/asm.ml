@@ -95,29 +95,6 @@ let print_asm (asm : asm_line) =
         Printf.fprintf out_file "\t%s\n" s1
   | Line s1 -> (*Printf.printf "%s\n" s1;*) Printf.fprintf out_file "%s\n" s1
 
-let print_start () =
-  let start =
-    [
-      Line ".globl start";
-      Line "start:                  ## program begins here";
-      Line ".globl main";
-      Line ".type main, @function";
-      Line "main:";
-      Instruction ("movq", "$Main..new", "%r14", "");
-      Instruction ("pushq", "%rbp", "", "");
-      Instruction ("call", "*%r14", "", "");
-      Instruction ("movq", "%rax", "%rdi", "");
-      Instruction ("pushq", "%rbp", "", "");
-      Instruction ("pushq", "%r13", "", "");
-      Instruction ("movq", "$Main.main", "%r14", "");
-      Instruction ("call", "*%r14", "", "");
-      Line "## guarantee 16-byte alignment before call";
-      Instruction ("andq", "$0xFFFFFFFFFFFFFFF0, %rsp", "", "");
-      Instruction ("movl", "$0", "%edi", "");
-      Instruction ("call", "exit", "", "");
-    ]
-  in
-  List.iter print_asm start
 
 let print_new_funcs funcs =
   let print_new_func func =
@@ -146,6 +123,7 @@ let implementation_map = Parser.implementation_map
 let parent_map = Parser.parent_map
 let vtable_list : vtable list ref = ref []
 let label_ctr = ref 1
+let prev_tac = ref {operand = New; arg1 = ""; arg2 = ""; result = ""; line = 0; static_type = None}
 
 let print_string_map () =
   Hashtbl.iter
@@ -201,7 +179,7 @@ let create_vtable (itm : implementation_map_elem) : vtable option =
     name <> "Bool" && name <> "IO" && name <> "Int" && name <> "Object"
     && name <> "String"
   then (
-    let funcs =
+    let funcs = [ { type_name = itm.name; method_name = ".new" }] @
       List.map
         (fun (meth : imp_method) ->
           { type_name = meth.type_name; method_name = meth.name })
@@ -351,6 +329,10 @@ let popa =
     Instruction ("popq", "%rax", "", "");
   ]
 
+let get_unique_label () =
+  label_ctr := !label_ctr + 1;
+  ".label" ^ string_of_int !label_ctr
+ 
 let get_class_attributes class_name attrs =
   let get_attribute i (attr : ast_attribute) =
     let name = attr.name in
@@ -360,7 +342,7 @@ let get_class_attributes class_name attrs =
       match attr.attr_expr with
       | Some attr_expr ->
           var_ctr := 0;
-          label_ctr := 0;
+          (*label_ctr := 0;*)
           let base_lst =
             [
               {
@@ -389,6 +371,7 @@ let get_class_attributes class_name attrs =
 
 let make_asm_class (c : class_map_elem) =
   let tag = !class_tag_ctr in
+  class_tag_ctr := !class_tag_ctr + 1;
 
   if
     c.name <> "Bool" && c.name <> "IO" && c.name <> "Int" && c.name <> "Object"
@@ -527,7 +510,7 @@ let add_var_addr (var_name : string) =
 let get_var_addr (var_name : string) : string =
   match Hashtbl.find_opt var_locations var_name with
   | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
-  | None -> var_name
+  | None -> if var_name = "self" || var_name = "%rdi" then "%rdi" else (Printf.fprintf stderr "Failed to find a temp for variable %s\n" var_name; var_name)
 
 let jump_number = ref 1
 
@@ -558,14 +541,31 @@ let get_jump () =
           in
           string_of_int ((res + 1) * 8))
   | None -> assert false *)
+let get_offset method_name static_type current_class =
+  match static_type with
+  | Class c ->
+      let c = if c = "SELF_TYPE" then current_class else c in
+      let vtab = Hashtbl.find class_vtable_map c in
+      let res =
+        Option.get
+          (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
+      in
+      string_of_int ((res + 2) * 8)
+  | SELF_TYPE _ ->
+      let vtab = Hashtbl.find class_vtable_map current_class in
+      let res =
+        Option.get
+          (List.find_index (fun s -> s.method_name = method_name) vtab.methods)
+      in
+      string_of_int ((res + 2) * 8)
 
-let get_unique_label class_name method_name =
-  label_ctr := !label_ctr + 1;
-  class_name ^ "_" ^ method_name ^ "_" ^ string_of_int !label_ctr
+(*let get_unique_label () =*)
+  (*label_ctr := !label_ctr + 1;*)
+  (*class_name ^ "_" ^ method_name ^ "_" ^ string_of_int !label_ctr*)
 
 (** Method to convert a TAC element to assembly code *)
-let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
-  Printf.fprintf out_file "#; %s" prev_result;
+let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
+  (*Printf.fprintf out_file "#; %s" prev_result;*)
   [ Line (Tac.get_tac_elem_commented tac) ]
   @
   match tac.operand with
@@ -591,59 +591,41 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
   | Call ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      if tac.arg2 = "" then
-        [ Line "\t#Call w/ args start" ]
-        @ [
-            Instruction ("call", "IO." ^ tac.arg1, "", "");
-            Instruction ("movq", "%rax", result, "");
-          ]
-        @ [ Line "\t#Call w/ args end" ]
-      else
-        let arglist =
-          [ Instruction ("movq", get_var_addr tac.arg2, "%rsi", "") ]
-        in
-        [ Line "\t#Call w/ args start" ]
-        @ arglist
-        @ [
-            Instruction ("call", "IO." ^ tac.arg1, "", "");
-            Instruction ("movq", "%rax", result, "");
-          ]
-        @ [ Line "\t#Call w/ args end" ]
-      (* add_var_addr tac.result;
-      let result = get_var_addr tac.result in
-      let prev_addr = get_var_addr prev_result in
-      let arg1 = get_var_addr tac.arg1 in
-      let void_dispatch_label = get_unique_label class_name cur_method in
-      let finish_void_dispatch_label = get_unique_label class_name cur_method in
+      let prev_addr = get_var_addr prev_tac.result in
+      let meth = tac.arg1 in
+      let void_dispatch_label = get_unique_label () in
+      let finish_void_dispatch_label = get_unique_label () in
+      (*pusha @*)
       [
         Instruction ("movq", prev_addr, "%rax", "");
         Instruction ("movq", "(%rax)", "%rax", "");
-        Instruction ("testl", "%rax", "%rax", "");
+        Instruction ("testl", "%eax", "%eax", "");
         Instruction ("je", void_dispatch_label, "", "");
       ]
       @ (if tac.arg2 = "" then
+           (Printf.printf "getting no arg call with class %s function %s\n" class_name cur_method;
            [ Line "\t#Call w/o args start" ]
-           (*@ pusha*)
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
+               Instruction ("pushq", "%rbp", "", "");
                Instruction ("pushq", "%rdi", "", "");
-               Instruction ("movq", arg1, "%r11", "");
+               Instruction ("movq", prev_addr, "%r11", "");
                Instruction ("movq", "16(%r11)", "%r11", "");
                Instruction
                  ( "movq",
-                   get_offset cur_method tac.static_type class_name ^ "%r11",
+                   get_offset meth (Option.get prev_tac.static_type) class_name ^ "(%r11)",
                    "%r11",
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
                Instruction ("movq", "%rax", result, "");
-               Instruction ("jmp", finish_void_dispatch_label, "", "");
+               Instruction ("popq", "%rdi", "", "");
+               Instruction ("popq", "%rbp", "", "");
              ]
-           (*@ popa*)
-           @ [ Line "\t#Call w/o args end" ]
+           @ [ Line "\t#Call w/o args end" ])
          else
-           let gen_register_arglist args =
+          ( let gen_register_arglist args =
              let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
              List.mapi
                (fun i arg ->
@@ -665,33 +647,37 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
              if List.length args <= 5 then gen_register_arglist args
              else gen_mixed_arglist args
            in
+           Printf.printf "getting arg call with class %s function %s\n" class_name cur_method;
            [ Line "\t#Call w/ args start" ]
-           @ pusha @ arglist
+           @ arglist
            @ [
+               Instruction ("pushq", "%rbp", "", "");
                Instruction ("pushq", "%rdi", "", "");
-               Instruction ("movq", arg1, "%r11", "");
+               Instruction ("movq", prev_addr, "%r11", "");
                Instruction ("movq", "16(%r11)", "%r11", "");
                Instruction
                  ( "movq",
-                   get_offset cur_method tac.static_type class_name ^ "%r11",
+                   get_offset meth (Option.get prev_tac.static_type) class_name ^ "(%r11)",
                    "%r11",
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
                Instruction ("movq", "%rax", result, "");
-               Instruction ("jmp", finish_void_dispatch_label, "", "");
+               Instruction ("popq", "%rdi", "", "");
+               Instruction ("popq", "%rbp", "", "");
              ]
-           @ popa
            @ [ Line "\t#Call w/ args end" ])
-      @
+      )
+      (*@popa*)@
       (***** TODO: finish void dispatch label and void dispatch err handling *****)
       [
+        Instruction ("jmp", finish_void_dispatch_label, "", "");
         Line (void_dispatch_label ^ ":");
-        Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
-        Instruction ("movl", "$" ^ err_to_num ERR_VOID_DISPATCH, "", "");
+        Instruction ("movl", "$" ^ string_of_int tac.line, "%esi", "");
+        Instruction ("movl", "$" ^ err_to_num ERR_VOID_DISPATCH, "%edi", "");
         Instruction ("call", "cool_error", "", "");
         Line (finish_void_dispatch_label ^ ":");
-      ] *)
+      ]
       (* Push all variables onto stack *)
       (* Push all onto stack *)
       (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
@@ -713,9 +699,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
             Instruction ("movq", "%r13", result, "");
           ])
   | Comment ->
-      [ Line "\t#Comment start" ]
-      @ [ Line ("#" ^ tac.arg1) ]
-      @ [ Line "\t#Comment end" ]
+      [ Line ("#" ^ tac.arg1) ]
   | Label -> [ Line "\t#Label" ] @ [ Line (Printf.sprintf "%s:" tac.arg1) ]
   | Jmp -> [ Line "\t#Jump" ] @ [ Instruction ("jmp", tac.arg1, "", "") ]
   | Return ->
@@ -730,12 +714,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       [
         (*Instruction ("movq", "$0", result, "");*)
         Line "\t#Let No Init start";
-        Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
+        Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", tac.arg2 ^ "..new", "", "");
         Instruction ("movq", "%rax", "%r11", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rax", "", "");
-        Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%r11", result, "");
         Line "\t#Let No Init end";
       ]
@@ -784,12 +768,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", arg2, "%rdx", "");
         Instruction ("movq", "24(%rdx)", "%rdx", "");
         Instruction ("addl", "%edx", "%eax", "");
-        Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
+        Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r11", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rax", "", "");
-        Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rax", "24(%r11)", "");
         Instruction ("movq", "%r11", result, "");
         Line "\t#Plus end";
@@ -807,12 +791,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", arg2, "%rdx", "");
         Instruction ("movq", "24(%rdx)", "%rdx", "");
         Instruction ("subl", "%edx", "%eax", "");
-        Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
+        Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r11", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rax", "", "");
-        Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rax", "24(%r11)", "");
         Instruction ("movq", "%r11", result, "");
         Line "\t#Minus end";
@@ -822,8 +806,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      let error_label = get_unique_label class_name cur_method in
-      let div_end_label = get_unique_label class_name cur_method in
+      let error_label = get_unique_label () in
+      let div_end_label = get_unique_label () in
 
       [
         Line "\t#Divide start";
@@ -835,12 +819,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", "24(%rax)", "%rax", "");
         Instruction ("cltd", "", "", "");
         Instruction ("idivl", "%ecx", "", "");
-        Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
+        Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r11", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rax", "", "");
-        Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rax", "24(%r11)", "");
         Instruction ("movq", "%r11", result, "");
         Instruction ("jmp", div_end_label, "", "");
@@ -863,12 +847,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", arg2, "%rdx", "");
         Instruction ("movq", "24(%rdx)", "%rdx", "");
         Instruction ("imull", "%edx", "%eax", "");
-        Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
+        Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r11", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rax", "", "");
-        Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rax", "24(%r11)", "");
         Instruction ("movq", "%r11", result, "");
         Line "\t#Times end";
@@ -941,11 +925,11 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movl", "$1", "%eax", "");
         Instruction ("movl", "$0", "%edx", "");
         Instruction ("cmovel", "%eax", "%edx", "");
-        Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rdx", "", "");
+        Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", "Bool..new", "", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rdx", "", "");
-        Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rdx", "24(%rax)", "");
         Instruction ("movq", "%rax", result, "");
         Line "\t#Not end";
@@ -960,12 +944,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("movq", arg1, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
         Instruction ("negq", "%rax", "", "");
-        Instruction ("pushq", "%rbp", "", "");
         Instruction ("pushq", "%rax", "", "");
+        Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "%rax", "%r11", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rax", "", "");
-        Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rax", "24(%r11)", "");
         Instruction ("movq", "%r11", result, "");
         Line "\t#Negate end";
@@ -975,9 +959,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       let result = get_var_addr tac.result in
       [
         Line "\t#iconst start";
+        Instruction ("pushq", "%rdi", "", "");
+        Instruction ("pushq", "%rbp", "", "");
         Instruction ("call", "Int..new", "", "");
         Instruction ("movq", "$" ^ tac.arg1, "24(%rax)", "");
         Instruction ("movq", "%rax", result, "");
+        Instruction ("popq", "%rbp", "", "");
+        Instruction ("popq", "%rdi", "", "");
         Line "\t#iconst end";
       ]
   | String_Constant -> (
@@ -987,10 +975,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       | Some str_id ->
           [
             Line "\t#sconst start";
+            Instruction ("pushq", "%rdi", "", "");
+            Instruction ("pushq", "%rbp", "", "");
             Instruction ("call", "String..new", "", "");
             Instruction
               ("movq", "$.string" ^ string_of_int str_id, "24(%rax)", "");
             Instruction ("movq", "%rax", result, "");
+            Instruction ("popq", "%rbp", "", "");
+            Instruction ("popq", "%rdi", "", "");
             Line "\t#sconst end";
             (*Instruction ("movq", "$.string" ^ string_of_int str_id, result, "");*)
           ]
@@ -1000,6 +992,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
 
           [
             Line "\t#sconst start";
+            Instruction ("pushq", "%rdi", "", "");
+            Instruction ("pushq", "%rbp", "", "");
             Instruction ("call", "String..new", "", "");
             Instruction
               ( "movq",
@@ -1007,6 +1001,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
                 "24(%rax)",
                 "" );
             Instruction ("movq", "%rax", result, "");
+            Instruction ("popq", "%rbp", "", "");
+            Instruction ("popq", "%rdi", "", "");
             Line "\t#sconst end";
             (*Instruction*)
             (*("movq", ".string" ^ string_of_int !string_counter, result, "");*)
@@ -1024,17 +1020,25 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       if tac.arg1 = "true" then
         [
           Line "\t#bconst start";
+            Instruction ("pushq", "%rdi", "", "");
+            Instruction ("pushq", "%rbp", "", "");
           Instruction ("call", "Bool..new", "", "");
           Instruction ("movq", "$1", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
+            Instruction ("popq", "%rbp", "", "");
+            Instruction ("popq", "%rdi", "", "");
           Line "\t#bconst end";
         ]
       else
         [
           Line "\t#bconst start";
+            Instruction ("pushq", "%rdi", "", "");
+            Instruction ("pushq", "%rbp", "", "");
           Instruction ("call", "Bool..new", "", "");
           Instruction ("movq", "$0", "24(%rax)", "");
           Instruction ("movq", "%rax", result, "");
+            Instruction ("popq", "%rbp", "", "");
+            Instruction ("popq", "%rdi", "", "");
           Line "\t#bconst end";
         ]
   | Case jump ->
@@ -1054,29 +1058,17 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
       [
         Line (Printf.sprintf "%s:" tac.arg1);
         Line "## case expression: error case";
-        Instruction ("movq", " $.string8, %r13", "", "");
-        Line "## guarantee 16-byte alignment before call";
-        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
-        Instruction ("movq", " %r13, %rdi", "", "");
-        Instruction ("call", " cooloutstr", "", "");
-        Line "## guarantee 16-byte alignment before call";
-        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
-        Instruction ("movl", " $0, %edi", "", "");
-        Instruction ("call", " exit", "", "");
+        Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
+        Instruction ("movl", "$" ^ err_to_num ERR_CASE_NO_BRANCH, "", "");
+        Instruction ("call", "cool_error", "", "");
       ]
   | VoidCase ->
       [
         Line (Printf.sprintf "%s:" tac.arg1);
         Line "## case expression: error case";
-        Instruction ("movq", " $.string9, %r13", "", "");
-        Line "## guarantee 16-byte alignment before call";
-        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
-        Instruction ("movq", " %r13, %rdi", "", "");
-        Instruction ("call", " cooloutstr", "", "");
-        Line "## guarantee 16-byte alignment before call";
-        Instruction ("andq", " $0xFFFFFFFFFFFFFFF0, %rsp", "", "");
-        Instruction ("movl", " $0, %edi", "", "");
-        Instruction ("call", " exit", "", "");
+        Instruction ("movl", "$" ^ string_of_int tac.line, "esi", "");
+        Instruction ("movl", "$" ^ err_to_num ERR_VOID_CASE, "", "");
+        Instruction ("call", "cool_error", "", "");
       ]
   | Default | New ->
       add_var_addr tac.result;
@@ -1085,11 +1077,10 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         result;
       [
         Instruction ("pushq", "%rbp", "", "");
-        Instruction ("pushq", "%r12", "", "");
-        Instruction ("movq", Printf.sprintf "$%s..new" tac.arg1, "%r14", "");
-        Instruction ("call", "*%r14", "", "");
+        Instruction ("pushq", "%rdi", "", "");
+        Instruction ("call", tac.arg1 ^ "..new" , "", "");
         Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
-        Instruction ("popq", "%r12", "", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rbp", "", "");
       ]
   | Isvoid ->
@@ -1111,20 +1102,18 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_result =
         Instruction ("je", Printf.sprintf "l%d" true_jump, "", "");
         Line "\t #false branch of isvoid";
         Instruction ("pushq", "%rbp", "", "");
-        Instruction ("pushq", "%r12", "", "");
-        Instruction ("movq", "$Bool..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
-        Instruction ("popq", "%r12", "", "");
+        Instruction ("pushq", "%rdi", "", "");
+        Instruction ("call", "Bool..new", "", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rbp", "", "");
         Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
         Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
         Line true_jump_label;
         Line "\t #true branch of isvoid";
         Instruction ("pushq", "%rbp", "", "");
-        Instruction ("pushq", "%r12", "", "");
-        Instruction ("movq", "$Bool..new", "%r14", "");
-        Instruction ("call", "*%r14", "", "");
-        Instruction ("popq", "%r12", "", "");
+        Instruction ("pushq", "%rdi", "", "");
+        Instruction ("call", "Bool..new", "", "");
+        Instruction ("popq", "%rdi", "", "");
         Instruction ("popq", "%rbp", "", "");
         (* This works bc the bool created a few lines ago is stored in %r13, 24(%r13) is the third field of the bool (initially zero) *)
         Instruction ("movq", "$1", "24(%rax)", "");
@@ -1143,22 +1132,19 @@ let generate_class_new_asm asm_class_var =
     List.map
       (fun (attr : attribute) : asm_line list ->
         let var_index = 3 + attr.index in
-        let type_new = Printf.sprintf "$%s..new" attr.type_name in
+        let type_new = Printf.sprintf "%s..new" attr.type_name in
         let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
         [
           Line
             (Printf.sprintf "\t## self[%d] holds field x (%s)" var_index
                attr.type_name);
           Line (Printf.sprintf "\t## new %s" attr.type_name);
-          Instruction ("pushq", "%rax", "", "");
           Instruction ("pushq", "%rbp", "", "");
-          Instruction ("pushq", "%r12", "", "");
-          Instruction ("movq", type_new, "%r14", "");
-          Instruction ("call", "*%r14", "", "");
-          Instruction ("movq", "%rax", "%r13", "");
-          Instruction ("popq", "%r12", "", "");
-          Instruction ("popq", "%rbp", "", "");
           Instruction ("pushq", "%rax", "", "");
+          Instruction ("call", type_new, "", "");
+          Instruction ("movq", "%rax", "%r13", "");
+          Instruction ("popq", "%rax", "", "");
+          Instruction ("popq", "%rbp", "", "");
           Instruction ("movq", "%r13", stack_location, "");
         ])
       asm_class_var.attributes
@@ -1174,19 +1160,20 @@ let generate_class_new_asm asm_class_var =
             let stack_location =
               Printf.sprintf "%d(%%rax)" (8 * (attr.index + 3))
             in
-            let prev_result = ref "" in
+            (*let prev_result = ref "" in*)
             [
               Instruction ("pushq", "%rax", "", "");
               Instruction ("pushq", "%r13", "", "");
             ]
             @ (List.map
                  (fun tac ->
-                   let t =
-                     tac_to_as tac attr.field_name asm_class_var.vtable.name_id
-                       !prev_result
-                   in
-                   prev_result := tac.result;
-                   t)
+                   (*let t =*)
+                     (*tac_to_as tac attr.field_name asm_class_var.vtable.name_id*)
+                       (*!prev_result*)
+                   (*in*)
+                   (*prev_result := tac.result;*)
+                   (*t)*)
+                   let t = tac_to_as tac attr.field_name asm_class_var.vtable.name_id !prev_tac in prev_tac := tac; t)
                  tacs
               |> List.flatten)
             @ [
@@ -1214,18 +1201,16 @@ let generate_class_new_asm asm_class_var =
       (* Set stack pointer (make room for temporaries *)
       Instruction ("pushq", "%rbp", "", "");
       Instruction ("movq", "%rsp", "%rbp", "");
-      Line "\t## stack room for temporaries: ?";
+      (*Line "\t## stack room for temporaries: ?";*)
       Instruction ("subq", stack_room, "%rsp", "");
       (*  Return address handling *)
-      Line "\t## return address handling";
-      (* Will be used later for calloc? *)
-      Instruction ("movq", object_size, "%rax", "");
+      (*Line "\t## return address handling";*)
       (*  16-byte alignment *)
-      Line "\t## guarantee 16-byte alignment before call";
-      Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");
+      (*Line "\t## guarantee 16-byte alignment before call";*)
+      (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
       (*  Allocate space for the variable (rsi*rdi)=num*bytes *)
       Instruction ("movq", "$8", "%rsi", "");
-      Instruction ("movq", "%rax", "%rdi", "");
+      Instruction ("movq", object_size, "%rdi", "");
       Instruction ("call", "calloc", "", "");
       (* Instruction ("movq", "%rax", "%rax", ""); *)
       (* NOTE: Alot of these can be simplified to one line operations *)
@@ -1277,6 +1262,25 @@ let get_end_method_boilerplate method_name stack_space =
     Instruction ("ret", "", "", "");
   ]
 
+let print_start () =
+  let start =
+    let part1 =[
+      Line ".globl start";
+      Line "start:                  ## program begins here";
+      Line ".globl main";
+      Line ".type main, @function";
+      Line "main:";
+      (*Instruction ("movq", "$Main..new", "%r14", "");*)
+      Instruction ("pushq", "%rbp", "", "");
+      Instruction ("call", "Main..new", "", "");
+      Instruction ("movq", "%rax", "%rdi", "");
+    ] in let part2 = [
+      Instruction ("movl", "$0", "%edi", "");
+      Instruction ("call", "exit", "", "");
+    ] in let mainfunc = List.find (fun func -> func.method_name = "main") (Hashtbl.find class_vtable_map "Main").methods in
+    part1 @ [Instruction ("call", mainfunc.type_name ^ "." ^ mainfunc.method_name, "", "")] @ part2
+  in
+  List.iter print_asm start
 let vtables =
   create_vtables ();
   create_default_vtables () @ !vtable_list
@@ -1287,7 +1291,7 @@ let asm_classes : asm_class list =
 let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
 
 (* A list of (the assembly code for) methods *)
-let prev_result = ref ""
+(*let prev_result = ref ""*)
 
 let method_asm =
   List.map
@@ -1299,8 +1303,8 @@ let method_asm =
       get_start_method_boilerplate method_name class_name stack_space
       @ (List.map
            (fun tac ->
-             let t = tac_to_as tac method_name class_name !prev_result in
-             prev_result := tac.result;
+             let t = tac_to_as tac method_name class_name !prev_tac in
+             prev_tac := tac;
              t)
            method_tac
         |> List.flatten)
