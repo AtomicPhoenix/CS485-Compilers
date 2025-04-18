@@ -1,0 +1,65 @@
+Running ../testing/test_cases/arith.cl-type
+Fatal error: exception Not_found
+/usr/bin/ld: /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.1/../../../../lib/crt1.o: in function `_start':
+(.text+0x1b): undefined reference to `main'
+collect2: error: ld returned 1 exit status
+./run.sh: line 35: ./program: No such file or directory
+
+Running ../testing/test_cases/atoi.cl-type
+Fatal error: exception Not_found
+/usr/bin/ld: /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.1/../../../../lib/crt1.o: in function `_start':
+(.text+0x1b): undefined reference to `main'
+collect2: error: ld returned 1 exit status
+./run.sh: line 35: ./program: No such file or directory
+
+Running ../testing/test_cases/cells.cl-type
+Fatal error: exception Not_found
+/usr/bin/ld: /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.1/../../../../lib/crt1.o: in function `_start':
+(.text+0x1b): undefined reference to `main'
+collect2: error: ld returned 1 exit status
+./run.sh: line 35: ./program: No such file or directory
+
+Running ../testing/test_cases/dynamic-dispatch-with-args.cl-type
+./run.sh: line 35: 1891074 Segmentation fault      (core dumped) ./program
+
+Running ../testing/test_cases/hs.cl-type
+./run.sh: line 35: 1891209 Segmentation fault      (core dumped) ./program
+
+Running ../testing/test_cases/new-complex.cl-type
+./run.sh: line 35: 1892129 Segmentation fault      (core dumped) ./program
+
+Running ../testing/test_cases/primes.cl-type
+Fatal error: exception Not_found
+/usr/bin/ld: /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.1/../../../../lib/crt1.o: in function `_start':
+(.text+0x1b): undefined reference to `main'
+collect2: error: ld returned 1 exit status
+./run.sh: line 35: ./program: No such file or directory
+
+Running ../testing/test_cases/print-cool.cl-type
+Fatal error: exception Not_found
+/usr/bin/ld: /usr/lib/gcc/x86_64-pc-linux-gnu/14.2.1/../../../../lib/crt1.o: in function `_start':
+(.text+0x1b): undefined reference to `main'
+collect2: error: ld returned 1 exit status
+./run.sh: line 35: ./program: No such file or directory
+
+Running ../testing/test_cases/rosetta.cl-type
+/usr/bin/ld: /tmp/ccLn9OTK.o: in function `.label285':
+/home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:14850:(.text+0x6221): undefined reference to `t$124'
+/usr/bin/ld: /tmp/ccLn9OTK.o: in function `.label291':
+/home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:15066:(.text+0x6419): undefined reference to `t$124'
+/usr/bin/ld: /tmp/ccLn9OTK.o: in function `remove_SList_4':
+/home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:15357:(.text+0x66f7): undefined reference to `t$124'
+/usr/bin/ld: /tmp/ccLn9OTK.o: in function `pop_front_VDeque_1':
+/home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:17941:(.text+0x7b66): undefined reference to `t$124'
+/usr/bin/ld: /home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:17946:(.text+0x7b72): undefined reference to `t$124'
+/usr/bin/ld: /tmp/ccLn9OTK.o:/home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:18117: more undefined references to `t$124' follow
+/usr/bin/ld: /tmp/ccLn9OTK.o: in function `VNode_set_data_0':
+/home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:18612:(.text+0x7fef): undefined reference to `t$1'
+/usr/bin/ld: /tmp/ccLn9OTK.o: in function `Vertex_get_task_0':
+/home/AI/Documents/Classes/CS485-Compilers/PA3/test-case.s:19268:(.text+0x84ac): undefined reference to `t$13'
+collect2: error: ld returned 1 exit status
+./run.sh: line 35: ./program: No such file or directory
+
+Running ../testing/test_cases/sort-list.cl-type
+How many numbers to sort? 4
+./run.sh: line 35: 1892459 Segmentation fault      (core dumped) ./program
