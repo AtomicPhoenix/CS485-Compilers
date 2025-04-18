@@ -23,6 +23,7 @@ elif [ "$EXTENSION" != "cl-type" ]; then
 fi
 
 echo "Running $FILE"
+echo "----------------------------------------------------"
 TESTNAME="./test-case.cl-type"
 cp "$FILE" $TESTNAME
 
@@ -37,4 +38,6 @@ gcc -static -fno-pie -g3 -o program "$TESTNAME".s
 TESTNAME="$(basename "$TESTNAME" .s)"
 rm "$TESTNAME.cl"* 2>/dev/null
 rm main.cm*
-printf "\nFinished Running %s\n" "$TESTNAME"
+echo ""
+echo "----------------------------------------------------"
+echo ""
