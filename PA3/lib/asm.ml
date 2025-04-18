@@ -1417,8 +1417,6 @@ let asm_classes : asm_class list =
 let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
 
 (* A list of (the assembly code for) methods *)
-(*let prev_result = ref ""*)
-
 let method_asm =
   List.map
     (fun (cfg, class_name, method_name, method_args, temps) ->
@@ -1436,10 +1434,14 @@ let method_asm =
       let gen_mixed_arglist args =
         let first_five = List.filteri (fun i _ -> i <= 4) args in
         let remaining = List.rev (List.filteri (fun i _ -> i > 4) args) in
+        List.iteri
+          (fun i arg ->
+            Printf.fprintf out_file
+              "\t#; Adding var %s at position -%d(%%rbp)\n" arg
+              (8 * (i + 5));
+            Hashtbl.add var_locations arg (8 * (i + 5)))
+          remaining;
         gen_register_arglist first_five
-        @ List.map
-            (fun arg -> Instruction ("pushq", get_var_addr arg, "", ""))
-            remaining
       in
 
       let args =
