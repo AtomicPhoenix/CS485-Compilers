@@ -182,18 +182,23 @@ let print_string_map () =
     "\t.globl .abort_string\n.abort_string:\n\t.string\t\"abort\"\n";
   Printf.fprintf Print.out_file "\t.text\n"
 
-let create_vtable (itm : implementation_map_elem) : vtable =
+let create_vtable (itm : implementation_map_elem) : vtable option =
   let name = itm.name in
-  let funcs =
-    [ { type_name = itm.name; method_name = ".new" } ]
-    @ List.map
-        (fun (meth : imp_method) ->
-          { type_name = meth.type_name; method_name = meth.name })
-        itm.methods
-  in
-  string_counter := !string_counter + 1;
-  Hashtbl.add string_map itm.name !string_counter;
-  { name_id = name; name_string_id = !string_counter; methods = funcs }
+  if
+    name <> "Bool" && name <> "IO" && name <> "Int" && name <> "Object"
+    && name <> "String"
+  then (
+    let funcs =
+      [ { type_name = itm.name; method_name = ".new" } ]
+      @ List.map
+          (fun (meth : imp_method) ->
+            { type_name = meth.type_name; method_name = meth.name })
+          itm.methods
+    in
+    string_counter := !string_counter + 1;
+    Hashtbl.add string_map itm.name !string_counter;
+    Some { name_id = name; name_string_id = !string_counter; methods = funcs })
+  else None
 
 let create_vtables () =
   let string6 = "abort" in
@@ -204,7 +209,7 @@ let create_vtables () =
   Hashtbl.add string_map string7 7;
   Hashtbl.add string_map string8 8;
   Hashtbl.add string_map string9 9;
-  let tables = List.map create_vtable implementation_map in
+  let tables = List.filter_map create_vtable implementation_map in
   List.iter
     (fun i ->
       Hashtbl.add class_vtable_map i.name_id i;
@@ -231,70 +236,74 @@ let create_default_vtables () =
   Hashtbl.add string_map "Int" 2;
   Hashtbl.add string_map "Object" 3;
   Hashtbl.add string_map "String" 4;
-  [
-    {
-      name_id = "Bool";
-      name_string_id = 0;
-      methods =
-        [
-          { type_name = "Bool"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
-        ];
-    };
-    {
-      name_id = "IO";
-      name_string_id = 1;
-      methods =
-        [
-          { type_name = "IO"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
-          { type_name = "IO"; method_name = "in_int" };
-          { type_name = "IO"; method_name = "in_string" };
-          { type_name = "IO"; method_name = "out_int" };
-          { type_name = "IO"; method_name = "out_string" };
-        ];
-    };
-    {
-      name_id = "Int";
-      name_string_id = 2;
-      methods =
-        [
-          { type_name = "Int"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
-        ];
-    };
-    {
-      name_id = "Object";
-      name_string_id = 3;
-      methods =
-        [
-          { type_name = "Object"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
-        ];
-    };
-    {
-      name_id = "String";
-      name_string_id = 4;
-      methods =
-        [
-          { type_name = "String"; method_name = ".new" };
-          { type_name = "Object"; method_name = "abort" };
-          { type_name = "Object"; method_name = "copy" };
-          { type_name = "Object"; method_name = "type_name" };
-          { type_name = "String"; method_name = "concat" };
-          { type_name = "String"; method_name = "length" };
-          { type_name = "String"; method_name = "substr" };
-        ];
-    };
-  ]
+  let vtables =
+    [
+      {
+        name_id = "Bool";
+        name_string_id = 0;
+        methods =
+          [
+            { type_name = "Bool"; method_name = ".new" };
+            { type_name = "Object"; method_name = "abort" };
+            { type_name = "Object"; method_name = "copy" };
+            { type_name = "Object"; method_name = "type_name" };
+          ];
+      };
+      {
+        name_id = "IO";
+        name_string_id = 1;
+        methods =
+          [
+            { type_name = "IO"; method_name = ".new" };
+            { type_name = "Object"; method_name = "abort" };
+            { type_name = "Object"; method_name = "copy" };
+            { type_name = "Object"; method_name = "type_name" };
+            { type_name = "IO"; method_name = "in_int" };
+            { type_name = "IO"; method_name = "in_string" };
+            { type_name = "IO"; method_name = "out_int" };
+            { type_name = "IO"; method_name = "out_string" };
+          ];
+      };
+      {
+        name_id = "Int";
+        name_string_id = 2;
+        methods =
+          [
+            { type_name = "Int"; method_name = ".new" };
+            { type_name = "Object"; method_name = "abort" };
+            { type_name = "Object"; method_name = "copy" };
+            { type_name = "Object"; method_name = "type_name" };
+          ];
+      };
+      {
+        name_id = "Object";
+        name_string_id = 3;
+        methods =
+          [
+            { type_name = "Object"; method_name = ".new" };
+            { type_name = "Object"; method_name = "abort" };
+            { type_name = "Object"; method_name = "copy" };
+            { type_name = "Object"; method_name = "type_name" };
+          ];
+      };
+      {
+        name_id = "String";
+        name_string_id = 4;
+        methods =
+          [
+            { type_name = "String"; method_name = ".new" };
+            { type_name = "Object"; method_name = "abort" };
+            { type_name = "Object"; method_name = "copy" };
+            { type_name = "Object"; method_name = "type_name" };
+            { type_name = "String"; method_name = "concat" };
+            { type_name = "String"; method_name = "length" };
+            { type_name = "String"; method_name = "substr" };
+          ];
+      };
+    ]
+  in
+  List.iter (fun f -> Hashtbl.add class_vtable_map f.name_id f) vtables;
+  vtables
 
 let pusha =
   [
@@ -411,18 +420,25 @@ let make_asm_class (c : class_map_elem) =
   if
     c.name <> "Bool" && c.name <> "IO" && c.name <> "Int" && c.name <> "Object"
     && c.name <> "String"
-  then Hashtbl.add class_id_map c.name tag;
-  (* 8 bytes/64 bits since every attribute is a pointer *)
-  let siz = List.length c.attrs in
-  let class_vtable = Hashtbl.find_opt class_vtable_map c.name in
-  let attrs = get_class_attributes c.name c.attrs in
-  match class_vtable with
-  | Some cv ->
-      Some
-        { class_tag = tag; object_size = siz; vtable = cv; attributes = attrs }
-  | None ->
-      (* Printf.fprintf out_file "#; No vtable found for class %s\n" c.name; *)
-      None
+  then (
+    Hashtbl.add class_id_map c.name tag;
+    (* 8 bytes/64 bits since every attribute is a pointer *)
+    let siz = List.length c.attrs in
+    let class_vtable = Hashtbl.find_opt class_vtable_map c.name in
+    let attrs = get_class_attributes c.name c.attrs in
+    match class_vtable with
+    | Some cv ->
+        Some
+          {
+            class_tag = tag;
+            object_size = siz;
+            vtable = cv;
+            attributes = attrs;
+          }
+    | None ->
+        (* Printf.fprintf out_file "#; No vtable found for class %s\n" c.name; *)
+        None)
+  else None
 
 (* Bool is class tag 0 *)
 let () = Hashtbl.add class_id_map "Bool" 0
@@ -1393,21 +1409,15 @@ let print_start () =
 
 let vtables =
   create_vtables ();
-  (* create_default_vtables () @ *) !vtable_list
+  create_default_vtables () @ !vtable_list
 
 let asm_classes : asm_class list =
   List.filter_map make_asm_class parser_class_map
 
-let new_funcs =
-  let non_default_class =
-    List.filter
-      (fun asm_c ->
-        let name = asm_c.vtable.name_id in
-        name <> "Bool" && name <> "IO" && name <> "Int" && name <> "Object"
-        && name <> "String")
-      asm_classes
-  in
-  new_funcs @ List.map generate_class_new_asm non_default_class
+let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
+
+(* A list of (the assembly code for) methods *)
+(*let prev_result = ref ""*)
 
 let method_asm =
   List.map
