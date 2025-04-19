@@ -761,7 +761,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            @ (if List.length arglist > 5 then
                 if List.length arglist mod 2 = 0 then []
                 else [ Instruction ("subq", "$8", "%rsp", "") ]
-              else [])
+              else [ Instruction ("subq", "$8", "%rsp", "") ])
            @ arglist
            @ [
                Instruction ("movq", prev_addr, "%r11", "");
@@ -788,7 +788,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                       "%rsp",
                       "" );
                 ]
-              else [])
+              else [ Instruction ("addq", "$8", "%rsp", "")])
            @ [
                Instruction ("popq", "%rdi", "", "");
                Line ("\t#Call w/ args end for method" ^ meth);
