@@ -442,7 +442,7 @@ let make_asm_class (c : class_map_elem) =
   else None
 
 (* Bool is class tag 0 *)
-let () = Hashtbl.add class_id_map "Bool" 0
+let () = Hashtbl.add class_id_map "Bool" 2
 
 let bool_new =
   [
@@ -452,7 +452,7 @@ let bool_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$0", "(%rax)", "");
+    Instruction ("movq", "$2", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Bool..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -562,7 +562,7 @@ let print_var_locations () =
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * (Hashtbl.length var_locations + 1) in
   (*Printf.printf "Hashtable length when getting var %s: %d\n" var_name*)
-    (*(Hashtbl.length var_locations);*)
+  (*(Hashtbl.length var_locations);*)
   match Hashtbl.find_opt var_locations var_name with
   | None ->
       Printf.fprintf out_file "\t#; Adding var %s at position -%d(%%rbp)\n"
@@ -754,10 +754,16 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
              if List.length args <= 5 then gen_register_arglist args
              else gen_mixed_arglist args
            in
-           [ Line ("\t#Call w/ args start for method " ^ meth); Instruction ("pushq", "%rdi", "", "");]
-               
-           @ (if List.length arglist > 5 then (if (List.length arglist) mod 2 = 0 then [] else [Instruction ("subq", "$8", "%rsp", "")]) else [])
-           @ arglist @ [
+           [
+             Line ("\t#Call w/ args start for method " ^ meth);
+             Instruction ("pushq", "%rdi", "", "");
+           ]
+           @ (if List.length arglist > 5 then
+                if List.length arglist mod 2 = 0 then []
+                else [ Instruction ("subq", "$8", "%rsp", "") ]
+              else [])
+           @ arglist
+           @ [
                Instruction ("movq", prev_addr, "%r11", "");
                Instruction ("movq", "16(%r11)", "%r11", "");
                Instruction
@@ -769,11 +775,24 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
                Instruction ("movq", "%rax", result, "");
-               ] @ (if List.length arglist > 5 then [
-               Instruction
-                 ("addq", "$" ^ string_of_int (if (List.length arglist) mod 2 = 0 then 8 * (List.length arglist - 5) else 8 * ((List.length arglist) - 4)), "%rsp", "");
-             ] else [])
-           @ [Instruction ("popq", "%rdi", "", ""); Line ("\t#Call w/ args end for method" ^ meth) ])
+             ]
+           @ (if List.length arglist > 5 then
+                [
+                  Instruction
+                    ( "addq",
+                      "$"
+                      ^ string_of_int
+                          (if List.length arglist mod 2 = 0 then
+                             8 * (List.length arglist - 5)
+                           else 8 * (List.length arglist - 4)),
+                      "%rsp",
+                      "" );
+                ]
+              else [])
+           @ [
+               Instruction ("popq", "%rdi", "", "");
+               Line ("\t#Call w/ args end for method" ^ meth);
+             ])
       (* @ popargs *)
       @
       (***** TODO: finish void dispatch label and void dispatch err handling *****)
