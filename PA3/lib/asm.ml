@@ -115,9 +115,9 @@ let string_map = Hashtbl.create 32
 let class_id_map = Hashtbl.create 32
 let class_vtable_map = Hashtbl.create 32
 let class_attribute_map = Hashtbl.create 32
+let arg_map = Hashtbl.create 32
 let string_counter = ref 10
 let class_tag_ctr = ref 13
-let arg_count = ref 0
 let parser_class_map : class_map_elem list = Parser.parser_class_map
 let implementation_map = Parser.implementation_map
 let parent_map = Parser.parent_map
@@ -560,20 +560,20 @@ let print_var_locations () =
     var_locations
 
 let add_var_addr (var_name : string) =
-  let fp_offset =
-    -1 * ((8 * Hashtbl.length var_locations) - (8 * !arg_count))
-  in
+  let fp_offset = 8 * (Hashtbl.length var_locations + 1) in
+  (*Printf.printf "Hashtable length when getting var %s: %d\n" var_name*)
+    (*(Hashtbl.length var_locations);*)
   match Hashtbl.find_opt var_locations var_name with
   | None ->
-      Printf.fprintf out_file "\t#; Adding var %s at position %d(%%rbp)\n"
+      Printf.fprintf out_file "\t#; Adding var %s at position -%d(%%rbp)\n"
         var_name fp_offset;
       Hashtbl.add var_locations var_name fp_offset
   | Some _ -> ()
 
 let get_var_addr (var_name : string) : string =
-  match Hashtbl.find_opt var_locations var_name with
+  match Hashtbl.find_opt arg_map var_name with
   | Some addr ->
-      if addr < 0 && addr > -7 then (
+      if addr < 0 then (
         let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
         let register = List.nth registers (addr + 5) in
         Printf.fprintf out_file
@@ -581,13 +581,24 @@ let get_var_addr (var_name : string) : string =
           register;
         register)
       else Printf.sprintf "%d(%%rbp)" addr
-  | None ->
-      if var_name = "self" || var_name = "%rdi" then "%rdi"
-      else (
-        Printf.fprintf out_file "\t#; Failed to find a temp for variable %s\n"
-          var_name;
-        print_var_locations ();
-        var_name)
+  | None -> (
+      match Hashtbl.find_opt var_locations var_name with
+      | Some addr ->
+          if addr < 0 then (
+            let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+            let register = List.nth registers (addr + 5) in
+            Printf.fprintf out_file
+              "\t#; Argument %s is stored in register %d (%s)\n" var_name addr
+              register;
+            register)
+          else Printf.sprintf "-%d(%%rbp)" addr
+      | None ->
+          if var_name = "self" || var_name = "%rdi" then "%rdi"
+          else (
+            Printf.fprintf out_file
+              "\t#; Failed to find a temp for variable %s\n" var_name;
+            print_var_locations ();
+            var_name))
 
 let jump_number = ref 1
 
@@ -730,48 +741,23 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            in
            let gen_mixed_arglist args =
              let first_five = List.filteri (fun i _ -> i <= 4) args in
-             let remaining = List.filteri (fun i _ -> i > 4) args in
-             let list =
-               gen_register_arglist first_five
-               @ (List.mapi
-                    (fun i arg ->
-                      let dest_register =
-                        Printf.sprintf "-%d(%%rbp)" ((8 * i) + 16)
-                      in
-                      [
-                        Instruction ("pushq", dest_register, "", "");
-                        Instruction ("movq", get_var_addr arg, "%r11", "");
-                        Instruction ("movq", "%r11", dest_register, "");
-                      ])
-                    remaining
-                 |> List.flatten)
-             in
-             list
+             let remaining = List.rev (List.filteri (fun i _ -> i > 4) args) in
+             gen_register_arglist first_five
+             @ List.map
+                 (fun arg -> Instruction ("pushq", get_var_addr arg, "", ""))
+                 remaining
            in
+
            let args = String.split_on_char ' ' tac.arg2 in
            (* While there ARE 6 argument registers in the SysV convention, we are dedicating rdi to always be the self pointer *)
            let arglist =
              if List.length args <= 5 then gen_register_arglist args
              else gen_mixed_arglist args
            in
-           let reset_stack =
-             let remaining = List.filteri (fun i _ -> i > 4) args |> List.rev in
-             if List.length remaining > 0 then
-               List.mapi
-                 (fun i _ ->
-                   let dest_register =
-                     Printf.sprintf "-%d(%%rbp)" ((8 * i) + 16)
-                   in
-                   [ Instruction ("popq", dest_register, "", "") ])
-                 remaining
-               |> List.flatten
-             else []
-           in
-           [ Line ("\t#Call w/ args start for method " ^ meth) ]
-           @ arglist
+           [ Line ("\t#Call w/ args start for method " ^ meth); Instruction ("pushq", "%rdi", "", "");]
+               
+           @ arglist @ (if List.length arglist > 5 then (if (List.length arglist) mod 2 = 0 then [] else [Instruction ("subq", "$8", "%rsp", "")]) else [])
            @ [
-               Instruction ("pushq", "%rbp", "", "");
-               Instruction ("pushq", "%rdi", "", "");
                Instruction ("movq", prev_addr, "%r11", "");
                Instruction ("movq", "16(%r11)", "%r11", "");
                Instruction
@@ -783,11 +769,11 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
                Instruction ("movq", "%rax", result, "");
-               Instruction ("popq", "%rdi", "", "");
-               Instruction ("popq", "%rbp", "", "");
-             ]
-           @ reset_stack
-           @ [ Line ("\t#Call w/ args end for method" ^ meth) ])
+               ] @ (if List.length arglist > 5 then [
+               Instruction
+                 ("addq", "$" ^ string_of_int (if (List.length arglist) mod 2 = 0 then 8 * (List.length arglist - 5) else 8 * ((List.length arglist) - 4)), "%rsp", "");
+             ] else [])
+           @ [Instruction ("popq", "%rdi", "", ""); Line ("\t#Call w/ args end for method" ^ meth) ])
       (* @ popargs *)
       @
       (***** TODO: finish void dispatch label and void dispatch err handling *****)
@@ -855,14 +841,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       let val_addr =
         match Hashtbl.find_opt var_locations ident_name with
         | Some addr ->
-            if addr < 0 && addr > -7 then (
+            if addr < 0 then (
               let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
               let register = List.nth registers (addr + 5) in
               Printf.fprintf out_file
                 "\t#; Argument %s is stored in register %d (%s)\n" ident_name
                 addr register;
               register)
-            else Printf.sprintf "%d(%%rbp)" addr
+            else Printf.sprintf "-%d(%%rbp)" addr
         | None -> (
             match get_attribute class_name ident_name with
             | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
@@ -1392,10 +1378,10 @@ let get_start_method_boilerplate method_name class_name stack_space =
     Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
   ]
 
-let get_end_method_boilerplate class_name method_name stack_space =
+let get_end_method_boilerplate class_name method_name =
   [
     Line (Printf.sprintf "%s.%s.end:" class_name method_name);
-    Instruction ("addq", "$" ^ string_of_int stack_space, "%rsp", "");
+    Instruction ("movq", "%rbp", "%rsp", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("ret", "", "", "");
   ]
@@ -1449,34 +1435,27 @@ let method_asm =
   List.map
     (fun (cfg, class_name, method_name, method_args, temps) ->
       Hashtbl.reset var_locations;
-      arg_count := List.length method_args;
+      Hashtbl.reset arg_map;
+      (*Printf.printf "new method!!!\n";*)
       let gen_register_arglist args =
         let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
         List.mapi
           (fun i arg ->
-            Hashtbl.add var_locations arg (i - 5);
+            Hashtbl.add arg_map arg (i - 5);
             Printf.fprintf out_file "\t#; Placing var %s in register %d (%s)\n"
               arg i (List.nth registers i);
             Instruction ("movq", get_var_addr arg, List.nth registers i, ""))
           args
-      in
-
-      let stack_space =
-        if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
       let gen_mixed_arglist args =
         let first_five = List.filteri (fun i _ -> i <= 4) args in
         let remaining = List.filteri (fun i _ -> i > 4) args in
         List.iteri
           (fun i arg ->
-            Printf.fprintf out_file
-              "\t#; Adding argument #%d, %s at position %d(%%rbp)\n" (i + 5) arg
-              (-1 * ((8 * i) + 16));
-            Printf.fprintf out_file
-              "\t#; But really, its at position (%d + 8 - (16*%d) = %d)\n"
-              stack_space i
-              (stack_space - 8 - (8 * i));
-            Hashtbl.add var_locations arg (stack_space - 8 - (8 * i)))
+            Printf.fprintf out_file "\t#; Adding var %s as position %d(%%rbp)\n"
+              arg
+              (8 * (i + 5));
+            Hashtbl.add arg_map arg (8 * (i + 2)))
           remaining;
         gen_register_arglist first_five
       in
@@ -1489,14 +1468,15 @@ let method_asm =
         if List.length args <= 5 then gen_register_arglist args
         else gen_mixed_arglist args
       in
-      (* let temps =
-        if List.length args <= 5 then temps else temps + (!arg_count - 4)
-      in *)
       Printf.fprintf out_file "#; %s.%s:\n" class_name method_name;
       List.iteri
         (fun i (arg : ast_formal) ->
           Printf.fprintf out_file "\t#; Argument %d: %s\n" i arg.name.name)
         method_args;
+
+      let stack_space =
+        if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
+      in
       let method_tac = cfg |> List.flatten in
       get_start_method_boilerplate method_name class_name stack_space
       @ arglist
@@ -1508,7 +1488,7 @@ let method_asm =
            method_tac
         |> List.flatten)
         (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
-      @ get_end_method_boilerplate class_name method_name stack_space)
+      @ get_end_method_boilerplate class_name method_name)
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst
