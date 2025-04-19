@@ -40,4 +40,14 @@ rm "$TESTNAME.cl"* 2>/dev/null
 rm main.cm*
 echo ""
 echo "----------------------------------------------------"
+if [ -n "$2" ]; then
+	echo "Running with COOL Reference Compiler"
+	echo "----------------------------------------------------"
+	../testing/cool "$1"
+	echo ""
+	echo "----------------------------------------------------"
+fi
+
+echo ""
+echo ""
 echo ""

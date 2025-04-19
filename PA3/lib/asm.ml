@@ -442,7 +442,7 @@ let make_asm_class (c : class_map_elem) =
   else None
 
 (* Bool is class tag 0 *)
-let () = Hashtbl.add class_id_map "Bool" 2
+let () = Hashtbl.add class_id_map "Bool" 0
 
 let bool_new =
   [
@@ -452,7 +452,7 @@ let bool_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$2", "(%rax)", "");
+    Instruction ("movq", "$0", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Bool..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -1397,9 +1397,10 @@ let get_start_method_boilerplate method_name class_name stack_space =
     Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
   ]
 
-let get_end_method_boilerplate class_name method_name =
+let get_end_method_boilerplate class_name method_name temps =
   [
     Line (Printf.sprintf "%s.%s.end:" class_name method_name);
+    Instruction ("movq", Printf.sprintf "-%d(%%rbp)" (temps * 8), "%rax", "");
     Instruction ("movq", "%rbp", "%rsp", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("ret", "", "", "");
@@ -1507,7 +1508,7 @@ let method_asm =
            method_tac
         |> List.flatten)
         (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
-      @ get_end_method_boilerplate class_name method_name)
+      @ get_end_method_boilerplate class_name method_name temps)
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst

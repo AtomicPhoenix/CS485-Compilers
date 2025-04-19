@@ -276,24 +276,19 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       last_var
       (*@ [ { operand = Assignment; arg1; arg2 = ""; result = get_id !var_ctr } ]*)
   | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
-      let arg2 =
-        if List.length args > 0 then
-          String.concat " "
-            (List.mapi (fun i _ -> get_id (!var_ctr + 1 + i)) args)
-        else ""
-      in
       let arg_tacs =
         if List.length args > 0 then
           List.map
             (fun arg ->
               var_ctr := !var_ctr + 1;
-              exp_to_tac arg (get_id !var_ctr) cname mname)
+              let id = get_id !var_ctr in
+              (id, exp_to_tac arg id cname mname))
             args
-          |> List.flatten
         else []
       in
       var_ctr := !var_ctr + 1;
-      arg_tacs
+      let arg2 = String.concat " " (List.map (fun (s, _) -> s) arg_tacs) in
+      (List.map (fun (_, v) -> v) arg_tacs |> List.flatten)
       @ exp_to_tac dispatch_exp (get_id !var_ctr) cname mname
       @ [
           {
@@ -306,24 +301,19 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
         ]
   | Static_Dispatch (dispatch_exp, _, method_name, args) ->
-      let arg2 =
-        if List.length args > 0 then
-          String.concat " "
-            (List.mapi (fun i _ -> get_id (!var_ctr + 1 + i)) args)
-        else ""
-      in
       let arg_tacs =
         if List.length args > 0 then
           List.map
             (fun arg ->
               var_ctr := !var_ctr + 1;
-              exp_to_tac arg (get_id !var_ctr) cname mname)
+              let id = get_id !var_ctr in
+              (id, exp_to_tac arg id cname mname))
             args
-          |> List.flatten
         else []
       in
       var_ctr := !var_ctr + 1;
-      arg_tacs
+      let arg2 = String.concat " " (List.map (fun (s, _) -> s) arg_tacs) in
+      (List.map (fun (_, v) -> v) arg_tacs |> List.flatten)
       @ exp_to_tac dispatch_exp (get_id !var_ctr) cname mname
       @ [
           {
@@ -336,21 +326,19 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
         ]
   | Self_Dispatch (id, args) ->
-      let arg2 =
+      let arg_tacs =
         if List.length args > 0 then
-          String.concat " "
-            (List.mapi (fun i _ -> get_id (!var_ctr + 1 + i)) args)
-        else ""
+          List.map
+            (fun arg ->
+              var_ctr := !var_ctr + 1;
+              let id = get_id !var_ctr in
+              (id, exp_to_tac arg id cname mname))
+            args
+        else []
       in
-      (*var_ctr := !var_ctr + 1;*)
-      (*let selfvar = get_id !var_ctr in*)
-      (List.map
-         (fun elem ->
-           (* Printf.fprintf out_file "Parsing expression: %s\n" elem.id.name;*)
-           var_ctr := !var_ctr + 1;
-           exp_to_tac elem (get_id !var_ctr) cname mname)
-         args
-      |> List.flatten)
+      var_ctr := !var_ctr + 1;
+      let arg2 = String.concat " " (List.map (fun (s, _) -> s) arg_tacs) in
+      (List.map (fun (_, v) -> v) arg_tacs |> List.flatten)
       @ [
           {
             operand = Comment;
