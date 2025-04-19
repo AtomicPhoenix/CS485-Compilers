@@ -117,7 +117,7 @@ let class_vtable_map = Hashtbl.create 32
 let class_attribute_map = Hashtbl.create 32
 let arg_map = Hashtbl.create 32
 let string_counter = ref 10
-let class_tag_ctr = ref 13
+let class_tag_ctr = ref 14
 let parser_class_map : class_map_elem list = Parser.parser_class_map
 let implementation_map = Parser.implementation_map
 let parent_map = Parser.parent_map
@@ -442,7 +442,11 @@ let make_asm_class (c : class_map_elem) =
   else None
 
 (* Bool is class tag 0 *)
+<<<<<<< HEAD
 let () = Hashtbl.add class_id_map "Bool" 0
+=======
+let () = Hashtbl.add class_id_map "Bool" 1
+>>>>>>> b13623b4fe71a729dd4f2cc42f831e5b05f11e9d
 
 let bool_new =
   [
@@ -452,7 +456,11 @@ let bool_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
+<<<<<<< HEAD
     Instruction ("movq", "$0", "(%rax)", "");
+=======
+    Instruction ("movq", "$1", "(%rax)", "");
+>>>>>>> b13623b4fe71a729dd4f2cc42f831e5b05f11e9d
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Bool..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -462,7 +470,7 @@ let bool_new =
     (*Instruction (".size", "Bool..new", ".-Bool..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "IO" 10
+let () = Hashtbl.add class_id_map "IO" 11
 
 let io_new =
   [
@@ -472,7 +480,7 @@ let io_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$10", "(%rax)", "");
+    Instruction ("movq", "$11", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$IO..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -481,7 +489,7 @@ let io_new =
     (*Instruction (".size", "IO..new", ".-IO..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "Int" 1
+let () = Hashtbl.add class_id_map "Int" 2
 
 let int_new =
   [
@@ -491,7 +499,7 @@ let int_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$1", "(%rax)", "");
+    Instruction ("movq", "$2", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Int..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -501,7 +509,7 @@ let int_new =
     (*Instruction (".size", "Int..new", ".-Int..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "Object" 12
+let () = Hashtbl.add class_id_map "Object" 13
 
 let object_new =
   [
@@ -511,7 +519,7 @@ let object_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$12", "(%rax)", "");
+    Instruction ("movq", "$13", "(%rax)", "");
     Instruction ("movq", "$3", "8(%rax)", "");
     Instruction ("movq", "$Object..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -520,7 +528,7 @@ let object_new =
     (*Instruction (".size", "Object..new", ".-Object..new", "");*)
   ]
 
-let () = Hashtbl.add class_id_map "String" 3
+let () = Hashtbl.add class_id_map "String" 5
 
 let string_new =
   [
@@ -532,7 +540,7 @@ let string_new =
     Instruction ("movl", "$1", "%edi", "");
     Instruction ("movq", "%rax", "%rbx", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$3", "(%rax)", "");
+    Instruction ("movq", "$5", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movl", "$String..vtable", "%eax", "");
     Instruction ("movq", "%rax", "16(%rbx)", "");
