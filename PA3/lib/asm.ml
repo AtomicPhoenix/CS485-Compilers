@@ -442,11 +442,7 @@ let make_asm_class (c : class_map_elem) =
   else None
 
 (* Bool is class tag 0 *)
-<<<<<<< HEAD
-let () = Hashtbl.add class_id_map "Bool" 0
-=======
 let () = Hashtbl.add class_id_map "Bool" 1
->>>>>>> b13623b4fe71a729dd4f2cc42f831e5b05f11e9d
 
 let bool_new =
   [
@@ -456,11 +452,7 @@ let bool_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-<<<<<<< HEAD
-    Instruction ("movq", "$0", "(%rax)", "");
-=======
     Instruction ("movq", "$1", "(%rax)", "");
->>>>>>> b13623b4fe71a729dd4f2cc42f831e5b05f11e9d
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Bool..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
