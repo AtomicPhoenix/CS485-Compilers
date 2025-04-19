@@ -442,7 +442,7 @@ let make_asm_class (c : class_map_elem) =
   else None
 
 (* Bool is class tag 0 *)
-let () = Hashtbl.add class_id_map "Bool" 0
+let () = Hashtbl.add class_id_map "Bool" 2
 
 let bool_new =
   [
@@ -452,7 +452,7 @@ let bool_new =
     Instruction ("movl", "$8", "%edi", "");
     Instruction ("call", "calloc", "", "");
     Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$0", "(%rax)", "");
+    Instruction ("movq", "$2", "(%rax)", "");
     Instruction ("movq", "$4", "8(%rax)", "");
     Instruction ("movq", "$Bool..vtable", "%r11", "");
     Instruction ("movq", "%r11", "16(%rax)", "");
@@ -1493,6 +1493,10 @@ let method_asm =
         if List.length args <= 5 then temps else temps + (!arg_count - 4)
       in *)
       Printf.fprintf out_file "#; %s.%s:\n" class_name method_name;
+      Printf.fprintf out_file
+        "#; Method %s in class %s has stack_space equal to %d\n" method_name
+        class_name stack_space;
+
       List.iteri
         (fun i (arg : ast_formal) ->
           Printf.fprintf out_file "\t#; Argument %d: %s\n" i arg.name.name)
