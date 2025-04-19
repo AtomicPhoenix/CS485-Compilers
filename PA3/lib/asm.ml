@@ -117,6 +117,7 @@ let class_vtable_map = Hashtbl.create 32
 let class_attribute_map = Hashtbl.create 32
 let string_counter = ref 10
 let class_tag_ctr = ref 13
+let arg_count = ref 0
 let parser_class_map : class_map_elem list = Parser.parser_class_map
 let implementation_map = Parser.implementation_map
 let parent_map = Parser.parent_map
@@ -559,10 +560,12 @@ let print_var_locations () =
     var_locations
 
 let add_var_addr (var_name : string) =
-  let fp_offset = 8 * Hashtbl.length var_locations in
+  let fp_offset =
+    -1 * ((8 * Hashtbl.length var_locations) - (8 * !arg_count))
+  in
   match Hashtbl.find_opt var_locations var_name with
   | None ->
-      Printf.fprintf out_file "\t#; Adding var %s at position -%d(%%rbp)\n"
+      Printf.fprintf out_file "\t#; Adding var %s at position %d(%%rbp)\n"
         var_name fp_offset;
       Hashtbl.add var_locations var_name fp_offset
   | Some _ -> ()
@@ -570,14 +573,14 @@ let add_var_addr (var_name : string) =
 let get_var_addr (var_name : string) : string =
   match Hashtbl.find_opt var_locations var_name with
   | Some addr ->
-      if addr < 0 then (
+      if addr < 0 && addr > -7 then (
         let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
         let register = List.nth registers (addr + 5) in
         Printf.fprintf out_file
           "\t#; Argument %s is stored in register %d (%s)\n" var_name addr
           register;
         register)
-      else Printf.sprintf "-%d(%%rbp)" addr
+      else Printf.sprintf "%d(%%rbp)" addr
   | None ->
       if var_name = "self" || var_name = "%rdi" then "%rdi"
       else (
@@ -727,18 +730,42 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            in
            let gen_mixed_arglist args =
              let first_five = List.filteri (fun i _ -> i <= 4) args in
-             let remaining = List.rev (List.filteri (fun i _ -> i > 4) args) in
-             gen_register_arglist first_five
-             @ List.map
-                 (fun arg -> Instruction ("pushq", get_var_addr arg, "", ""))
-                 remaining
+             let remaining = List.filteri (fun i _ -> i > 4) args in
+             let list =
+               gen_register_arglist first_five
+               @ (List.mapi
+                    (fun i arg ->
+                      let dest_register =
+                        Printf.sprintf "-%d(%%rbp)" ((8 * i) + 16)
+                      in
+                      [
+                        Instruction ("pushq", dest_register, "", "");
+                        Instruction ("movq", get_var_addr arg, "%r11", "");
+                        Instruction ("movq", "%r11", dest_register, "");
+                      ])
+                    remaining
+                 |> List.flatten)
+             in
+             list
            in
-
            let args = String.split_on_char ' ' tac.arg2 in
            (* While there ARE 6 argument registers in the SysV convention, we are dedicating rdi to always be the self pointer *)
            let arglist =
              if List.length args <= 5 then gen_register_arglist args
              else gen_mixed_arglist args
+           in
+           let reset_stack =
+             let remaining = List.filteri (fun i _ -> i > 4) args |> List.rev in
+             if List.length remaining > 0 then
+               List.mapi
+                 (fun i _ ->
+                   let dest_register =
+                     Printf.sprintf "-%d(%%rbp)" ((8 * i) + 16)
+                   in
+                   [ Instruction ("popq", dest_register, "", "") ])
+                 remaining
+               |> List.flatten
+             else []
            in
            [ Line ("\t#Call w/ args start for method " ^ meth) ]
            @ arglist
@@ -759,6 +786,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("popq", "%rdi", "", "");
                Instruction ("popq", "%rbp", "", "");
              ]
+           @ reset_stack
            @ [ Line ("\t#Call w/ args end for method" ^ meth) ])
       (* @ popargs *)
       @
@@ -827,14 +855,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       let val_addr =
         match Hashtbl.find_opt var_locations ident_name with
         | Some addr ->
-            if addr < 0 then (
+            if addr < 0 && addr > -7 then (
               let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
               let register = List.nth registers (addr + 5) in
               Printf.fprintf out_file
                 "\t#; Argument %s is stored in register %d (%s)\n" ident_name
                 addr register;
               register)
-            else Printf.sprintf "-%d(%%rbp)" addr
+            else Printf.sprintf "%d(%%rbp)" addr
         | None -> (
             match get_attribute class_name ident_name with
             | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
@@ -884,18 +912,22 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("movq", arg2, "%r11", "");
         Instruction ("movq", "24(%r11)", "%r11", "");
         Instruction ("addl", "%r11d", "%eax", "");
-      ] @ pushargs @ [
-        Instruction ("pushq", "%rax", "", "");
-        Instruction ("subq", "$8", "%rsp", "");
-        Instruction ("call", "Int..new", "", "");
-        Instruction ("movq", "%rax", "%r11", "");
-        Instruction ("addq", "$8", "%rsp", "");
-        Instruction ("popq", "%rax", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", "24(%r11)", "");
-        Instruction ("movq", "%r11", result, "");
-        Line "\t#Plus end";
       ]
+      @ pushargs
+      @ [
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("subq", "$8", "%rsp", "");
+          Instruction ("call", "Int..new", "", "");
+          Instruction ("movq", "%rax", "%r11", "");
+          Instruction ("addq", "$8", "%rsp", "");
+          Instruction ("popq", "%rax", "", "");
+        ]
+      @ popargs
+      @ [
+          Instruction ("movq", "%rax", "24(%r11)", "");
+          Instruction ("movq", "%r11", result, "");
+          Line "\t#Plus end";
+        ]
   | Minus ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
@@ -909,18 +941,22 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("movq", arg2, "%r11", "");
         Instruction ("movq", "24(%r11)", "%r11", "");
         Instruction ("subl", "%r11d", "%eax", "");
-      ] @ pushargs @ [
-        Instruction ("pushq", "%rax", "", "");
-        Instruction ("subq", "$8", "%rsp", "");
-        Instruction ("call", "Int..new", "", "");
-        Instruction ("movq", "%rax", "%r11", "");
-        Instruction ("addq", "$8", "%rsp", "");
-        Instruction ("popq", "%rax", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", "24(%r11)", "");
-        Instruction ("movq", "%r11", result, "");
-        Line "\t#Minus end";
       ]
+      @ pushargs
+      @ [
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("subq", "$8", "%rsp", "");
+          Instruction ("call", "Int..new", "", "");
+          Instruction ("movq", "%rax", "%r11", "");
+          Instruction ("addq", "$8", "%rsp", "");
+          Instruction ("popq", "%rax", "", "");
+        ]
+      @ popargs
+      @ [
+          Instruction ("movq", "%rax", "24(%r11)", "");
+          Instruction ("movq", "%r11", result, "");
+          Line "\t#Minus end";
+        ]
   | Divide ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
@@ -941,26 +977,30 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("movq", "24(%rax)", "%rax", "");
         Instruction ("cltd", "", "", "");
         Instruction ("idivl", "%ecx", "", "");
-      ] @ pushargs @ [
-        Instruction ("pushq", "%rax", "", "");
-        Instruction ("subq", "$8", "%rsp", "");
-        Instruction ("call", "Int..new", "", "");
-        Instruction ("movq", "%rax", "%r11", "");
-        Instruction ("addq", "$8", "%rsp", "");
-        Instruction ("popq", "%rax", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", "24(%r11)", "");
-        Instruction ("movq", "%r11", result, "");
-        Instruction ("popq", "%rcx", "", "");
-        Instruction ("popq", "%rdx", "", "");
-        Instruction ("jmp", div_end_label, "", "");
-        Line (error_label ^ ":");
-        Instruction ("movl", "$" ^ string_of_int tac.line, "%esi", "");
-        Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "%edi", "");
-        Instruction ("call", "cool_error", "", "");
-        Line (div_end_label ^ ":");
-        Line "\t#Divide end";
       ]
+      @ pushargs
+      @ [
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("subq", "$8", "%rsp", "");
+          Instruction ("call", "Int..new", "", "");
+          Instruction ("movq", "%rax", "%r11", "");
+          Instruction ("addq", "$8", "%rsp", "");
+          Instruction ("popq", "%rax", "", "");
+        ]
+      @ popargs
+      @ [
+          Instruction ("movq", "%rax", "24(%r11)", "");
+          Instruction ("movq", "%r11", result, "");
+          Instruction ("popq", "%rcx", "", "");
+          Instruction ("popq", "%rdx", "", "");
+          Instruction ("jmp", div_end_label, "", "");
+          Line (error_label ^ ":");
+          Instruction ("movl", "$" ^ string_of_int tac.line, "%esi", "");
+          Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "%edi", "");
+          Instruction ("call", "cool_error", "", "");
+          Line (div_end_label ^ ":");
+          Line "\t#Divide end";
+        ]
   | Times ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
@@ -973,125 +1013,119 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("movq", arg2, "%r11", "");
         Instruction ("movq", "24(%r11)", "%r11", "");
         Instruction ("imull", "%r11d", "%eax", "");
-      ] @ pushargs @ [
-        Instruction ("pushq", "%rax", "", "");
-        Instruction ("subq", "$8", "%rsp", "");
-        Instruction ("call", "Int..new", "", "");
-        Instruction ("movq", "%rax", "%r11", "");
-        Instruction ("addq", "$8", "%rsp", "");
-        Instruction ("popq", "%rax", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", "24(%r11)", "");
-        Instruction ("movq", "%r11", result, "");
-        Line "\t#Times end";
       ]
+      @ pushargs
+      @ [
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("subq", "$8", "%rsp", "");
+          Instruction ("call", "Int..new", "", "");
+          Instruction ("movq", "%rax", "%r11", "");
+          Instruction ("addq", "$8", "%rsp", "");
+          Instruction ("popq", "%rax", "", "");
+        ]
+      @ popargs
+      @ [
+          Instruction ("movq", "%rax", "24(%r11)", "");
+          Instruction ("movq", "%r11", result, "");
+          Line "\t#Times end";
+        ]
   | LessThan ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      [
-        Line "\t#Less Than start";
-      ] @ pushargs @ [
-        Instruction ("movq", arg1, "%rdi", "");
-        Instruction ("movq", arg2, "%rsi", "");
-        Instruction ("call", "lt_handler", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", result, "");
-        Line "\t#Less Than end";
-      ]
+      [ Line "\t#Less Than start" ]
+      @ pushargs
+      @ [
+          Instruction ("movq", arg1, "%rdi", "");
+          Instruction ("movq", arg2, "%rsi", "");
+          Instruction ("call", "lt_handler", "", "");
+        ]
+      @ popargs
+      @ [ Instruction ("movq", "%rax", result, ""); Line "\t#Less Than end" ]
   | LessEqual ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      [
-        Line "\t#Less Equal start";
-      ] @ pushargs @ [
-        Instruction ("movq", arg1, "%rdi", "");
-        Instruction ("movq", arg2, "%rsi", "");
-        Instruction ("call", "le_handler", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", result, "");
-        Line "\t#Less Equal end";
-      ]
+      [ Line "\t#Less Equal start" ]
+      @ pushargs
+      @ [
+          Instruction ("movq", arg1, "%rdi", "");
+          Instruction ("movq", arg2, "%rsi", "");
+          Instruction ("call", "le_handler", "", "");
+        ]
+      @ popargs
+      @ [ Instruction ("movq", "%rax", result, ""); Line "\t#Less Equal end" ]
   | Equal ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      [
-        Line "\t#Equal start";
-      ] @ pushargs @ [
-        Instruction ("movq", arg1, "%rdi", "");
-        Instruction ("movq", arg2, "%rsi", "");
-        Instruction ("call", "eq_handler", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", result, "");
-        Line "\t#Equal end";
-      ]
+      [ Line "\t#Equal start" ] @ pushargs
+      @ [
+          Instruction ("movq", arg1, "%rdi", "");
+          Instruction ("movq", arg2, "%rsi", "");
+          Instruction ("call", "eq_handler", "", "");
+        ]
+      @ popargs
+      @ [ Instruction ("movq", "%rax", result, ""); Line "\t#Equal end" ]
   | Not ->
       add_var_addr tac.arg1;
       let arg1 = get_var_addr tac.arg1 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      [
-        Line "\t#Not start";
-      ] @ pushargs @ [
-        Instruction ("movq", arg1, "%rax", "");
-        Instruction ("movq", "24(%rax)", "%rax", "");
-        Instruction ("testq", "%rax", "%rax", "");
-        Instruction ("movl", "$1", "%eax", "");
-        Instruction ("movl", "$0", "%r11d", "");
-        Instruction ("cmovel", "%eax", "%r11d", "");
-        Instruction ("pushq", "%r11", "", "");
-        Instruction ("pushq", "%rdi", "", "");
-        Instruction ("call", "Bool..new", "", "");
-        Instruction ("popq", "%rdi", "", "");
-        Instruction ("popq", "%r11", "", "");
-        Instruction ("movq", "%r11", "24(%rax)", "");
-        Instruction ("movq", "%rax", result, "");
-      ] @ popargs @ [
-        Line "\t#Not end";
-      ]
+      [ Line "\t#Not start" ] @ pushargs
+      @ [
+          Instruction ("movq", arg1, "%rax", "");
+          Instruction ("movq", "24(%rax)", "%rax", "");
+          Instruction ("testq", "%rax", "%rax", "");
+          Instruction ("movl", "$1", "%eax", "");
+          Instruction ("movl", "$0", "%r11d", "");
+          Instruction ("cmovel", "%eax", "%r11d", "");
+          Instruction ("pushq", "%r11", "", "");
+          Instruction ("pushq", "%rdi", "", "");
+          Instruction ("call", "Bool..new", "", "");
+          Instruction ("popq", "%rdi", "", "");
+          Instruction ("popq", "%r11", "", "");
+          Instruction ("movq", "%r11", "24(%rax)", "");
+          Instruction ("movq", "%rax", result, "");
+        ]
+      @ popargs @ [ Line "\t#Not end" ]
   | Negate ->
       let arg1 = get_var_addr tac.arg1 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
 
-      [
-        Line "\t#Negate start";
-      ] @ pushargs @ [
-        Instruction ("movq", arg1, "%rax", "");
-        Instruction ("movq", "24(%rax)", "%rax", "");
-        Instruction ("negq", "%rax", "", "");
-        Instruction ("pushq", "%rax", "", "");
-        Instruction ("pushq", "%rdi", "", "");
-        Instruction ("call", "Int..new", "", "");
-        Instruction ("movq", "%rax", "%r11", "");
-        Instruction ("popq", "%rdi", "", "");
-        Instruction ("popq", "%rax", "", "");
-        Instruction ("movq", "%rax", "24(%r11)", "");
-        Instruction ("movq", "%r11", result, "");
-      ] @ popargs @ [
-        Line "\t#Negate end";
-      ]
+      [ Line "\t#Negate start" ] @ pushargs
+      @ [
+          Instruction ("movq", arg1, "%rax", "");
+          Instruction ("movq", "24(%rax)", "%rax", "");
+          Instruction ("negq", "%rax", "", "");
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("pushq", "%rdi", "", "");
+          Instruction ("call", "Int..new", "", "");
+          Instruction ("movq", "%rax", "%r11", "");
+          Instruction ("popq", "%rdi", "", "");
+          Instruction ("popq", "%rax", "", "");
+          Instruction ("movq", "%rax", "24(%r11)", "");
+          Instruction ("movq", "%r11", result, "");
+        ]
+      @ popargs @ [ Line "\t#Negate end" ]
   | Int_Constant ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      [
-        Line "\t#iconst start";
-      ] @ pushargs @ [
-        Instruction ("call", "Int..new", "", "");
-        Instruction ("movq", "$" ^ tac.arg1, "24(%rax)", "");
-        Instruction ("movq", "%rax", result, "");
-      ] @ popargs @ [
-        Line "\t#iconst end";
-      ]
+      [ Line "\t#iconst start" ] @ pushargs
+      @ [
+          Instruction ("call", "Int..new", "", "");
+          Instruction ("movq", "$" ^ tac.arg1, "24(%rax)", "");
+          Instruction ("movq", "%rax", result, "");
+        ]
+      @ popargs @ [ Line "\t#iconst end" ]
   | String_Constant -> (
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -1131,25 +1165,21 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       if tac.arg1 = "true" then
-        [
-          Line "\t#bconst start";
-      ] @ pushargs @ [
-          Instruction ("call", "Bool..new", "", "");
-          Instruction ("movq", "$1", "24(%rax)", "");
-          Instruction ("movq", "%rax", result, "");
-      ] @ popargs @ [
-          Line "\t#bconst end";
-        ]
+        [ Line "\t#bconst start" ] @ pushargs
+        @ [
+            Instruction ("call", "Bool..new", "", "");
+            Instruction ("movq", "$1", "24(%rax)", "");
+            Instruction ("movq", "%rax", result, "");
+          ]
+        @ popargs @ [ Line "\t#bconst end" ]
       else
-        [
-          Line "\t#bconst start";
-      ] @ pushargs @ [
-          Instruction ("call", "Bool..new", "", "");
-          Instruction ("movq", "$0", "24(%rax)", "");
-          Instruction ("movq", "%rax", result, "");
-      ] @ popargs @ [
-          Line "\t#bconst end";
-        ]
+        [ Line "\t#bconst start" ] @ pushargs
+        @ [
+            Instruction ("call", "Bool..new", "", "");
+            Instruction ("movq", "$0", "24(%rax)", "");
+            Instruction ("movq", "%rax", result, "");
+          ]
+        @ popargs @ [ Line "\t#bconst end" ]
   | Case jump ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
@@ -1184,10 +1214,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       let result = get_var_addr tac.result in
       Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
         result;
-      pushargs @ [
-        Instruction ("call", tac.arg1 ^ "..new", "", "");
-        Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
-      ] @ popargs
+      pushargs
+      @ [
+          Instruction ("call", tac.arg1 ^ "..new", "", "");
+          Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+        ]
+      @ popargs
   | Isvoid ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
@@ -1206,22 +1238,26 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("cmpq", "$0", "%rax", "");
         Instruction ("je", Printf.sprintf "l%d" true_jump, "", "");
         Line "\t #false branch of isvoid";
-      ] @ pushargs @ [
-        Instruction ("call", "Bool..new", "", "");
-      ] @ popargs @ [
-        Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
-        Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
-        Line true_jump_label;
-        Line "\t #true branch of isvoid";
-      ] @ pushargs @ [
-        Instruction ("call", "Bool..new", "", "");
-      ] @ popargs @ [
-        (* This works bc the bool created a few lines ago is stored in %r13, 24(%r13) is the third field of the bool (initially zero) *)
-        Instruction ("movq", "$1", "24(%rax)", "");
-        Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
-        Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
-        Line post_jump_label;
       ]
+      @ pushargs
+      @ [ Instruction ("call", "Bool..new", "", "") ]
+      @ popargs
+      @ [
+          Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+          Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
+          Line true_jump_label;
+          Line "\t #true branch of isvoid";
+        ]
+      @ pushargs
+      @ [ Instruction ("call", "Bool..new", "", "") ]
+      @ popargs
+      @ [
+          (* This works bc the bool created a few lines ago is stored in %r13, 24(%r13) is the third field of the bool (initially zero) *)
+          Instruction ("movq", "$1", "24(%rax)", "");
+          Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+          Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
+          Line post_jump_label;
+        ]
 
 let generate_class_new_asm asm_class_var =
   let func_name = Printf.sprintf "%s..new:" asm_class_var.vtable.name_id in
@@ -1413,6 +1449,7 @@ let method_asm =
   List.map
     (fun (cfg, class_name, method_name, method_args, temps) ->
       Hashtbl.reset var_locations;
+      arg_count := List.length method_args;
       let gen_register_arglist args =
         let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
         List.mapi
@@ -1423,15 +1460,23 @@ let method_asm =
             Instruction ("movq", get_var_addr arg, List.nth registers i, ""))
           args
       in
+
+      let stack_space =
+        if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
+      in
       let gen_mixed_arglist args =
         let first_five = List.filteri (fun i _ -> i <= 4) args in
-        let remaining = List.rev (List.filteri (fun i _ -> i > 4) args) in
+        let remaining = List.filteri (fun i _ -> i > 4) args in
         List.iteri
           (fun i arg ->
             Printf.fprintf out_file
-              "\t#; Adding var %s at position -%d(%%rbp)\n" arg
-              (8 * (i + 5));
-            Hashtbl.add var_locations arg (8 * (i + 5)))
+              "\t#; Adding argument #%d, %s at position %d(%%rbp)\n" (i + 5) arg
+              (-1 * ((8 * i) + 16));
+            Printf.fprintf out_file
+              "\t#; But really, its at position (%d + 8 - (16*%d) = %d)\n"
+              stack_space i
+              (stack_space - 8 - (8 * i));
+            Hashtbl.add var_locations arg (stack_space - 8 - (8 * i)))
           remaining;
         gen_register_arglist first_five
       in
@@ -1444,15 +1489,14 @@ let method_asm =
         if List.length args <= 5 then gen_register_arglist args
         else gen_mixed_arglist args
       in
+      (* let temps =
+        if List.length args <= 5 then temps else temps + (!arg_count - 4)
+      in *)
       Printf.fprintf out_file "#; %s.%s:\n" class_name method_name;
       List.iteri
         (fun i (arg : ast_formal) ->
           Printf.fprintf out_file "\t#; Argument %d: %s\n" i arg.name.name)
         method_args;
-
-      let stack_space =
-        if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
-      in
       let method_tac = cfg |> List.flatten in
       get_start_method_boilerplate method_name class_name stack_space
       @ arglist
