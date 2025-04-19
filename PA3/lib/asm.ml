@@ -558,6 +558,10 @@ let print_var_locations () =
   Hashtbl.iter
     (fun k v -> Printf.fprintf out_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
     var_locations
+let print_var_locations_stdout () =
+  Hashtbl.iter
+    (fun k v -> Printf.printf "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
+    var_locations
 
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * (Hashtbl.length var_locations + 1) in
@@ -1526,17 +1530,19 @@ let method_asm =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
       let method_tac = cfg |> List.flatten in
-      get_start_method_boilerplate method_name class_name stack_space
-      @ arglist
-      @ (List.map
+      let asms = (List.map
            (fun tac ->
              let t = tac_to_as tac method_name class_name !prev_tac in
              prev_tac := tac;
              t)
            method_tac
         |> List.flatten)
-        (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
-      @ get_end_method_boilerplate class_name method_name )
+           in
+
+      get_start_method_boilerplate method_name class_name stack_space
+      @ arglist
+      @ asms
+      @ (get_end_method_boilerplate class_name method_name ))
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst

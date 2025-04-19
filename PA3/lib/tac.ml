@@ -167,6 +167,32 @@ let print_tac_elem t =
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
+
+let print_tac_elem_stdout t =
+  match t.operand with
+  | Label -> Printf.printf "operand: label, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | Jmp -> Printf.printf "operand: jmp, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | Return -> Printf.printf "operand: return, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | Comment -> Printf.printf "operand: comment, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | Bt -> Printf.printf "operand: bt, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | Assignment -> Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | LetNoInit -> Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | String_Constant -> Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | Case _ -> Printf.printf "operand: Cmp, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | VoidCase -> Printf.printf "operand: VoidCase, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | EmptyCase -> Printf.printf "operand: EmptyCase, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | _ ->
+      if t.arg2 = "" && t.arg1 = "" then
+        Printf.printf "%s <- %s\n" t.result
+          (operand_to_string t.operand)
+      else if t.arg2 = "" then
+        Printf.printf "%s <- %s %s\n" t.result
+          (operand_to_string t.operand)
+          t.arg1
+      else
+        Printf.printf "%s <- %s %s %s\n" t.result
+          (operand_to_string t.operand)
+          t.arg1 t.arg2
 let get_tac_elem_commented t =
   match t.operand with
   | Label -> Printf.sprintf "#;label %s" t.arg1
