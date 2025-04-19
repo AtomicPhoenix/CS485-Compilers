@@ -1,4 +1,10 @@
 # Erroring
+- add.cl: Seg fault
+- args-nine: seg fault
+- args-eight: seg fault
+- args-seven: seg fault
+- args-six: seg-fault
+- cases: seg-fault
 - arith.cl: Undefined reference to t$5
 - atoi.cl: Undefined reference to t$5
 - hs.cl: Seg fault
