@@ -233,21 +233,21 @@ let rec ast_to_tac (ast : annotated_ast_elem list) :
               exp_to_tac exp (get_id !var_ctr) ast_elem.class_name.name
                 method_name.name
             in
-            let rtrn =
-              [
-                {
-                  operand = Return;
-                  arg1 = get_id !ret;
-                  arg2 = "";
-                  result = "";
-                  line = 0;
-                  static_type = exp.static_type;
-                };
-              ]
-            in
+            (*let rtrn =*)
+            (*[*)
+            (*{*)
+            (*operand = Return;*)
+            (*arg1 = get_id !ret;*)
+            (*arg2 = "";*)
+            (*result = get_id !ret;*)
+            (*line = 0;*)
+            (*static_type = exp.static_type;*)
+            (*};*)
+            (*]*)
+            (*in*)
             let temps = !var_ctr + 1 in
             Some
-              ( base_lst @ exp_list @ rtrn,
+              ( base_lst @ exp_list (*@ rtrn*),
                 ast_elem.class_name.name,
                 method_name.name,
                 arguments,
@@ -274,7 +274,16 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       let last_var = exp_to_tac exp arg1 cname mname in
       (*var_ctr := !var_ctr + 1;*)
       last_var
-      (*@ [ { operand = Assignment; arg1; arg2 = ""; result = get_id !var_ctr } ]*)
+      @ [
+          {
+            operand = Assignment;
+            arg1;
+            arg2 = "";
+            result = get_id !var_ctr;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
       let arg_tacs =
         if List.length args > 0 then

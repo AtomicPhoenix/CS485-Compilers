@@ -685,12 +685,20 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
               class_name;
             assert false
       in
-      match List.find_opt (fun f -> f.field_name = tac.result) attrs with
+      match List.find_opt (fun f -> f.field_name = tac.arg1) attrs with
       | Some v ->
           Printf.fprintf out_file
             "#; Assignment in Class %s to attribute %s : %s \n" class_name
             v.field_name v.type_name;
-          []
+          add_var_addr tac.result;
+          let result = get_var_addr tac.result in
+          let arg1 = Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8) in
+          [
+            Line "\t#Assignment start";
+            Instruction ("movq", arg1, "%rax", "");
+            Instruction ("movq", "%rax", result, "");
+            Line "\t#Assignment end";
+          ]
       | None ->
           Printf.fprintf out_file
             "#; Class %s does not have an attribute named %s \n" class_name
@@ -905,6 +913,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       | Some v ->
           let result = Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8) in
           [
+            Line (Printf.sprintf "\t#Assigning with result %s" tac.result);
             Line "\t#Ident Expr (with attr assignment) start";
             Instruction ("movq", val_addr, "%rax", "");
             Instruction ("movq", "%rax", result, "");
