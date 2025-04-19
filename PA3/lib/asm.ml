@@ -1424,10 +1424,11 @@ let get_start_method_boilerplate method_name class_name stack_space =
     Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
   ]
 
-let get_end_method_boilerplate class_name method_name temps =
+let get_end_method_boilerplate class_name method_name =
   [
     Line (Printf.sprintf "%s.%s.end:" class_name method_name);
-    Instruction ("movq", Printf.sprintf "-%d(%%rbp)" (temps * 8), "%rax", "");
+    (*Instruction ("movq", Printf.sprintf "-%d(%%rbp)" (temps * 8), "%rax", "");*)
+    Instruction ("movq", get_var_addr !prev_tac.result, "%rax", "");
     Instruction ("movq", "%rbp", "%rsp", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("ret", "", "", "");
@@ -1535,7 +1536,7 @@ let method_asm =
            method_tac
         |> List.flatten)
         (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
-      @ get_end_method_boilerplate class_name method_name temps)
+      @ get_end_method_boilerplate class_name method_name )
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst
