@@ -1580,8 +1580,7 @@ let method_asm =
            method_tac
         |> List.flatten)
         (* @ [Asm.Line (Printf.sprintf "\t.size\t%s, .-%s" name name)]*)
-      @ get_end_method_boilerplate class_name method_name
-          (temps - List.length args))
+      @ get_end_method_boilerplate class_name method_name temps)
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst
