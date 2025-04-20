@@ -23,6 +23,7 @@ elif [ "$EXTENSION" != "cl-type" ]; then
 fi
 
 echo "Running $FILE"
+echo "----------------------------------------------------"
 TESTNAME="./test-case.cl-type"
 cp "$FILE" $TESTNAME
 
@@ -31,10 +32,22 @@ ocamlc main.ml
 
 TESTNAME="$(basename "$TESTNAME" .cl-type)"
 
-gcc -static -fno-pie -g3 -o program "$TESTNAME".s
+gcc -static -fno-pie -ggdb -o program "$TESTNAME".s
 ./program
 
 TESTNAME="$(basename "$TESTNAME" .s)"
 rm "$TESTNAME.cl"* 2>/dev/null
 rm main.cm*
-printf "\nFinished Running %s\n" "$TESTNAME"
+echo ""
+echo "----------------------------------------------------"
+if [ -n "$2" ]; then
+	echo "Running with COOL Reference Compiler"
+	echo "----------------------------------------------------"
+	../testing/cool "$1"
+	echo ""
+	echo "----------------------------------------------------"
+fi
+
+echo ""
+echo ""
+echo ""

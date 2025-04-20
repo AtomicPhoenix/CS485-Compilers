@@ -314,100 +314,100 @@ let out_string =
   ]
 
 (*let cooloutstr =*)
-  (*[*)
-    (*Instruction (".globl\tcooloutstr", "", "", "");*)
-    (*Instruction (".type\tcooloutstr, @function", "", "", "");*)
-    (*Instruction ("cooloutstr:", "", "", "");*)
-    (*Instruction (".LFB6:", "", "", "");*)
-    (*Instruction (".cfi_startproc", "", "", "");*)
-    (*Instruction ("endbr64", "", "", "");*)
-    (*Instruction ("pushq\t%rbp", "", "", "");*)
-    (*Instruction (".cfi_def_cfa_offset 16", "", "", "");*)
-    (*Instruction (".cfi_offset 6, -16", "", "", "");*)
-    (*Instruction ("movq\t%rsp, %rbp", "", "", "");*)
-    (*Instruction (".cfi_def_cfa_register 6", "", "", "");*)
-    (*Instruction ("subq\t$32, %rsp", "", "", "");*)
-    (*Instruction ("movq\t%rdi, -24(%rbp)", "", "", "");*)
-    (*Instruction ("movl\t$0, -4(%rbp)", "", "", "");*)
-    (*Instruction ("jmp\t.L2", "", "", "");*)
-    (*Instruction (".L5:", "", "", "");*)
-    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
-    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
-    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
-    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
-    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
-    (*Instruction ("cmpb\t$92, %al", "", "", "");*)
-    (*Instruction ("jne\t.L3", "", "", "");*)
-    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
-    (*Instruction ("cltq", "", "", "");*)
-    (*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
-    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
-    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
-    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
-    (*Instruction ("cmpb\t$110, %al", "", "", "");*)
-    (*Instruction ("jne\t.L3", "", "", "");*)
-    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
-    (*Instruction ("movq\t%rax, %rsi", "", "", "");*)
-    (*Instruction ("movl\t$10, %edi", "", "", "");*)
-    (*Instruction ("call\tfputc@PLT", "", "", "");*)
-    (*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
-    (*Instruction ("jmp\t.L2", "", "", "");*)
-    (*Instruction (".L3:", "", "", "");*)
-    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
-    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
-    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
-    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
-    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
-    (*Instruction ("cmpb\t$92, %al", "", "", "");*)
-    (*Instruction ("jne\t.L4", "", "", "");*)
-    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
-    (*Instruction ("cltq", "", "", "");*)
-    (*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
-    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
-    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
-    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
-    (*Instruction ("cmpb\t$116, %al", "", "", "");*)
-    (*Instruction ("jne\t.L4", "", "", "");*)
-    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
-    (*Instruction ("movq\t%rax, %rsi", "", "", "");*)
-    (*Instruction ("movl\t$9, %edi", "", "", "");*)
-    (*Instruction ("call\tfputc@PLT", "", "", "");*)
-    (*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
-    (*Instruction ("jmp\t.L2", "", "", "");*)
-    (*Instruction (".L4:", "", "", "");*)
-    (*Instruction ("movq\tstdout(%rip), %rdx", "", "", "");*)
-    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
-    (*Instruction ("movslq\t%eax, %rcx", "", "", "");*)
-    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
-    (*Instruction ("addq\t%rcx, %rax", "", "", "");*)
-    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
-    (*Instruction ("movsbl\t%al, %eax", "", "", "");*)
-    (*Instruction ("movq\t%rdx, %rsi", "", "", "");*)
-    (*Instruction ("movl\t%eax, %edi", "", "", "");*)
-    (*Instruction ("call\tfputc@PLT", "", "", "");*)
-    (*Instruction ("addl\t$1, -4(%rbp)", "", "", "");*)
-    (*Instruction (".L2:", "", "", "");*)
-    (*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
-    (*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
-    (*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
-    (*Instruction ("addq\t%rdx, %rax", "", "", "");*)
-    (*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
-    (*Instruction ("testb\t%al, %al", "", "", "");*)
-    (*Instruction ("jne\t.L5", "", "", "");*)
-    (*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
-    (*Instruction ("movq\t%rax, %rdi", "", "", "");*)
-    (*Instruction ("call\tfflush@PLT", "", "", "");*)
-    (*Instruction ("nop", "", "", "");*)
-    (*Instruction ("leave", "", "", "");*)
-    (*Instruction (".cfi_def_cfa 7, 8", "", "", "");*)
-    (*Instruction ("ret", "", "", "");*)
-    (*Instruction (".cfi_endproc", "", "", "");*)
-    (*Instruction (".LFE6:", "", "", "");*)
-    (*Instruction (".size\tcooloutstr, .-cooloutstr", "", "", "");*)
-    (*Instruction (".globl\tcoolstrlen", "", "", "");*)
-    (*Instruction (".type\tcoolstrlen, @function", "", "", "");*)
-    (*Instruction ("", "", "", "");*)
-  (*]*)
+(*[*)
+(*Instruction (".globl\tcooloutstr", "", "", "");*)
+(*Instruction (".type\tcooloutstr, @function", "", "", "");*)
+(*Instruction ("cooloutstr:", "", "", "");*)
+(*Instruction (".LFB6:", "", "", "");*)
+(*Instruction (".cfi_startproc", "", "", "");*)
+(*Instruction ("endbr64", "", "", "");*)
+(*Instruction ("pushq\t%rbp", "", "", "");*)
+(*Instruction (".cfi_def_cfa_offset 16", "", "", "");*)
+(*Instruction (".cfi_offset 6, -16", "", "", "");*)
+(*Instruction ("movq\t%rsp, %rbp", "", "", "");*)
+(*Instruction (".cfi_def_cfa_register 6", "", "", "");*)
+(*Instruction ("subq\t$32, %rsp", "", "", "");*)
+(*Instruction ("movq\t%rdi, -24(%rbp)", "", "", "");*)
+(*Instruction ("movl\t$0, -4(%rbp)", "", "", "");*)
+(*Instruction ("jmp\t.L2", "", "", "");*)
+(*Instruction (".L5:", "", "", "");*)
+(*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+(*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+(*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+(*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+(*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+(*Instruction ("cmpb\t$92, %al", "", "", "");*)
+(*Instruction ("jne\t.L3", "", "", "");*)
+(*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+(*Instruction ("cltq", "", "", "");*)
+(*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
+(*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+(*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+(*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+(*Instruction ("cmpb\t$110, %al", "", "", "");*)
+(*Instruction ("jne\t.L3", "", "", "");*)
+(*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+(*Instruction ("movq\t%rax, %rsi", "", "", "");*)
+(*Instruction ("movl\t$10, %edi", "", "", "");*)
+(*Instruction ("call\tfputc@PLT", "", "", "");*)
+(*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
+(*Instruction ("jmp\t.L2", "", "", "");*)
+(*Instruction (".L3:", "", "", "");*)
+(*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+(*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+(*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+(*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+(*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+(*Instruction ("cmpb\t$92, %al", "", "", "");*)
+(*Instruction ("jne\t.L4", "", "", "");*)
+(*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+(*Instruction ("cltq", "", "", "");*)
+(*Instruction ("leaq\t1(%rax), %rdx", "", "", "");*)
+(*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+(*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+(*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+(*Instruction ("cmpb\t$116, %al", "", "", "");*)
+(*Instruction ("jne\t.L4", "", "", "");*)
+(*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+(*Instruction ("movq\t%rax, %rsi", "", "", "");*)
+(*Instruction ("movl\t$9, %edi", "", "", "");*)
+(*Instruction ("call\tfputc@PLT", "", "", "");*)
+(*Instruction ("addl\t$2, -4(%rbp)", "", "", "");*)
+(*Instruction ("jmp\t.L2", "", "", "");*)
+(*Instruction (".L4:", "", "", "");*)
+(*Instruction ("movq\tstdout(%rip), %rdx", "", "", "");*)
+(*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+(*Instruction ("movslq\t%eax, %rcx", "", "", "");*)
+(*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+(*Instruction ("addq\t%rcx, %rax", "", "", "");*)
+(*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+(*Instruction ("movsbl\t%al, %eax", "", "", "");*)
+(*Instruction ("movq\t%rdx, %rsi", "", "", "");*)
+(*Instruction ("movl\t%eax, %edi", "", "", "");*)
+(*Instruction ("call\tfputc@PLT", "", "", "");*)
+(*Instruction ("addl\t$1, -4(%rbp)", "", "", "");*)
+(*Instruction (".L2:", "", "", "");*)
+(*Instruction ("movl\t-4(%rbp), %eax", "", "", "");*)
+(*Instruction ("movslq\t%eax, %rdx", "", "", "");*)
+(*Instruction ("movq\t-24(%rbp), %rax", "", "", "");*)
+(*Instruction ("addq\t%rdx, %rax", "", "", "");*)
+(*Instruction ("movzbl\t(%rax), %eax", "", "", "");*)
+(*Instruction ("testb\t%al, %al", "", "", "");*)
+(*Instruction ("jne\t.L5", "", "", "");*)
+(*Instruction ("movq\tstdout(%rip), %rax", "", "", "");*)
+(*Instruction ("movq\t%rax, %rdi", "", "", "");*)
+(*Instruction ("call\tfflush@PLT", "", "", "");*)
+(*Instruction ("nop", "", "", "");*)
+(*Instruction ("leave", "", "", "");*)
+(*Instruction (".cfi_def_cfa 7, 8", "", "", "");*)
+(*Instruction ("ret", "", "", "");*)
+(*Instruction (".cfi_endproc", "", "", "");*)
+(*Instruction (".LFE6:", "", "", "");*)
+(*Instruction (".size\tcooloutstr, .-cooloutstr", "", "", "");*)
+(*Instruction (".globl\tcoolstrlen", "", "", "");*)
+(*Instruction (".type\tcoolstrlen, @function", "", "", "");*)
+(*Instruction ("", "", "", "");*)
+(*]*)
 
 let string_length =
   [
@@ -746,67 +746,72 @@ let intrinsic_funcs =
 
 let handlers =
   [
+    Line "\t.p2align 4";
+    Instruction (".globl", "lt_handler", "", "");
+    Instruction (".type", "lt_handler", "@function", "");
     Line "lt_handler:";
     Instruction ("pushq", "%r12", "", "");
     Instruction ("movq", "%rsi", "%r12", "");
     Instruction ("pushq", "%rbp", "", "");
+    Instruction ("movq", "%rdi", "%rbp", "");
     Instruction ("pushq", "%rbx", "", "");
-    Instruction ("movq", "%rdi", "%rbx", "");
     Instruction ("call", "Bool..new", "", "");
-    Instruction ("movq", "%rax", "%rbp", "");
-    Instruction ("testq", "%rbx", "%rbx", "");
+    Instruction ("movq", "%rax", "%rbx", "");
+    Instruction ("testq", "%rbp", "%rbp", "");
     Instruction ("je", ".lt_false", "", "");
     Instruction ("testq", "%r12", "%r12", "");
     Instruction ("je", ".lt_false", "", "");
     Instruction ("movq", "(%r12)", "%rdx", "");
-    Instruction ("addq", "(%rbx)", "%rdx", "");
-    Instruction ("testq", "$-3", "%rdx", "");
+    Instruction ("addq", "0(%rbp)", "%rdx", "");
+    Instruction ("leaq", "-2(%rdx)", "%rax", "");
+    Instruction ("testq", "$-3", "%rax", "");
     Instruction ("je", ".lt_num", "", "");
     Instruction ("xorl", "%eax", "%eax", "");
-    Instruction ("cmpq", "$6", "%rdx", "");
+    Instruction ("cmpq", "$10", "%rdx", "");
     Instruction ("je", ".lt_string", "", "");
     Line ".lt_cleanup:";
-    Instruction ("movq", "%rax", "24(%rbp)", "");
-    Instruction ("movq", "%rbp", "%rax", "");
+    Instruction ("movq", "%rax", "24(%rbx)", "");
+    Instruction ("movq", "%rbx", "%rax", "");
     Instruction ("popq", "%rbx", "", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".lt_num:";
     Instruction ("movq", "24(%r12)", "%rax", "");
-    Instruction ("cmpq", "%rax", "24(%rbx)", "");
+    Instruction ("cmpq", "%rax", "24(%rbp)", "");
     Instruction ("setl", "%al", "", "");
     Instruction ("movzbl", "%al", "%eax", "");
-    Instruction ("movq", "%rax", "24(%rbp)", "");
-    Instruction ("movq", "%rbp", "%rax", "");
+    Instruction ("movq", "%rax", "24(%rbx)", "");
+    Instruction ("movq", "%rbx", "%rax", "");
     Instruction ("popq", "%rbx", "", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".lt_false:";
     Instruction ("xorl", "%eax", "%eax", "");
-    Instruction ("movq", "%rax", "24(%rbp)", "");
-    Instruction ("movq", "%rbp", "%rax", "");
+    Instruction ("movq", "%rax", "24(%rbx)", "");
+    Instruction ("movq", "%rbx", "%rax", "");
     Instruction ("popq", "%rbx", "", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".lt_string:";
     Instruction ("movq", "24(%r12)", "%rsi", "");
-    Instruction ("movq", "24(%rbx)", "%rdi", "");
+    Instruction ("movq", "24(%rbp)", "%rdi", "");
     Instruction ("call", "strcmp", "", "");
-    Instruction ("shrl", "$31", "%eax", "");
+    Instruction ("cltq", "", "", "");
+    Instruction ("shrq", "$63", "%rax", "");
     Instruction ("jmp", ".lt_cleanup", "", "");
-    Instruction ("\t.size", "lt_handler", ".-lt_handler", "");
-    Instruction ("\t.p2align 4", "", "", "");
-    Instruction ("\t.globl", "le_handler", "", "");
-    Instruction ("\t.type", "le_handler", "@function", "");
+    Instruction (".size", "lt_handler", ".-lt_handler", "");
+    Line "\t.p2align 4";
+    Instruction (".globl", "le_handler", "", "");
+    Instruction (".type", "le_handler", "@function", "");
     Line "le_handler:";
     Instruction ("pushq", "%r12", "", "");
     Instruction ("pushq", "%rbp", "", "");
@@ -821,12 +826,13 @@ let handlers =
     Instruction ("je", ".le_false", "", "");
     Instruction ("movq", "0(%rbp)", "%rax", "");
     Instruction ("addq", "(%rbx)", "%rax", "");
-    Instruction ("testq", "$-3", "%rax", "");
+    Instruction ("leaq", "-2(%rax)", "%rdx", "");
+    Instruction ("testq", "$-3", "%rdx", "");
     Instruction ("je", ".le_num", "", "");
     Instruction ("xorl", "%edx", "%edx", "");
     Instruction ("cmpq", "%rbp", "%rbx", "");
     Instruction ("sete", "%dl", "", "");
-    Instruction ("cmpq", "$6", "%rax", "");
+    Instruction ("cmpq", "$10", "%rax", "");
     Instruction ("je", ".le_string", "", "");
     Line ".le_cleanup:";
     Instruction ("movq", "%rdx", "24(%r12)", "");
@@ -835,8 +841,8 @@ let handlers =
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".le_num:";
     Instruction ("movq", "24(%rbp)", "%rax", "");
     Instruction ("xorl", "%edx", "%edx", "");
@@ -848,8 +854,8 @@ let handlers =
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".le_false:";
     Instruction ("xorl", "%edx", "%edx", "");
     Instruction ("movq", "%r12", "%rax", "");
@@ -858,8 +864,8 @@ let handlers =
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".le_string:";
     Instruction ("movq", "24(%rbp)", "%rsi", "");
     Instruction ("movq", "24(%rbx)", "%rdi", "");
@@ -868,10 +874,10 @@ let handlers =
     Instruction ("testl", "%eax", "%eax", "");
     Instruction ("setle", "%dl", "", "");
     Instruction ("jmp", ".le_cleanup", "", "");
-    Instruction ("\t.size", "le_handler", ".-le_handler", "");
-    Instruction ("\t.p2align 4", "", "", "");
-    Instruction ("\t.globl", "eq_handler", "", "");
-    Instruction ("\t.type", "eq_handler", "@function", "");
+    Instruction (".size", "le_handler", ".-le_handler", "");
+    Line "\t.p2align 4";
+    Instruction (".globl", "eq_handler", "", "");
+    Instruction (".type", "eq_handler", "@function", "");
     Line "eq_handler:";
     Instruction ("pushq", "%r12", "", "");
     Instruction ("pushq", "%rbp", "", "");
@@ -886,12 +892,13 @@ let handlers =
     Instruction ("je", ".eq_false", "", "");
     Instruction ("movq", "0(%rbp)", "%rax", "");
     Instruction ("addq", "(%rbx)", "%rax", "");
-    Instruction ("testq", "$-3", "%rax", "");
+    Instruction ("leaq", "-2(%rax)", "%rdx", "");
+    Instruction ("testq", "$-3", "%rdx", "");
     Instruction ("je", ".eq_num", "", "");
     Instruction ("xorl", "%edx", "%edx", "");
     Instruction ("cmpq", "%rbp", "%rbx", "");
     Instruction ("sete", "%dl", "", "");
-    Instruction ("cmpq", "$6", "%rax", "");
+    Instruction ("cmpq", "$10", "%rax", "");
     Instruction ("je", ".eq_string", "", "");
     Line ".eq_cleanup:";
     Instruction ("movq", "%rdx", "24(%r12)", "");
@@ -900,8 +907,8 @@ let handlers =
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".eq_num:";
     Instruction ("movq", "24(%rbp)", "%rax", "");
     Instruction ("xorl", "%edx", "%edx", "");
@@ -913,8 +920,8 @@ let handlers =
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".eq_false:";
     Instruction ("xorl", "%edx", "%edx", "");
     Instruction ("movq", "%r12", "%rax", "");
@@ -923,8 +930,8 @@ let handlers =
     Instruction ("popq", "%rbp", "", "");
     Instruction ("popq", "%r12", "", "");
     Instruction ("ret", "", "", "");
-    Instruction ("\t.p2align 4,,10", "", "", "");
-    Instruction ("\t.p2align 3", "", "", "");
+    Line "\t.p2align 4,,10";
+    Line "\t.p2align 3";
     Line ".eq_string:";
     Instruction ("movq", "24(%rbp)", "%rsi", "");
     Instruction ("movq", "24(%rbx)", "%rdi", "");
@@ -933,5 +940,5 @@ let handlers =
     Instruction ("testl", "%eax", "%eax", "");
     Instruction ("sete", "%dl", "", "");
     Instruction ("jmp", ".eq_cleanup", "", "");
-    Instruction ("\t.size", "eq_handler", ".-eq_handler", "");
+    Instruction (".size", "eq_handler", ".-eq_handler", "");
   ]

@@ -6,8 +6,6 @@ class Main inherits IO {
   } ;
 } ;
 
-
-
 class X inherits Z {
   exec() : Object {
     out_string("Hello, world from X.\n")
