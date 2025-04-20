@@ -1,10 +1,6 @@
 open Print
 open Parser
 
-(* 
-NOTE: Expression to Three-Address Code
-"The traditional approach to converting expressions to three-address code involves a recursive descent traversal of the abstract syntax tree. The recursive descent traversal returns both a three-address code instruction as well as a list of additional instructions that should be prepended to the output."
-*)
 type tac_elem = {
   operand : tac_operand;
   arg1 : string;
