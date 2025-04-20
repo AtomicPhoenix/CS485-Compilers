@@ -1,19 +1,22 @@
-# Erroring
-- add.cl: Seg fault
-- args-nine: seg fault
-- args-eight: seg fault
-- args-seven: seg fault
-- args-six: seg-fault
-- cases: seg-fault
-- arith.cl: Undefined reference to t$5
-- atoi.cl: Undefined reference to t$5
-- hs.cl: Seg fault
-- list.cl: Seg fault
-- new-complex: Seg fault
-- rosetta.cl: Undefined reference to t$124
-- sort-list.cl: Seg fault
-- test-25.cl: Seg fault
-
-# Wrong Output
-- cells.cl: ~~Seg fault~~ Bad Print
-- static-dispatch.cl
+# Ubuntu Errors (as of latest push)
+## Seg Faults
+- test-25
+- substr2
+- Static-dispatch-with-args
+- Rosetta
+- Primes
+- logantest
+- isvoid2
+- if-with-attrs
+- ifin
+- hs.cl
+- hello-world
+- logantest2
+- cases
+- atoi
+- arith
+- add
+## Wrong Output
+- Sort-list.cl-type (aborts)
+- list.cl
+- cells.cl
