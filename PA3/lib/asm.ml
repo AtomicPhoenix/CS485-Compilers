@@ -759,7 +759,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("je", void_dispatch_label, "", "");
       ]
       @ (if tac.arg2 = "" then
-           [ Line ("\t#Call w/o args start for method " ^ meth) ]
+           [ Line ("\t#Call w/o args start for method " ^ meth);
+             Instruction ("pushq", "%rsi", "", "");
+             Instruction ("pushq", "%rdx", "", "");
+             Instruction ("pushq", "%rcx", "", "");
+             Instruction ("pushq", "%r8", "", "");
+             Instruction ("pushq", "%r9", "", "");
+           ]
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
@@ -775,11 +781,17 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
-               Instruction ("movq", "%rax", result, "");
                Instruction ("popq", "%rdi", "", "");
+               Instruction ("movq", "%rax", result, "");
                Instruction ("popq", "%rbp", "", "");
              ]
-           @ [ Line ("\t#Call w/o args end for method " ^ meth) ]
+           @ [ 
+               Instruction ("popq", "%r9", "", "");
+               Instruction ("popq", "%r8", "", "");
+               Instruction ("popq", "%rcx", "", "");
+               Instruction ("popq", "%rdx", "", "");
+               Instruction ("popq", "%rsi", "", "");
+            Line ("\t#Call w/o args end for method " ^ meth) ]
          else
            let gen_register_arglist args =
              let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
@@ -839,8 +851,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
-               Instruction ("movq", "%rax", result, "");
-             ]
+           ]
            @ (if List.length arglist > 5 then
                 [
                   Instruction
@@ -853,9 +864,11 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                       "%rsp",
                       "" );
                 ]
-              else [])
-           @ [
+              else []) @ [
                Instruction ("popq", "%rdi", "", "");
+               Instruction ("movq", "%rax", result, "");
+             ]
+           @ [
                Instruction ("popq", "%r9", "", "");
                Instruction ("popq", "%r8", "", "");
                Instruction ("popq", "%rcx", "", "");
@@ -900,7 +913,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("je", void_dispatch_label, "", "");
       ]
       @ (if tac.arg2 = "" then
-           [ Line ("\t#Call w/o args start for method " ^ meth) ]
+           [ Line ("\t#Call w/o args start for method " ^ meth);
+             Instruction ("pushq", "%rsi", "", "");
+             Instruction ("pushq", "%rdx", "", "");
+             Instruction ("pushq", "%rcx", "", "");
+             Instruction ("pushq", "%r8", "", "");
+             Instruction ("pushq", "%r9", "", "");
+           ]
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
@@ -917,11 +936,17 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
-               Instruction ("movq", "%rax", result, "");
                Instruction ("popq", "%rdi", "", "");
+               Instruction ("movq", "%rax", result, "");
                Instruction ("popq", "%rbp", "", "");
              ]
-           @ [ Line ("\t#Call w/o args end for method " ^ meth) ]
+           @ [ 
+               Instruction ("popq", "%r9", "", "");
+               Instruction ("popq", "%r8", "", "");
+               Instruction ("popq", "%rcx", "", "");
+               Instruction ("popq", "%rdx", "", "");
+               Instruction ("popq", "%rsi", "", "");
+            Line ("\t#Call w/o args end for method " ^ meth) ]
          else
            let gen_register_arglist args =
              let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
@@ -958,12 +983,17 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            in
            [
              Line ("\t#Call w/ args start for method " ^ meth);
+             Instruction ("pushq", "%rsi", "", "");
+             Instruction ("pushq", "%rdx", "", "");
+             Instruction ("pushq", "%rcx", "", "");
+             Instruction ("pushq", "%r8", "", "");
+             Instruction ("pushq", "%r9", "", "");
              Instruction ("pushq", "%rdi", "", "");
            ]
            @ (if List.length arglist > 5 then
                 if List.length arglist mod 2 = 0 then []
                 else [ Instruction ("subq", "$8", "%rsp", "") ]
-              else [ Instruction ("subq", "$8", "%rsp", "") ])
+              else [])
            @ arglist
            @ [
                Instruction ("movq", "$" ^ static_class ^ "..vtable", "%r11", "");
@@ -977,7 +1007,6 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                    "" );
                Instruction ("movq", prev_addr, "%rdi", "");
                Instruction ("call", "*%r11", "", "");
-               Instruction ("movq", "%rax", result, "");
              ]
            @ (if List.length arglist > 5 then
                 [
@@ -991,9 +1020,15 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                       "%rsp",
                       "" );
                 ]
-              else [ Instruction ("addq", "$8", "%rsp", "") ])
+              else [])
+               @ [ Instruction ("popq", "%rdi", "", "");
+               Instruction ("movq", "%rax", result, ""); ]
            @ [
-               Instruction ("popq", "%rdi", "", "");
+               Instruction ("popq", "%r9", "", "");
+               Instruction ("popq", "%r8", "", "");
+               Instruction ("popq", "%rcx", "", "");
+               Instruction ("popq", "%rdx", "", "");
+               Instruction ("popq", "%rsi", "", "");
                Line ("\t#Call w/ args end for method" ^ meth);
              ])
       (* @ popargs *)
