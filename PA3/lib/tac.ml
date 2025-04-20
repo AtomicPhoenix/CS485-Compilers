@@ -18,6 +18,7 @@ and tac_operand =
   | Assignment
   | Bt
   | Call
+  | StaticCall of string
   | Comment
   | Label
   | Jmp
@@ -115,6 +116,7 @@ let operand_to_string (operand : tac_operand) : string =
   | Assignment -> "assignment"
   | Bt -> "bt"
   | Call -> "call"
+  | StaticCall s -> Printf.sprintf "StaticCall (%s)" s
   | Case jump -> Printf.sprintf "jump to :%s after comparison of" jump
   | VoidCase -> "VoidCase"
   | EmptyCase -> "EmptyCase"
@@ -316,9 +318,19 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   match exp.sub_expr with
   | Assignment (id, exp) ->
       let var_id = Hashtbl.find_opt letTable id.name in
-      let result = match var_id with Some v -> v | None -> id.name in
-      let last_var = exp_to_tac exp result cname mname in
+      let exp_res = match var_id with Some v -> v | None -> id.name in
+      let last_var = exp_to_tac exp exp_res cname mname in
       last_var
+      @ [
+          {
+            operand = Ident_Expr exp_res;
+            arg1 = "";
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
   | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
       let arg_tacs =
         if List.length args > 0 then
@@ -352,7 +364,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             static_type = exp.static_type;
           };
         ]
-  | Static_Dispatch (dispatch_exp, _, method_name, args) ->
+  | Static_Dispatch (dispatch_exp, typ, method_name, args) ->
+      Printf.fprintf out_file "#; %s.%s w/ type %s, # of args: %d\n" cname
+        method_name.name typ.name (List.length args);
       let arg_tacs =
         if List.length args > 0 then
           List.map
@@ -377,7 +391,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       @ exp_to_tac dispatch_exp (get_id !var_ctr) cname mname
       @ [
           {
-            operand = Call;
+            operand = StaticCall typ.name;
             arg1 = method_name.name;
             arg2;
             result;

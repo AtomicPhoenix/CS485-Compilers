@@ -9,6 +9,3 @@ class Main inherits IO {
   } ;
 } ;
 
-class A {
-  a: Int <- 5;
-};
