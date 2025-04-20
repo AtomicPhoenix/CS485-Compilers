@@ -1,22 +1,13 @@
 # Ubuntu Errors (as of latest push)
 ## Seg Faults
-- test-25
-- substr2
-- Static-dispatch-with-args
-- Rosetta
-- Primes
-- logantest
-- isvoid2
-- if-with-attrs
-- ifin
+- self-dispatch-with-args
+- rosetta
+- primes
 - hs.cl
-- hello-world
-- logantest2
-- cases
 - atoi
-- arith
-- add
+- arith (on user input via in_string)
 ## Wrong Output
-- Sort-list.cl-type (aborts)
-- list.cl
 - cells.cl
+- list
+- sort-list.cl (aborts)
+
