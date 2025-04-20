@@ -686,6 +686,15 @@ let get_attribute class_name attr_name =
   let attrs = get_attribute_map class_name in
   List.find_opt (fun f -> f.field_name = attr_name) attrs
 
+let transform_string s =
+  String.fold_left (fun acc ch -> acc ^
+      (match ch with
+      | ' '..'~' -> if ch = '"' then "\\\"" else if ch = '\\' then "\\\\" else String.make 1 ch
+      | '\x00'..'\x1f' | '\x7f' -> if ch = '\n' then "\\n" else if ch = '\t' then "\\t" else Char.escaped ch
+      | _ -> String.make 1 ch (* unicode we just hope is good *)
+      )
+  ) "" s
+
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   (*Printf.fprintf out_file "#; %s" prev_result;*)
@@ -1399,7 +1408,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             add_var_addr tac.result;
             get_var_addr tac.result
       in
-      match Hashtbl.find_opt string_map tac.arg1 with
+      let str = transform_string tac.arg1 in
+      match Hashtbl.find_opt string_map str with
       | Some str_id ->
           [ Line "\t#sconst start" ] @ pushargs
           @ [
@@ -1411,7 +1421,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
           @ popargs @ [ Line "\t#sconst end" ]
       | None ->
           string_counter := !string_counter + 1;
-          Hashtbl.add string_map tac.arg1 !string_counter;
+          Hashtbl.add string_map str !string_counter;
 
           [ Line "\t#sconst start" ] @ pushargs
           @ [
