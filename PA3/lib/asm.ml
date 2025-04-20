@@ -1,57 +1,24 @@
 open Print
 open Parser
 open Tac
-(* ------------------------------------------------------------------CODE GEN CODE----------------------------------------------------------------------- *)
 
-(*NOTE: Write a program that generates assembly instructions for certain simple Cool programs.
-    - Write a correct code generator for a subset of Cool. 
-    - This involves implementing the operational semantics specification of Cool. 
-    - You do not have to track information to generate run-time errors (e.g., division by zero, dispatch on void) for this checkpoint. 
-    - You do not have to worry about “malformed input” because the semantic analyzer (from PA2) will rule out bad programs.
-    - No Error reporting for this checkpoint BUT KEEP LINE INFO FOR LATER
-    - The input program will introduce only one class, Main, with only one method, main. 
-    - The following AST or language elements will NOT appear:
-        - attribute_*
-        - self_dispatch — except IO (e.g., in_out, out_int)
-        - static_dispatch
-        - dynamic_dispatch
-        - internal functions
-        - while
-        - isvoid
-        - case
-        - new
-        - let_binding_init
-        - any novel class/method — except “Main.main”
-        - run-time errors (e.g., division by zero)
-        - strings — programs will largely involve integers and booleans
-    - This results in single-class, single-method Cool programs focusing on integer and boolean manipulation.
-    - Need to convert internal functions that are defined in the CRM. Look at the assembly code that the reference compiler emits for them.
-    - Highly recommended to convert to control-flow graph where basic blocks are TAC, then convert TAC to assembly
-    - "Whitespace and newlines do not matter in your file.s assembly code. However, whitespace and newlines do matter for the output of your generated assembly! This is because you are specifically being asked to implement IO (and, later, substring) functions." -- I don't know what this means 
-    - Implment all relevant operational semantics rules in the Reference Manual including all of the relevant built-in functions on the IO class.*)
-
-(* We store the memory addresses of each variable as we parse them *)
-
-(*type asm_instruction = {*)
-(*instruction: string;*)
-(*arg1: string option;*)
-(*arg2: string option;*)
-(*arg3: string option;*)
-(*}*)
-
+(* Instructions represent actual instructions *)
+(* Lines represent comments *)
 type asm_instruction = string * string * string * string
-(** instruction, arg1, arg2, arg3 *)
-
 and asm_line = Instruction of asm_instruction | Line of string
 and asm = asm_line list
-and vtable_func = { type_name : string; method_name : string }
 
+(* A vtable function *)
+type vtable_func = { type_name : string; method_name : string }
+
+(* A vtable *)
 and vtable = {
   name_id : string;
   name_string_id : int;
   methods : vtable_func list;
 }
 
+(* A class attribute *)
 and attribute = {
   field_name : string;
   index : int;
@@ -59,16 +26,20 @@ and attribute = {
   expression : (tac_elem list * string) option;
 }
 
+(* Internal representation of a class in assembly *)
 and asm_class = {
-  class_tag : int;
+  class_id : int;
   object_size : int;
   vtable : vtable;
   attributes : attribute list;
 }
 
+(* Represents [Class]..new *)
+(* Class name * Assembly code *)
 and new_func = string * asm
 
-and error_reason =
+(* Error handling *)
+type error_reason =
   | ERR_VOID_DISPATCH
   | ERR_VOID_CASE
   | ERR_CASE_NO_BRANCH
@@ -82,6 +53,7 @@ let err_to_num = function
   | ERR_DIV_BY_ZERO -> "3"
   | ERR_SUBSTR_OUT_OF_RANGE -> "4"
 
+(* Print assembly instructions to file *)
 let print_asm (asm : asm_line) =
   match asm with
   | Instruction (s1, s2, s3, s4) ->
@@ -95,7 +67,8 @@ let print_asm (asm : asm_line) =
         Printf.fprintf out_file "\t%s\n" s1
   | Line s1 -> (*Printf.printf "%s\n" s1;*) Printf.fprintf out_file "%s\n" s1
 
-let print_new_funcs funcs =
+(* Print out new funcs *)
+let print_new_funcs (funcs : new_func list) =
   let print_new_func func =
     let name, lines = func in
     Printf.fprintf Print.out_file "\t.p2align 4\n";
@@ -108,22 +81,140 @@ let print_new_funcs funcs =
   in
   List.iter print_new_func funcs
 
+(* Locations of variables *)
 let var_locations = Hashtbl.create 32
 
-(* let string_map = Hashtbl.create 32*)
+(* Print var_locations map *)
+let print_var_locations () =
+  Hashtbl.iter
+    (fun k v -> Printf.fprintf out_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
+    var_locations
+
+(* Sting Constants in the program; Counter for labeling each string *)
 let string_map = Hashtbl.create 32
-let class_id_map = Hashtbl.create 32
-let class_vtable_map = Hashtbl.create 32
-let class_attribute_map = Hashtbl.create 32
-let arg_map = Hashtbl.create 32
 let string_counter = ref 10
-let class_tag_ctr = ref 14
+
+(* Initialize string map *)
+let () =
+  let init_string_map () =
+    let string0 = "Bool" in
+    let string1 = "IO" in
+    let string2 = "Int" in
+    let string3 = "Object" in
+    let string4 = "String" in
+    let string6 = "abort" in
+    let string7 = "ERROR: 0: Exception: String.substr out of range\\n" in
+    let string8 = "ERROR: 6: Exception: case without matching branch\\n" in
+    let string9 = "ERROR: 6: Exception: case on void\\n" in
+    Hashtbl.add string_map string0 0;
+    Hashtbl.add string_map string1 1;
+    Hashtbl.add string_map string2 2;
+    Hashtbl.add string_map string3 3;
+    Hashtbl.add string_map string4 4;
+    Hashtbl.add string_map string6 6;
+    Hashtbl.add string_map string7 7;
+    Hashtbl.add string_map string8 8;
+    Hashtbl.add string_map string9 9
+  in
+  init_string_map ()
+
+(* Class Ids for each class; Counter for assigning unique class ids *)
+let class_id_map = Hashtbl.create 32
+let class_id_ctr = ref 14
+
+(* Initialize class_id_map *)
+let () =
+  let init_class_id_map () =
+    Hashtbl.add class_id_map "Bool" 1;
+    Hashtbl.add class_id_map "IO" 11;
+    Hashtbl.add class_id_map "Int" 2;
+    Hashtbl.add class_id_map "Object" 13;
+    Hashtbl.add class_id_map "String" 5
+  in
+  init_class_id_map ()
+
+(* Vtables for each class *)
+let class_vtable_map = Hashtbl.create 32
+
+let print_vtable_map () =
+  Printf.fprintf stderr "#; Vtables:\n";
+  Hashtbl.iter
+    (fun k _ -> Printf.fprintf stderr "\t#; Class: %s;\n" k)
+    class_vtable_map
+
+(* Attributes for each class *)
+let class_attribute_map = Hashtbl.create 32
+
+(* Get specific attribute of a class *)
+let get_attribute class_name attr_name =
+  (* Get attribute map of a class *)
+  let get_attribute_map class_name =
+    match Hashtbl.find_opt class_attribute_map class_name with
+    | Some v -> v
+    | None ->
+        Printf.fprintf stderr "Failed to find the attributes of class %s\n"
+          class_name;
+        assert false
+  in
+  let attrs = get_attribute_map class_name in
+  List.find_opt (fun f -> f.field_name = attr_name) attrs
+
+(* Initializes class_attribute_map *)
+let () =
+  let init_class_attribute_map () =
+    let init class_name i (attr : ast_attribute) =
+      let name = attr.name in
+      let index = i in
+      let typename = attr.type_name in
+      let expr =
+        match attr.attr_expr with
+        | Some attr_expr ->
+            var_ctr := 0;
+            (*label_ctr := 0;*)
+            let base_lst =
+              [
+                {
+                  operand = Comment;
+                  arg1 = "attr start";
+                  arg2 = "";
+                  result = "";
+                  line = attr_expr.id.line_num;
+                  static_type = attr_expr.static_type;
+                };
+              ]
+            in
+            let return_index = get_id !var_ctr in
+            let exp_list =
+              exp_to_tac attr_expr return_index class_name attr.name
+            in
+            (* let temps = !var_ctr + 1 in *)
+            Some (base_lst @ exp_list, return_index)
+        | None -> None
+      in
+      { field_name = name; index; type_name = typename; expression = expr }
+    in
+    List.iter
+      (fun (class_elem : class_map_elem) ->
+        let attributes = List.mapi (init class_elem.name) class_elem.attrs in
+        Hashtbl.add class_attribute_map class_elem.name attributes)
+      parser_class_map
+  in
+  init_class_attribute_map ()
+
+(* Arguments for each method *)
+let arg_map = Hashtbl.create 32
+
+(* Class Map *)
 let parser_class_map : class_map_elem list = Parser.parser_class_map
+
+(* Implementation Map *)
 let implementation_map = Parser.implementation_map
+
+(* Parent Map *)
 let parent_map = Parser.parent_map
-let vtable_list : vtable list ref = ref []
 let label_ctr = ref 1
 
+(* Storage for the previous tac element, used for determining type of non-static method calls *)
 let prev_tac =
   ref
     {
@@ -135,6 +226,7 @@ let prev_tac =
       static_type = None;
     }
 
+(* Print string map *)
 let print_string_map () =
   Hashtbl.iter
     (fun k v ->
@@ -150,9 +242,6 @@ let print_string_map () =
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
     "\t.globl .percent.d\n.percent.d:\n\t.string\t\"%%d\"\n";
-  (*Printf.fprintf Print.out_file "\t.align 8\n";*)
-  (*Printf.fprintf Print.out_file*)
-  (*"\t.globl percent.s\npercent.s:\n\t.string\t\"%%s\"\n";*)
   Printf.fprintf Print.out_file "\t.align 8\n";
   Printf.fprintf Print.out_file
     "\t.globl .error_dispatch_void_string\n\
@@ -183,12 +272,15 @@ let print_string_map () =
     "\t.globl .abort_string\n.abort_string:\n\t.string\t\"abort\"\n";
   Printf.fprintf Print.out_file "\t.text\n"
 
+(* Generate vtable from implementation_map_elem *)
 let create_vtable (itm : implementation_map_elem) : vtable option =
   let name = itm.name in
+  (* Don't create vtables for default classes *)
   if
     name <> "Bool" && name <> "IO" && name <> "Int" && name <> "Object"
     && name <> "String"
   then (
+    (* Vtable is comprise of Class..new followed by class methods *)
     let funcs =
       [ { type_name = itm.name; method_name = ".new" } ]
       @ List.map
@@ -196,32 +288,23 @@ let create_vtable (itm : implementation_map_elem) : vtable option =
             { type_name = meth.type_name; method_name = meth.name })
           itm.methods
     in
+    (* Add class_name to string_map *)
     string_counter := !string_counter + 1;
     Hashtbl.add string_map itm.name !string_counter;
     Some { name_id = name; name_string_id = !string_counter; methods = funcs })
   else None
 
+(* Generate vtable from implementation_map *)
 let create_vtables () =
-  let string6 = "abort" in
-  let string7 = "ERROR: 0: Exception: String.substr out of range\\n" in
-  let string8 = "ERROR: 6: Exception: case without matching branch\\n" in
-  let string9 = "ERROR: 6: Exception: case on void\\n" in
-  Hashtbl.add string_map string6 6;
-  Hashtbl.add string_map string7 7;
-  Hashtbl.add string_map string8 8;
-  Hashtbl.add string_map string9 9;
   let tables = List.filter_map create_vtable implementation_map in
-  List.iter
-    (fun i ->
-      Hashtbl.add class_vtable_map i.name_id i;
-      vtable_list := !vtable_list @ [ i ])
-    tables
+  List.iter (fun i -> Hashtbl.add class_vtable_map i.name_id i) tables
 
-let rec print_vtable_func func =
-  Printf.fprintf Print.out_file "\t.quad %s.%s\n" func.type_name
-    func.method_name
-
-and print_vtable (table : vtable) =
+(* Print vtable function *)
+let print_vtable (table : vtable) =
+  let print_vtable_func func =
+    Printf.fprintf Print.out_file "\t.quad %s.%s\n" func.type_name
+      func.method_name
+  in
   let name = table.name_id in
   let strid = table.name_string_id in
   Printf.fprintf Print.out_file ".globl %s..vtable\n" name;
@@ -231,12 +314,8 @@ and print_vtable (table : vtable) =
   Printf.fprintf Print.out_file
     "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
 
+(* Vtables for default values *)
 let create_default_vtables () =
-  Hashtbl.add string_map "Bool" 0;
-  Hashtbl.add string_map "IO" 1;
-  Hashtbl.add string_map "Int" 2;
-  Hashtbl.add string_map "Object" 3;
-  Hashtbl.add string_map "String" 4;
   let vtables =
     [
       {
@@ -306,11 +385,10 @@ let create_default_vtables () =
   List.iter (fun f -> Hashtbl.add class_vtable_map f.name_id f) vtables;
   vtables
 
+(* Push all registers *)
 let pusha =
   [
     Instruction ("pushq", "%rax", "", "");
-    (*Instruction ("pushq", "%rbx", "", "");*)
-    (*Instruction ("pushq", "%rbp", "", "");*)
     Instruction ("pushq", "%rdi", "", "");
     Instruction ("pushq", "%rsi", "", "");
     Instruction ("pushq", "%rcx", "", "");
@@ -320,16 +398,11 @@ let pusha =
     Instruction ("pushq", "%r10", "", "");
     Instruction ("pushq", "%r11", "", "");
     Instruction ("pushq", "%r12", "", "");
-    (*Instruction ("pushq", "%r13", "", "");*)
-    (*Instruction ("pushq", "%r14", "", "");*)
-    (*Instruction ("pushq", "%r15", "", "");*)
   ]
 
+(* Pop all registers *)
 let popa =
   [
-    (*Instruction ("popq", "%r15", "", "");*)
-    (*Instruction ("popq", "%r14", "", "");*)
-    (*Instruction ("popq", "%r13", "", "");*)
     Instruction ("popq", "%r12", "", "");
     Instruction ("popq", "%r11", "", "");
     Instruction ("popq", "%r10", "", "");
@@ -339,11 +412,10 @@ let popa =
     Instruction ("popq", "%rcx", "", "");
     Instruction ("popq", "%rsi", "", "");
     Instruction ("popq", "%rdi", "", "");
-    (*Instruction ("popq", "%rbp", "", "");*)
-    (*Instruction ("popq", "%rbx", "", "");*)
     Instruction ("popq", "%rax", "", "");
   ]
 
+(* Push all argument registers *)
 let pushargs =
   [
     Instruction ("pushq", "%rdi", "", "");
@@ -354,6 +426,7 @@ let pushargs =
     Instruction ("pushq", "%r9", "", "");
   ]
 
+(* Pop all argument registers *)
 let popargs =
   [
     Instruction ("popq", "%r9", "", "");
@@ -364,46 +437,12 @@ let popargs =
     Instruction ("popq", "%rdi", "", "");
   ]
 
-let get_unique_label () =
+(* Get assembly label *)
+let get_label () =
   label_ctr := !label_ctr + 1;
   ".label" ^ string_of_int !label_ctr
 
-let get_class_attributes class_name attrs =
-  let get_attribute i (attr : ast_attribute) =
-    let name = attr.name in
-    let index = i in
-    let typename = attr.type_name in
-    let expr =
-      match attr.attr_expr with
-      | Some attr_expr ->
-          var_ctr := 0;
-          (*label_ctr := 0;*)
-          let base_lst =
-            [
-              {
-                operand = Comment;
-                arg1 = "attr start";
-                arg2 = "";
-                result = "";
-                line = attr_expr.id.line_num;
-                static_type = attr_expr.static_type;
-              };
-            ]
-          in
-          let return_index = get_id !var_ctr in
-          let exp_list =
-            exp_to_tac attr_expr return_index class_name attr.name
-          in
-          (* let temps = !var_ctr + 1 in *)
-          Some (base_lst @ exp_list, return_index)
-      | None -> None
-    in
-    { field_name = name; index; type_name = typename; expression = expr }
-  in
-  let attributes = List.mapi get_attribute attrs in
-  Hashtbl.add class_attribute_map class_name attributes;
-  attributes
-
+(* Print class attributes *)
 let print_class_attributes () =
   Hashtbl.iter
     (fun k attrlist ->
@@ -414,168 +453,47 @@ let print_class_attributes () =
         attrlist)
     class_attribute_map
 
+(* Create a class in assembly *)
 let make_asm_class (c : class_map_elem) =
-  let tag = !class_tag_ctr in
-  class_tag_ctr := !class_tag_ctr + 1;
+  let id = !class_id_ctr in
+  class_id_ctr := !class_id_ctr + 1;
 
   if
     c.name <> "Bool" && c.name <> "IO" && c.name <> "Int" && c.name <> "Object"
     && c.name <> "String"
   then (
-    Hashtbl.add class_id_map c.name tag;
+    Hashtbl.add class_id_map c.name id;
     (* 8 bytes/64 bits since every attribute is a pointer *)
     let siz = List.length c.attrs in
     let class_vtable = Hashtbl.find_opt class_vtable_map c.name in
-    let attrs = get_class_attributes c.name c.attrs in
+    let attrs =
+      match Hashtbl.find_opt class_attribute_map c.name with
+      | Some v -> v
+      | None ->
+          Printf.fprintf stderr "Could not find attributes for class %s\n"
+            c.name;
+          assert false
+    in
     match class_vtable with
     | Some cv ->
         Some
-          {
-            class_tag = tag;
-            object_size = siz;
-            vtable = cv;
-            attributes = attrs;
-          }
-    | None ->
-        (* Printf.fprintf out_file "#; No vtable found for class %s\n" c.name; *)
-        None)
+          { class_id = id; object_size = siz; vtable = cv; attributes = attrs }
+    | None -> None)
   else None
 
-(* Bool is class tag 0 *)
-let () = Hashtbl.add class_id_map "Bool" 1
-
-let bool_new =
-  [
-    Line "Bool..new:";
-    Instruction ("subq", "$8", "%rsp", "");
-    Instruction ("movl", "$4", "%esi", "");
-    Instruction ("movl", "$8", "%edi", "");
-    Instruction ("call", "calloc", "", "");
-    Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$1", "(%rax)", "");
-    Instruction ("movq", "$4", "8(%rax)", "");
-    Instruction ("movq", "$Bool..vtable", "%r11", "");
-    Instruction ("movq", "%r11", "16(%rax)", "");
-    Instruction ("movq", "$0", "24(%rax)", "");
-    Instruction ("addq", "$8", "%rsp", "");
-    Instruction ("ret", "", "", "");
-    (*Instruction (".size", "Bool..new", ".-Bool..new", "");*)
-  ]
-
-let () = Hashtbl.add class_id_map "IO" 11
-
-let io_new =
-  [
-    Line "IO..new:";
-    Instruction ("subq", "$8", "%rsp", "");
-    Instruction ("movl", "$3", "%esi", "");
-    Instruction ("movl", "$8", "%edi", "");
-    Instruction ("call", "calloc", "", "");
-    Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$11", "(%rax)", "");
-    Instruction ("movq", "$3", "8(%rax)", "");
-    Instruction ("movq", "$IO..vtable", "%r11", "");
-    Instruction ("movq", "%r11", "16(%rax)", "");
-    Instruction ("addq", "$8", "%rsp", "");
-    Instruction ("ret", "", "", "");
-    (*Instruction (".size", "IO..new", ".-IO..new", "");*)
-  ]
-
-let () = Hashtbl.add class_id_map "Int" 2
-
-let int_new =
-  [
-    Line "Int..new:";
-    Instruction ("subq", "$8", "%rsp", "");
-    Instruction ("movl", "$4", "%esi", "");
-    Instruction ("movl", "$8", "%edi", "");
-    Instruction ("call", "calloc", "", "");
-    Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$2", "(%rax)", "");
-    Instruction ("movq", "$4", "8(%rax)", "");
-    Instruction ("movq", "$Int..vtable", "%r11", "");
-    Instruction ("movq", "%r11", "16(%rax)", "");
-    Instruction ("movq", "$0", "24(%rax)", "");
-    Instruction ("addq", "$8", "%rsp", "");
-    Instruction ("ret", "", "", "");
-    (*Instruction (".size", "Int..new", ".-Int..new", "");*)
-  ]
-
-let () = Hashtbl.add class_id_map "Object" 13
-
-let object_new =
-  [
-    Line "Object..new:";
-    Instruction ("subq", "$8", "%rsp", "");
-    Instruction ("movl", "$3", "%esi", "");
-    Instruction ("movl", "$8", "%edi", "");
-    Instruction ("call", "calloc", "", "");
-    Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$13", "(%rax)", "");
-    Instruction ("movq", "$3", "8(%rax)", "");
-    Instruction ("movq", "$Object..vtable", "%r11", "");
-    Instruction ("movq", "%r11", "16(%rax)", "");
-    Instruction ("addq", "$8", "%rsp", "");
-    Instruction ("ret", "", "", "");
-    (*Instruction (".size", "Object..new", ".-Object..new", "");*)
-  ]
-
-let () = Hashtbl.add class_id_map "String" 5
-
-let string_new =
-  [
-    Line "String..new:";
-    Instruction ("pushq", "%rbx", "", "");
-    Instruction ("movl", "$4", "%esi", "");
-    Instruction ("movl", "$8", "%edi", "");
-    Instruction ("call", "calloc", "", "");
-    Instruction ("movl", "$1", "%edi", "");
-    Instruction ("movq", "%rax", "%rbx", "");
-    Line "\t#Set class tag, object size, vtable pointer";
-    Instruction ("movq", "$5", "(%rax)", "");
-    Instruction ("movq", "$4", "8(%rax)", "");
-    Instruction ("movl", "$String..vtable", "%eax", "");
-    Instruction ("movq", "%rax", "16(%rbx)", "");
-    Instruction ("call", "malloc", "", "");
-    Instruction ("movq", "%rax", "24(%rbx)", "");
-    Instruction ("movb", "$0", "(%rax)", "");
-    Instruction ("movq", "%rbx", "%rax", "");
-    Instruction ("popq", "%rbx", "", "");
-    Instruction ("ret", "", "", "");
-    (*Instruction (".size", "String..new", ".-String..new", "");*)
-  ]
-
-let new_funcs =
-  [
-    ("Bool", bool_new);
-    ("IO", io_new);
-    ("Int", int_new);
-    ("Object", object_new);
-    ("String", string_new);
-  ]
-
-let print_var_locations () =
-  Hashtbl.iter
-    (fun k v -> Printf.fprintf out_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
-    var_locations
-
-let print_var_locations_stdout () =
-  Hashtbl.iter
-    (fun k v -> Printf.printf "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
-    var_locations
-
+(* Add variable to var_locations, if not already in *)
 let add_var_addr (var_name : string) =
   let fp_offset = 8 * (Hashtbl.length var_locations + 1) in
-  (*Printf.printf "Hashtable length when getting var %s: %d\n" var_name*)
-  (*(Hashtbl.length var_locations);*)
   match Hashtbl.find_opt var_locations var_name with
-  | None ->
-      Printf.fprintf out_file "\t#; Adding var %s at position -%d(%%rbp)\n"
-        var_name fp_offset;
-      Hashtbl.add var_locations var_name fp_offset
-  | Some _ -> ()
+  | None -> Hashtbl.add var_locations var_name fp_offset
+  | Some _ ->
+      (* Printf.fprintf out_file "Error: Variable %s already has a location\n"
+        var_name *)
+      ()
 
+(* Get address of a varaible *)
 let get_var_addr (var_name : string) : string =
+  (* First check if variable is an argument *)
   match Hashtbl.find_opt arg_map var_name with
   | Some addr ->
       if addr < 0 then (
@@ -588,64 +506,42 @@ let get_var_addr (var_name : string) : string =
       else Printf.sprintf "%d(%%rbp)" addr
   | None -> (
       match Hashtbl.find_opt var_locations var_name with
-      | Some addr ->
-          if addr < 0 then (
-            let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
-            let register = List.nth registers (addr + 5) in
-            Printf.fprintf out_file
-              "\t#; Argument %s is stored in register %d (%s)\n" var_name addr
-              register;
-            register)
-          else Printf.sprintf "-%d(%%rbp)" addr
+      (* Second check if variable is in a register *)
+      | Some addr when addr < 0 ->
+          let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+          let register = List.nth registers (addr + 5) in
+          Printf.fprintf out_file
+            "\t#; Argument %s is stored in register %d (%s)\n" var_name addr
+            register;
+          register
+      (* Third check if variable is stored somewhere already *)
+      | Some addr -> Printf.sprintf "-%d(%%rbp)" addr
       | None ->
+          (* Fourth check if variable refers to self pointer *)
           if var_name = "self" || var_name = "%rdi" then "%rdi"
-          else (
+          (* Fifth: That sucks, error *)
+            else (
             Printf.fprintf out_file
               "\t#; Failed to find a temp for variable %s\n" var_name;
             print_var_locations ();
             var_name))
 
+(* Global counter for jump points *)
 let jump_number = ref 1
 
+(* Increment & get jump number *)
 let get_jump () =
   jump_number := !jump_number + 1;
   !jump_number
 
-(* let get_offset method_name static_type current_class =
-   match static_type with
-  | Some static_type -> (
-      match static_type with
-      | Class c ->
-          let vtab = Hashtbl.find class_vtable_map c in
-          let res =
-            Option.get
-              (List.find_index
-                 (fun s -> s.method_name = method_name)
-                 vtab.methods)
-          in
-          string_of_int ((res + 1) * 8)
-      | SELF_TYPE _ ->
-          let vtab = Hashtbl.find class_vtable_map current_class in
-          let res =
-            Option.get
-              (List.find_index
-                 (fun s -> s.method_name = method_name)
-                 vtab.methods)
-          in
-          string_of_int ((res + 1) * 8))
-  | None -> assert false *)
 (* Taken/modified from https://stackoverflow.com/questions/31279920/finding-an-item-in-a-list-and-returning-its-index-ocaml *)
+(* Index of an item in a list *)
 let rec find x lst count =
   match lst with
   | [] -> assert false
   | h :: t -> if x = h.method_name then count else find x t (count + 1)
 
-let print_vtable_map () =
-  Printf.fprintf stderr "#; Vtables:\n";
-  Hashtbl.iter
-    (fun k _ -> Printf.fprintf stderr "\t#; Class: %s;\n" k)
-    class_vtable_map
-
+(* Get offset of a method within a vtable *)
 let get_offset method_name static_type current_class =
   match static_type with
   | Class c -> (
@@ -671,33 +567,26 @@ let get_offset method_name static_type current_class =
             current_class;
           assert false)
 
-(*let get_unique_label () =*)
-(*label_ctr := !label_ctr + 1;*)
-(*class_name ^ "_" ^ method_name ^ "_" ^ string_of_int !label_ctr*)
-let get_attribute_map class_name =
-  match Hashtbl.find_opt class_attribute_map class_name with
-  | Some v -> v
-  | None ->
-      Printf.fprintf stderr "Failed to find the attributes of class %s\n"
-        class_name;
-      assert false
-
-let get_attribute class_name attr_name =
-  let attrs = get_attribute_map class_name in
-  List.find_opt (fun f -> f.field_name = attr_name) attrs
-
+(* Character escaping*)
 let transform_string s =
-  String.fold_left (fun acc ch -> acc ^
-      (match ch with
-      | ' '..'~' -> if ch = '"' then "\\\"" else if ch = '\\' then "\\\\" else String.make 1 ch
-      | '\x00'..'\x1f' | '\x7f' -> if ch = '\n' then "\\n" else if ch = '\t' then "\\t" else Char.escaped ch
-      | _ -> String.make 1 ch (* unicode we just hope is good *)
-      )
-  ) "" s
+  String.fold_left
+    (fun acc ch ->
+      acc
+      ^
+      match ch with
+      | ' ' .. '~' ->
+          if ch = '"' then "\\\""
+          else if ch = '\\' then "\\\\"
+          else String.make 1 ch
+      | '\x00' .. '\x1f' | '\x7f' ->
+          if ch = '\n' then "\\n"
+          else if ch = '\t' then "\\t"
+          else Char.escaped ch
+      | _ -> String.make 1 ch (* unicode we just hope is good *))
+    "" s
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
-  (*Printf.fprintf out_file "#; %s" prev_result;*)
   [ Line (Tac.get_tac_elem_commented tac) ]
   @
   match tac.operand with
@@ -758,8 +647,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       in
       let prev_addr = get_var_addr prev_tac.result in
       let meth = tac.arg1 in
-      let void_dispatch_label = get_unique_label () in
-      let finish_void_dispatch_label = get_unique_label () in
+      let void_dispatch_label = get_label () in
+      let finish_void_dispatch_label = get_label () in
       (* pushargs *)
       [
         Instruction ("movq", prev_addr, "%rax", "");
@@ -915,8 +804,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       in
       let prev_addr = get_var_addr prev_tac.result in
       let meth = tac.arg1 in
-      let void_dispatch_label = get_unique_label () in
-      let finish_void_dispatch_label = get_unique_label () in
+      let void_dispatch_label = get_label () in
+      let finish_void_dispatch_label = get_label () in
       (* pushargs *)
       [
         Instruction ("movq", prev_addr, "%rax", "");
@@ -1062,12 +951,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       let class_name = get_var_addr tac.arg1 in
-      let class_tag = Hashtbl.find_opt class_id_map class_name in
-      match class_tag with
-      | Some class_tag ->
+      let class_id = Hashtbl.find_opt class_id_map class_name in
+      match class_id with
+      | Some class_id ->
           (* Printf.fprintf out_file "\t#; Class Id of type %s is %d\n" class_name
-            class_tag; *)
-          [ Instruction ("movq", Printf.sprintf "$%d" class_tag, result, "") ]
+            class_id; *)
+          [ Instruction ("movq", Printf.sprintf "$%d" class_id, result, "") ]
       | None ->
           [
             Instruction ("movq", class_name, "%r13", "");
@@ -1218,8 +1107,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       let arg2 = get_var_addr tac.arg2 in
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      let error_label = get_unique_label () in
-      let div_end_label = get_unique_label () in
+      let error_label = get_label () in
+      let div_end_label = get_label () in
 
       [
         Line "\t#Divide start";
@@ -1556,157 +1445,6 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
           Line post_jump_label;
         ]
 
-let generate_class_new_asm asm_class_var =
-  let func_name = Printf.sprintf "%s..new:" asm_class_var.vtable.name_id in
-  let class_tag = Printf.sprintf "$%d" asm_class_var.class_tag in
-  let object_size = Printf.sprintf "$%d" (3 + asm_class_var.object_size) in
-  let vtable_name = Printf.sprintf "$%s..vtable" asm_class_var.vtable.name_id in
-  let stack_room = Printf.sprintf "$%d" 16 in
-  let attr_creation_lines =
-    List.map
-      (fun (attr : attribute) : asm_line list ->
-        let var_index = 3 + attr.index in
-        let type_new = Printf.sprintf "%s..new" attr.type_name in
-        let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
-        [
-          Line
-            (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
-               attr.field_name attr.type_name);
-          Line (Printf.sprintf "\t## new %s" attr.type_name);
-          Instruction ("pushq", "%rbp", "", "");
-          Instruction ("pushq", "%rax", "", "");
-          Instruction ("call", type_new, "", "");
-          Instruction ("movq", "%rax", "%r13", "");
-          Instruction ("popq", "%rax", "", "");
-          Instruction ("popq", "%rbp", "", "");
-          Instruction ("movq", "%r13", stack_location, "");
-        ])
-      asm_class_var.attributes
-    |> List.flatten
-  in
-  let attr_init_lines =
-    List.map
-      (fun (attr : attribute) : asm_line list ->
-        match attr.expression with
-        | Some (tacs, retval) ->
-            add_var_addr retval;
-            let ret = get_var_addr retval in
-            let stack_location =
-              Printf.sprintf "%d(%%rax)" (8 * (attr.index + 3))
-            in
-            (*let prev_result = ref "" in*)
-            [
-              Instruction ("pushq", "%r13", "", "");
-              Instruction ("pushq", "%rax", "", "");
-            ]
-            @ (List.map
-                 (fun tac ->
-                   (*let t =*)
-                   (*tac_to_as tac attr.field_name asm_class_var.vtable.name_id*)
-                   (*!prev_result*)
-                   (*in*)
-                   (*prev_result := tac.result;*)
-                   (*t)*)
-                   let t =
-                     tac_to_as tac attr.field_name asm_class_var.vtable.name_id
-                       !prev_tac
-                   in
-                   prev_tac := tac;
-                   t)
-                 tacs
-              |> List.flatten)
-            @ [
-                Instruction ("movq", ret, "%r13", "");
-                Instruction ("popq", "%rax", "", "");
-                Instruction ("movq", "%r13", stack_location, "");
-                Instruction ("popq", "%r13", "", "");
-              ]
-        | None -> [])
-      asm_class_var.attributes
-    |> List.flatten
-  in
-  let return_lines =
-    [
-      Instruction ("movq", "%rbp", "%rsp", "");
-      Instruction ("popq", "%rbp", "", "");
-      Instruction ("ret", "", "", "");
-    ]
-  in
-  ( asm_class_var.vtable.name_id,
-    [
-      (* Name *)
-      Line func_name;
-      Line (Printf.sprintf "## constructor for %s" asm_class_var.vtable.name_id);
-      (* Set stack pointer (make room for temporaries *)
-      Instruction ("pushq", "%rbp", "", "");
-      Instruction ("movq", "%rsp", "%rbp", "");
-      (*Line "\t## stack room for temporaries: ?";*)
-      Instruction ("subq", stack_room, "%rsp", "");
-      (*  Return address handling *)
-      (*Line "\t## return address handling";*)
-      (*  Allocate space for the variable (rsi*rdi)=num*bytes *)
-      Instruction ("movq", "$8", "%rsi", "");
-      Instruction ("movq", object_size, "%rdi", "");
-      Instruction ("call", "calloc", "", "");
-      (* NOTE: Alot of these can be simplified to one line operations *)
-      Line "\t## store class tag, object size and vtable pointer";
-      Instruction ("movq", class_tag, "0(%rax)", "");
-      Instruction ("movq", object_size, "%r14", "");
-      Instruction ("movq", "%r14", "8(%rax)", "");
-      Instruction ("movq", vtable_name, "%r14", "");
-      Instruction ("movq", "%r14", "16(%rax)", "");
-      (* Instruction ("movq", "%rax", "%r13", ""); *)
-      Line "\t## return address handling";
-      (* Reset stack pointer *)
-      Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
-      Line "\t## initialize attributes";
-    ]
-    @ attr_creation_lines @ attr_init_lines @ return_lines )
-(*
-      Line func_name;
-      Instruction ("subq", pointer_size, "%rsp", "");
-      Instruction ("movl", object_size, "%esi", "");
-      Instruction ("movl", "$8", "%edi", "");
-      (* Call glibc calloc function which allocates (esi * dsi) bytes of memory ( count * size) *)
-      Instruction ("call", "calloc", "", "");
-      Line "\t#Set class tag, object size, vtable pointer";
-      Instruction ("movq", class_tag, "(%rax)", "");
-      Instruction ("movq", object_size, "8(%rax)", "");
-      Instruction ("movq", vtable_name, "16(%rax)", "");
-      Instruction ("addq", pointer_size, "%rsp", "");
-      Instruction ("ret", "", "", "");
-     *)
-
-let get_start_method_boilerplate method_name class_name stack_space =
-  let name = class_name ^ "." ^ method_name in
-  [
-    Line "\t.p2align 4";
-    Line (Printf.sprintf "\t.globl\t%s" name);
-    Line (Printf.sprintf "\t.type\t%s, @function" name);
-    Line (Printf.sprintf "%s:" name);
-    Instruction ("pushq", "%rbp", "", "");
-    Instruction ("movq", "%rsp", "%rbp", "");
-    Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
-  ]
-
-let get_end_method_boilerplate class_name method_name =
-  let ret =
-    match get_attribute class_name !prev_tac.result with
-    | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
-    | None -> get_var_addr !prev_tac.result
-  in
-  let retline =
-    Printf.sprintf "#; The return of %s.%s is %s\n" class_name method_name ret
-  in
-  [
-    Line (Printf.sprintf "%s.%s.end:" class_name method_name);
-    Line retline;
-    Instruction ("movq", ret, "%rax", "");
-    Instruction ("movq", "%rbp", "%rsp", "");
-    Instruction ("popq", "%rbp", "", "");
-    Instruction ("ret", "", "", "");
-  ]
-
 let print_start () =
   let start =
     let part1 =
@@ -1744,15 +1482,249 @@ let print_start () =
 
 let vtables =
   create_vtables ();
-  create_default_vtables () @ !vtable_list
+  let vtable_list =
+    Hashtbl.fold (fun _ v acc -> v :: acc) class_vtable_map []
+  in
+  create_default_vtables () @ vtable_list
 
-let asm_classes : asm_class list =
-  List.filter_map make_asm_class parser_class_map
+let bool_new =
+  [
+    Line "Bool..new:";
+    Instruction ("subq", "$8", "%rsp", "");
+    Instruction ("movl", "$4", "%esi", "");
+    Instruction ("movl", "$8", "%edi", "");
+    Instruction ("call", "calloc", "", "");
+    Line "\t#Set class tag, object size, vtable pointer";
+    Instruction ("movq", "$1", "(%rax)", "");
+    Instruction ("movq", "$4", "8(%rax)", "");
+    Instruction ("movq", "$Bool..vtable", "%r11", "");
+    Instruction ("movq", "%r11", "16(%rax)", "");
+    Instruction ("movq", "$0", "24(%rax)", "");
+    Instruction ("addq", "$8", "%rsp", "");
+    Instruction ("ret", "", "", "");
+    (*Instruction (".size", "Bool..new", ".-Bool..new", "");*)
+  ]
 
-let new_funcs = new_funcs @ List.map generate_class_new_asm asm_classes
+let io_new =
+  [
+    Line "IO..new:";
+    Instruction ("subq", "$8", "%rsp", "");
+    Instruction ("movl", "$3", "%esi", "");
+    Instruction ("movl", "$8", "%edi", "");
+    Instruction ("call", "calloc", "", "");
+    Line "\t#Set class tag, object size, vtable pointer";
+    Instruction ("movq", "$11", "(%rax)", "");
+    Instruction ("movq", "$3", "8(%rax)", "");
+    Instruction ("movq", "$IO..vtable", "%r11", "");
+    Instruction ("movq", "%r11", "16(%rax)", "");
+    Instruction ("addq", "$8", "%rsp", "");
+    Instruction ("ret", "", "", "");
+    (*Instruction (".size", "IO..new", ".-IO..new", "");*)
+  ]
+
+let int_new =
+  [
+    Line "Int..new:";
+    Instruction ("subq", "$8", "%rsp", "");
+    Instruction ("movl", "$4", "%esi", "");
+    Instruction ("movl", "$8", "%edi", "");
+    Instruction ("call", "calloc", "", "");
+    Line "\t#Set class tag, object size, vtable pointer";
+    Instruction ("movq", "$2", "(%rax)", "");
+    Instruction ("movq", "$4", "8(%rax)", "");
+    Instruction ("movq", "$Int..vtable", "%r11", "");
+    Instruction ("movq", "%r11", "16(%rax)", "");
+    Instruction ("movq", "$0", "24(%rax)", "");
+    Instruction ("addq", "$8", "%rsp", "");
+    Instruction ("ret", "", "", "");
+    (*Instruction (".size", "Int..new", ".-Int..new", "");*)
+  ]
+
+let object_new =
+  [
+    Line "Object..new:";
+    Instruction ("subq", "$8", "%rsp", "");
+    Instruction ("movl", "$3", "%esi", "");
+    Instruction ("movl", "$8", "%edi", "");
+    Instruction ("call", "calloc", "", "");
+    Line "\t#Set class tag, object size, vtable pointer";
+    Instruction ("movq", "$13", "(%rax)", "");
+    Instruction ("movq", "$3", "8(%rax)", "");
+    Instruction ("movq", "$Object..vtable", "%r11", "");
+    Instruction ("movq", "%r11", "16(%rax)", "");
+    Instruction ("addq", "$8", "%rsp", "");
+    Instruction ("ret", "", "", "");
+    (*Instruction (".size", "Object..new", ".-Object..new", "");*)
+  ]
+
+let string_new =
+  [
+    Line "String..new:";
+    Instruction ("pushq", "%rbx", "", "");
+    Instruction ("movl", "$4", "%esi", "");
+    Instruction ("movl", "$8", "%edi", "");
+    Instruction ("call", "calloc", "", "");
+    Instruction ("movl", "$1", "%edi", "");
+    Instruction ("movq", "%rax", "%rbx", "");
+    Line "\t#Set class tag, object size, vtable pointer";
+    Instruction ("movq", "$5", "(%rax)", "");
+    Instruction ("movq", "$4", "8(%rax)", "");
+    Instruction ("movl", "$String..vtable", "%eax", "");
+    Instruction ("movq", "%rax", "16(%rbx)", "");
+    Instruction ("call", "malloc", "", "");
+    Instruction ("movq", "%rax", "24(%rbx)", "");
+    Instruction ("movb", "$0", "(%rax)", "");
+    Instruction ("movq", "%rbx", "%rax", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("ret", "", "", "");
+  ]
+
+let new_funcs =
+  (* Generate assembly code for Class..new functions*)
+  let generate_class_new_asm asm_class_var =
+    let func_name = Printf.sprintf "%s..new:" asm_class_var.vtable.name_id in
+    let class_id = Printf.sprintf "$%d" asm_class_var.class_id in
+    let object_size = Printf.sprintf "$%d" (3 + asm_class_var.object_size) in
+    let vtable_name =
+      Printf.sprintf "$%s..vtable" asm_class_var.vtable.name_id
+    in
+    let stack_room = Printf.sprintf "$%d" 16 in
+    let attr_creation_lines =
+      List.map
+        (fun (attr : attribute) : asm_line list ->
+          let var_index = 3 + attr.index in
+          let type_new = Printf.sprintf "%s..new" attr.type_name in
+          let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
+          [
+            Line
+              (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
+                 attr.field_name attr.type_name);
+            Line (Printf.sprintf "\t## new %s" attr.type_name);
+            Instruction ("pushq", "%rbp", "", "");
+            Instruction ("pushq", "%rax", "", "");
+            Instruction ("call", type_new, "", "");
+            Instruction ("movq", "%rax", "%r13", "");
+            Instruction ("popq", "%rax", "", "");
+            Instruction ("popq", "%rbp", "", "");
+            Instruction ("movq", "%r13", stack_location, "");
+          ])
+        asm_class_var.attributes
+      |> List.flatten
+    in
+    let attr_init_lines =
+      List.map
+        (fun (attr : attribute) : asm_line list ->
+          match attr.expression with
+          | Some (tacs, retval) ->
+              add_var_addr retval;
+              let ret = get_var_addr retval in
+              let stack_location =
+                Printf.sprintf "%d(%%rax)" (8 * (attr.index + 3))
+              in
+              [
+                Instruction ("pushq", "%r13", "", "");
+                Instruction ("pushq", "%rax", "", "");
+              ]
+              @ (List.map
+                   (fun tac ->
+                     let t =
+                       tac_to_as tac attr.field_name
+                         asm_class_var.vtable.name_id !prev_tac
+                     in
+                     prev_tac := tac;
+                     t)
+                   tacs
+                |> List.flatten)
+              @ [
+                  Instruction ("movq", ret, "%r13", "");
+                  Instruction ("popq", "%rax", "", "");
+                  Instruction ("movq", "%r13", stack_location, "");
+                  Instruction ("popq", "%r13", "", "");
+                ]
+          | None -> [])
+        asm_class_var.attributes
+      |> List.flatten
+    in
+    let return_lines =
+      [
+        Instruction ("movq", "%rbp", "%rsp", "");
+        Instruction ("popq", "%rbp", "", "");
+        Instruction ("ret", "", "", "");
+      ]
+    in
+    ( asm_class_var.vtable.name_id,
+      [
+        (* Name *)
+        Line func_name;
+        Line
+          (Printf.sprintf "## constructor for %s" asm_class_var.vtable.name_id);
+        (* Set stack pointer (make room for temporaries *)
+        Instruction ("pushq", "%rbp", "", "");
+        Instruction ("movq", "%rsp", "%rbp", "");
+        Line "\t## stack room for temporaries: ?";
+        Instruction ("subq", stack_room, "%rsp", "");
+        Line "\t## return address handling";
+        (*  Allocate space for the variable (rsi*rdi)=num*bytes *)
+        Instruction ("movq", "$8", "%rsi", "");
+        Instruction ("movq", object_size, "%rdi", "");
+        Instruction ("call", "calloc", "", "");
+        (* NOTE: Alot of these can be simplified to one line operations *)
+        Line "\t## store class tag, object size and vtable pointer";
+        Instruction ("movq", class_id, "0(%rax)", "");
+        Instruction ("movq", object_size, "%r14", "");
+        Instruction ("movq", "%r14", "8(%rax)", "");
+        Instruction ("movq", vtable_name, "%r14", "");
+        Instruction ("movq", "%r14", "16(%rax)", "");
+        Line "\t## return address handling";
+        Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
+        Line "\t## initialize attributes";
+      ]
+      @ attr_creation_lines @ attr_init_lines @ return_lines )
+  in
+  let asm_classes : asm_class list =
+    List.filter_map make_asm_class parser_class_map
+  in
+  [
+    ("Bool", bool_new);
+    ("IO", io_new);
+    ("Int", int_new);
+    ("Object", object_new);
+    ("String", string_new);
+  ]
+  @ List.map generate_class_new_asm asm_classes
 
 (* A list of (the assembly code for) methods *)
 let method_asm =
+  let get_start_method_boilerplate method_name class_name stack_space =
+    let name = class_name ^ "." ^ method_name in
+    [
+      Line "\t.p2align 4";
+      Line (Printf.sprintf "\t.globl\t%s" name);
+      Line (Printf.sprintf "\t.type\t%s, @function" name);
+      Line (Printf.sprintf "%s:" name);
+      Instruction ("pushq", "%rbp", "", "");
+      Instruction ("movq", "%rsp", "%rbp", "");
+      Instruction ("subq", "$" ^ string_of_int stack_space, "%rsp", "");
+    ]
+  in
+  let get_end_method_boilerplate class_name method_name =
+    let ret =
+      match get_attribute class_name !prev_tac.result with
+      | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+      | None -> get_var_addr !prev_tac.result
+    in
+    let retline =
+      Printf.sprintf "#; The return of %s.%s is %s\n" class_name method_name ret
+    in
+    [
+      Line (Printf.sprintf "%s.%s.end:" class_name method_name);
+      Line retline;
+      Instruction ("movq", ret, "%rax", "");
+      Instruction ("movq", "%rbp", "%rsp", "");
+      Instruction ("popq", "%rbp", "", "");
+      Instruction ("ret", "", "", "");
+    ]
+  in
   List.map
     (fun (cfg, class_name, method_name, method_args, temps) ->
       Hashtbl.reset var_locations;

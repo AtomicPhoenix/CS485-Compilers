@@ -345,7 +345,7 @@ out_string
 10
 String
 string
-This is wrongD\n
+This is wrong\n
 Object
 3
 abort
@@ -527,7 +527,7 @@ out_string
 10
 String
 string
-This is wrongD\n
+This is wrong\n
 16
 A
 no_inherits
