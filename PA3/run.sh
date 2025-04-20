@@ -32,7 +32,7 @@ ocamlc main.ml
 
 TESTNAME="$(basename "$TESTNAME" .cl-type)"
 
-gcc -static -fno-pie -g3 -o program "$TESTNAME".s
+gcc -static -fno-pie -ggdb -o program "$TESTNAME".s
 ./program
 
 TESTNAME="$(basename "$TESTNAME" .s)"

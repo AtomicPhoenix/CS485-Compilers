@@ -48,7 +48,7 @@ let var_ctr = ref 0
 let label_ctr = ref 0
 let ret = ref 0
 let class_map = Hashtbl.create 32
-let letTable = Hashtbl.create 10
+let letTable = Hashtbl.create 32
 
 (** Creates a list of all ancestors of a cool class*)
 let rec get_ancestors (name : string) acc =
@@ -167,24 +167,44 @@ let print_tac_elem t =
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
-
 let print_tac_elem_stdout t =
   match t.operand with
-  | Label -> Printf.printf "operand: label, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | Jmp -> Printf.printf "operand: jmp, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | Return -> Printf.printf "operand: return, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | Comment -> Printf.printf "operand: comment, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | Bt -> Printf.printf "operand: bt, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | Assignment -> Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | LetNoInit -> Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | String_Constant -> Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | Case _ -> Printf.printf "operand: Cmp, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | VoidCase -> Printf.printf "operand: VoidCase, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
-  | EmptyCase -> Printf.printf "operand: EmptyCase, arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2 t.result
+  | Label ->
+      Printf.printf "operand: label, arg1: %s, arg2: %s, result: %s\n" t.arg1
+        t.arg2 t.result
+  | Jmp ->
+      Printf.printf "operand: jmp, arg1: %s, arg2: %s, result: %s\n" t.arg1
+        t.arg2 t.result
+  | Return ->
+      Printf.printf "operand: return, arg1: %s, arg2: %s, result: %s\n" t.arg1
+        t.arg2 t.result
+  | Comment ->
+      Printf.printf "operand: comment, arg1: %s, arg2: %s, result: %s\n" t.arg1
+        t.arg2 t.result
+  | Bt ->
+      Printf.printf "operand: bt, arg1: %s, arg2: %s, result: %s\n" t.arg1
+        t.arg2 t.result
+  | Assignment ->
+      Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2
+        t.result
+  | LetNoInit ->
+      Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2
+        t.result
+  | String_Constant ->
+      Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2
+        t.result
+  | Case _ ->
+      Printf.printf "operand: Cmp, arg1: %s, arg2: %s, result: %s\n" t.arg1
+        t.arg2 t.result
+  | VoidCase ->
+      Printf.printf "operand: VoidCase, arg1: %s, arg2: %s, result: %s\n" t.arg1
+        t.arg2 t.result
+  | EmptyCase ->
+      Printf.printf "operand: EmptyCase, arg1: %s, arg2: %s, result: %s\n"
+        t.arg1 t.arg2 t.result
   | _ ->
       if t.arg2 = "" && t.arg1 = "" then
-        Printf.printf "%s <- %s\n" t.result
-          (operand_to_string t.operand)
+        Printf.printf "%s <- %s\n" t.result (operand_to_string t.operand)
       else if t.arg2 = "" then
         Printf.printf "%s <- %s %s\n" t.result
           (operand_to_string t.operand)
@@ -193,6 +213,7 @@ let print_tac_elem_stdout t =
         Printf.printf "%s <- %s %s %s\n" t.result
           (operand_to_string t.operand)
           t.arg1 t.arg2
+
 let get_tac_elem_commented t =
   match t.operand with
   | Label -> Printf.sprintf "#;label %s" t.arg1
@@ -234,6 +255,7 @@ let rec ast_to_tac (ast : annotated_ast_elem list) :
               exp.id.name id1.name ast_elem.class_name.name;  *)
             var_ctr := 0;
             label_ctr := 0;
+            Hashtbl.reset letTable;
             let base_lst =
               [
                 {
@@ -259,13 +281,14 @@ let rec ast_to_tac (ast : annotated_ast_elem list) :
               exp_to_tac exp (get_id !var_ctr) ast_elem.class_name.name
                 method_name.name
             in
+            let return_val = (List.rev exp_list |> List.hd).result in
             let rtrn =
               [
                 {
                   operand = Return;
-                  arg1 = get_id !ret;
+                  arg1 = return_val;
                   arg2 = "";
-                  result = get_id !ret;
+                  result = return_val;
                   line = 0;
                   static_type = exp.static_type;
                 };
@@ -292,28 +315,31 @@ and get_label n class_name method_name =
 and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   match exp.sub_expr with
   | Assignment (id, exp) ->
-      (* Printf.fprintf out_file "Assigning result of %s to %s\n" exp.id.name
-        id.name; *)
       let var_id = Hashtbl.find_opt letTable id.name in
-      let arg1 = match var_id with Some v -> v | None -> id.name in
-      (*var_ctr := !var_ctr + 1;*)
-      let last_var = exp_to_tac exp arg1 cname mname in
-      (*var_ctr := !var_ctr + 1;*)
+      let result = match var_id with Some v -> v | None -> id.name in
+      let last_var = exp_to_tac exp result cname mname in
       last_var
-      (*@ [ { operand = Assignment; arg1; arg2 = ""; result = get_id !var_ctr } ]*)
   | Dynamic_Dispatch (dispatch_exp, method_name, args) ->
       let arg_tacs =
         if List.length args > 0 then
           List.map
             (fun arg ->
               var_ctr := !var_ctr + 1;
-              let id = get_id !var_ctr in
-              (id, exp_to_tac arg id cname mname))
+              match arg.sub_expr with
+              | Assignment (id, _) ->
+                  let var_id = Hashtbl.find_opt letTable id.name in
+                  let result =
+                    match var_id with Some v -> v | None -> id.name
+                  in
+                  (result, exp_to_tac arg result cname mname)
+              | _ ->
+                  let id = get_id !var_ctr in
+                  (id, exp_to_tac arg id cname mname))
             args
         else []
       in
       var_ctr := !var_ctr + 1;
-      let arg2 = String.concat " " (List.map (fun (s, _) -> s) arg_tacs) in
+      let arg2 = String.concat " " (List.map (fun (id, _) -> id) arg_tacs) in
       (List.map (fun (_, v) -> v) arg_tacs |> List.flatten)
       @ exp_to_tac dispatch_exp (get_id !var_ctr) cname mname
       @ [
@@ -332,8 +358,16 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           List.map
             (fun arg ->
               var_ctr := !var_ctr + 1;
-              let id = get_id !var_ctr in
-              (id, exp_to_tac arg id cname mname))
+              match arg.sub_expr with
+              | Assignment (id, _) ->
+                  let var_id = Hashtbl.find_opt letTable id.name in
+                  let result =
+                    match var_id with Some v -> v | None -> id.name
+                  in
+                  (result, exp_to_tac arg result cname mname)
+              | _ ->
+                  let id = get_id !var_ctr in
+                  (id, exp_to_tac arg id cname mname))
             args
         else []
       in
@@ -357,8 +391,16 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           List.map
             (fun arg ->
               var_ctr := !var_ctr + 1;
-              let id = get_id !var_ctr in
-              (id, exp_to_tac arg id cname mname))
+              match arg.sub_expr with
+              | Assignment (id, _) ->
+                  let var_id = Hashtbl.find_opt letTable id.name in
+                  let result =
+                    match var_id with Some v -> v | None -> id.name
+                  in
+                  (result, exp_to_tac arg result cname mname)
+              | _ ->
+                  let id = get_id !var_ctr in
+                  (id, exp_to_tac arg id cname mname))
             args
         else []
       in
@@ -840,7 +882,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | Ident_Expr s -> (
       match Hashtbl.find_opt letTable s.name with
       | Some t ->
-          (* Printf.fprintf out_file "Retrieved variable %s as temp %s\n" s.name t; *)
+          Printf.fprintf out_file "#; %s.%s: Retrieved variable %s as temp %s\n"
+            cname mname s.name t;
           [
             {
               operand = Ident_Expr t;
@@ -852,6 +895,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             };
           ]
       | None ->
+          Printf.fprintf out_file "#; %s.%s: Retrieved variable %s\n" cname
+            mname s.name;
           [
             {
               operand = Ident_Expr s.name;

@@ -558,6 +558,7 @@ let print_var_locations () =
   Hashtbl.iter
     (fun k v -> Printf.fprintf out_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
     var_locations
+
 let print_var_locations_stdout () =
   Hashtbl.iter
     (fun k v -> Printf.printf "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
@@ -673,6 +674,17 @@ let get_offset method_name static_type current_class =
 (*let get_unique_label () =*)
 (*label_ctr := !label_ctr + 1;*)
 (*class_name ^ "_" ^ method_name ^ "_" ^ string_of_int !label_ctr*)
+let get_attribute_map class_name =
+  match Hashtbl.find_opt class_attribute_map class_name with
+  | Some v -> v
+  | None ->
+      Printf.fprintf stderr "Failed to find the attributes of class %s\n"
+        class_name;
+      assert false
+
+let get_attribute class_name attr_name =
+  let attrs = get_attribute_map class_name in
+  List.find_opt (fun f -> f.field_name = attr_name) attrs
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
@@ -726,8 +738,15 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Line "\t#Branch True end";
       ]
   | Call ->
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            Printf.fprintf out_file "#; %s.%s: %s is not an attribute\n"
+              class_name cur_method tac.result;
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
       let prev_addr = get_var_addr prev_tac.result in
       let meth = tac.arg1 in
       let void_dispatch_label = get_unique_label () in
@@ -766,7 +785,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
              let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
              List.mapi
                (fun i arg ->
-                 Instruction ("movq", get_var_addr arg, List.nth registers i, ""))
+                 let arg_adr =
+                   match get_attribute class_name arg with
+                   | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+                   | None -> get_var_addr arg
+                 in
+                 Instruction ("movq", arg_adr, List.nth registers i, ""))
                args
            in
            let gen_mixed_arglist args =
@@ -774,7 +798,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
              let remaining = List.rev (List.filteri (fun i _ -> i > 4) args) in
              gen_register_arglist first_five
              @ List.map
-                 (fun arg -> Instruction ("pushq", get_var_addr arg, "", ""))
+                 (fun arg ->
+                   let arg_adr =
+                     match get_attribute class_name arg with
+                     | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+                     | None -> get_var_addr arg
+                   in
+                   Instruction ("pushq", arg_adr, "", ""))
                  remaining
            in
 
@@ -1153,8 +1183,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         ]
       @ popargs @ [ Line "\t#Negate end" ]
   | Int_Constant ->
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
+
       [ Line "\t#iconst start" ] @ pushargs
       @ [
           Instruction ("call", "Int..new", "", "");
@@ -1163,8 +1199,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         ]
       @ popargs @ [ Line "\t#iconst end" ]
   | String_Constant -> (
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
       match Hashtbl.find_opt string_map tac.arg1 with
       | Some str_id ->
           [ Line "\t#sconst start" ] @ pushargs
@@ -1198,8 +1239,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       (*Printf.fprintf out_file "\t%s\n" (".string \"" ^ string_of_int(!string_counter) ^ "\"")*)
       )
   | Boolean_Constant ->
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
+
       if tac.arg1 = "true" then
         [ Line "\t#bconst start" ] @ pushargs
         @ [
@@ -1246,8 +1293,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("call", "cool_error", "", "");
       ]
   | Default | New ->
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
+
       Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
         result;
       pushargs
@@ -1257,8 +1310,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         ]
       @ popargs
   | Isvoid ->
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
       Printf.fprintf out_file "# Isvoid: Adding var %s at position %s\n"
         tac.result result;
       let true_jump = get_jump () in
@@ -1429,10 +1487,18 @@ let get_start_method_boilerplate method_name class_name stack_space =
   ]
 
 let get_end_method_boilerplate class_name method_name =
+  let ret =
+    match get_attribute class_name !prev_tac.result with
+    | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+    | None -> get_var_addr !prev_tac.result
+  in
+  let retline =
+    Printf.sprintf "#; The return of %s.%s is %s\n" class_name method_name ret
+  in
   [
     Line (Printf.sprintf "%s.%s.end:" class_name method_name);
-    (*Instruction ("movq", Printf.sprintf "-%d(%%rbp)" (temps * 8), "%rax", "");*)
-    Instruction ("movq", get_var_addr !prev_tac.result, "%rax", "");
+    Line retline;
+    Instruction ("movq", ret, "%rax", "");
     Instruction ("movq", "%rbp", "%rsp", "");
     Instruction ("popq", "%rbp", "", "");
     Instruction ("ret", "", "", "");
@@ -1530,19 +1596,18 @@ let method_asm =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
       let method_tac = cfg |> List.flatten in
-      let asms = (List.map
-           (fun tac ->
-             let t = tac_to_as tac method_name class_name !prev_tac in
-             prev_tac := tac;
-             t)
-           method_tac
-        |> List.flatten)
-           in
-
+      let asms =
+        List.map
+          (fun tac ->
+            let t = tac_to_as tac method_name class_name !prev_tac in
+            prev_tac := tac;
+            t)
+          method_tac
+        |> List.flatten
+      in
       get_start_method_boilerplate method_name class_name stack_space
-      @ arglist
-      @ asms
-      @ (get_end_method_boilerplate class_name method_name ))
+      @ arglist @ asms
+      @ get_end_method_boilerplate class_name method_name)
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst
