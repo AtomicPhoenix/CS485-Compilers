@@ -1,6 +1,10 @@
 # Ubuntu Errors (as of latest push)
 ## Seg Faults
-- self-dispatch-with-args
+- args-six
+- args-seven
+- args-eight
+- args-nine
+- args-ten
 - rosetta
 - primes
 - hs.cl

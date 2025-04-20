@@ -246,7 +246,60 @@ let print_tac_elem_commented t =
 
 let print_tac_elems (t : tac_elem list) = List.iter print_tac_elem_commented t
 
-let rec ast_to_tac (ast : annotated_ast_elem list) :
+let rec get_cases cases cname mname =
+  (* Get list of classes in program *)
+  let class_list =
+    Hashtbl.fold (fun k v acc -> (k, v) :: acc) class_map []
+    |> List.sort (fun (k, _) (k2, _) -> compare k k2)
+  in
+  label_ctr := !label_ctr + 1;
+  let empty_jump = get_label !label_ctr mname cname in
+  let jump_points =
+    ("emptycase", empty_jump)
+    :: List.map
+         (fun case ->
+           label_ctr := !label_ctr + 1;
+           let case_label = get_label !label_ctr mname cname in
+           (case, case_label))
+         cases
+  in
+  List.iter
+    (fun (name, label) -> Printf.fprintf out_file "#Jump %s: %s\n" name label)
+    jump_points;
+  let get_case (class_name, _) =
+    let ancestors =
+      List.map (fun k -> k.class_name.name) (get_ancestors class_name [])
+    in
+    let ancestors =
+      (match List.find_opt (fun ancestor -> ancestor = "Object") ancestors with
+      | Some _ -> ancestors
+      | None -> "Object" :: ancestors)
+      |> List.rev
+    in
+    let rec get_matching_case lst =
+      match lst with
+      | hd :: _ when List.find_opt (fun case -> case = hd) cases <> None ->
+          Some (List.find (fun case -> case = hd) cases)
+      | _ :: tail -> get_matching_case tail
+      | [] -> None
+    in
+    let mtch =
+      match get_matching_case ancestors with Some v -> v | None -> "emptycase"
+    in
+    let label = snd (List.find (fun (name, _) -> name = mtch) jump_points) in
+    Printf.fprintf out_file "#Class: %s\n" class_name;
+    Printf.fprintf out_file "#\tAncestors: ";
+    List.iter
+      (fun ancestor -> Printf.fprintf out_file "%s, " ancestor)
+      ancestors;
+    Printf.fprintf out_file "\n";
+    Printf.fprintf out_file "#\tMatching case: %s\n" mtch;
+    Printf.fprintf out_file "#\tMatching label: %s\n" label;
+    (class_name, mtch, label)
+  in
+  List.map get_case class_list
+
+and ast_to_tac (ast : annotated_ast_elem list) :
     (tac_elem list * string * string * ast_formal list * int) list =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
     List.filter_map
@@ -993,19 +1046,21 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
         ]
       in
       let join_label = cname ^ "_" ^ mname ^ "_join" in
+      let case_names =
+        List.map (fun case -> case.typename.name) case_elements
+      in
+      let case_jumps = get_cases case_names cname mname in
       let defined_case_jumps =
         List.map
-          (fun elem ->
+          (fun (class_name, _, case_label) ->
             var_ctr := !var_ctr + 1;
             let caseElemClassResult = get_id !var_ctr in
             var_ctr := !var_ctr + 1;
             let equalResult = get_id !var_ctr in
-            label_ctr := !label_ctr + 1;
-            let case_label = get_label !label_ctr mname cname in
             [
               {
                 operand = ClassId;
-                arg1 = elem.typename.name;
+                arg1 = class_name;
                 arg2 = "";
                 result = caseElemClassResult;
                 line = exp.id.line_num;
@@ -1019,19 +1074,11 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
                 line = exp.id.line_num;
                 static_type = exp.static_type;
               };
-              {
-                operand = Comment;
-                arg1 = "case-join";
-                arg2 = "";
-                result;
-                line = exp.id.line_num;
-                static_type = exp.static_type;
-              };
             ])
-          case_elements
+          case_jumps
         |> List.flatten
       in
-      let empty_case_jump =
+      (* let empty_case_jump =
         label_ctr := !label_ctr + 1;
         let jump_label = get_label !label_ctr mname cname in
         [
@@ -1043,8 +1090,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             line = exp.id.line_num;
             static_type = exp.static_type;
           };
-        ]
-      in
+        ] in *)
       label_ctr := init_label_ctr;
       label_ctr := !label_ctr + 1;
       let case_label = get_label !label_ctr mname cname in
@@ -1060,6 +1106,20 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
         ]
       in
+      label_ctr := !label_ctr + 1;
+      let empty_case =
+        [
+          {
+            operand = EmptyCase;
+            arg1 = get_label !label_ctr mname cname;
+            arg2 = "";
+            result;
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+        ]
+      in
+
       let defined_cases =
         List.map
           (fun elem ->
@@ -1093,21 +1153,6 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           case_elements
         |> List.flatten
       in
-      label_ctr := !label_ctr + 1;
-      let case_label = get_label !label_ctr mname cname in
-      let empty_case =
-        [
-          {
-            operand = EmptyCase;
-            arg1 = case_label;
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ]
-      in
-
       (* case_expr_value @ case_class_id @ null_case @ case_element_values
       @ case_expressions  *)
       let case_join =
@@ -1122,7 +1167,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
         ]
       in
-      let jumps = null_case_jump @ defined_case_jumps @ empty_case_jump in
+      let jumps = null_case_jump @ defined_case_jumps in
       let cases = null_case @ defined_cases @ empty_case @ case_join in
       case_expr_value @ case_expr_id @ jumps @ cases
   | Internal _ ->
