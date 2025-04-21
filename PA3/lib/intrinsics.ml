@@ -136,7 +136,7 @@ let in_int =
     Instruction ("cmpq", "%rax", "%rdx", "");
     Instruction ("movl", "$0", "%eax", "");
     Instruction ("cmovb", "%rax", "%rbx", "");
-    Instruction ("call", "Bool..new", "", "");
+    Instruction ("call", "Int..new", "", "");
     Instruction ("movq", "%rbx", "24(%rax)", "");
     Instruction ("addq", "$32", "%rsp", "");
     Instruction ("popq", "%rbx", "", "");
