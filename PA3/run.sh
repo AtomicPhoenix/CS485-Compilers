@@ -33,21 +33,13 @@ ocamlc main.ml
 TESTNAME="$(basename "$TESTNAME" .cl-type)"
 
 gcc -static -fno-pie -ggdb -o program "$TESTNAME".s
-./program
+./program &>./our-output.txt
 
 TESTNAME="$(basename "$TESTNAME" .s)"
 rm "$TESTNAME.cl"* 2>/dev/null
 rm main.cm*
-echo ""
-echo "----------------------------------------------------"
-if [ -n "$2" ]; then
-	echo "Running with COOL Reference Compiler"
-	echo "----------------------------------------------------"
-	../cool "$1"
-	echo ""
-	echo "----------------------------------------------------"
+if [ -z "$2" ]; then
+	../cool "$1" &>./ref-output.txt
+	diff ./ref-output.txt ./our-output.txt
 fi
-
-echo ""
-echo ""
 echo ""
