@@ -1630,27 +1630,49 @@ let new_funcs =
     let stack_room = Printf.sprintf "$%d" 16 in
     let attr_creation_lines =
       List.map
+        (* 
+              Instruction ("pushq", "%rdi", "", "");
+              Instruction ("movq", "16(%rdi)", "%r14", "");
+              Instruction ("movq", "8(%r14)", "%r14", "");
+              Instruction ("call", "*%r14", "", "");
+              Instruction ("popq", "%rdi", "", "");
+              Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+
+           *)
         (fun (attr : attribute) : asm_line list ->
           let var_index = 3 + attr.index in
-          let newtype =
-            if attr.type_name = "SELF_TYPE" then asm_class_var.vtable.name_id
-            else attr.type_name
-          in
           let type_new = Printf.sprintf "%s..new" attr.type_name in
           let stack_location = Printf.sprintf "%d(%%rdi)" (8 * var_index) in
-          [
-            Line
-              (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
-                 attr.field_name attr.type_name);
-            Line (Printf.sprintf "\t## new %s" attr.type_name);
-            Instruction ("pushq", "%rbp", "", "");
-            Instruction ("pushq", "%rdi", "", "");
-            Instruction ("call", type_new, "", "");
-            Instruction ("movq", "%rax", "%r13", "");
-            Instruction ("popq", "%rdi", "", "");
-            Instruction ("popq", "%rbp", "", "");
-            Instruction ("movq", "%r13", stack_location, "");
-          ])
+          if attr.type_name = "SELF_TYPE" then
+            [
+              Line
+                (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
+                   attr.field_name attr.type_name);
+              Line (Printf.sprintf "\t## new %s" attr.type_name);
+              Instruction ("pushq", "%rbp", "", "");
+              Instruction ("pushq", "%rdi", "", "");
+              Instruction ("movq", "16(%rdi)", "%r14", "");
+              Instruction ("movq", "8(%r14)", "%r14", "");
+              Instruction ("call", "*%r14", "", "");
+              Instruction ("movq", "%rax", "%r13", "");
+              Instruction ("popq", "%rdi", "", "");
+              Instruction ("popq", "%rbp", "", "");
+              Instruction ("movq", "%r13", stack_location, "");
+            ]
+          else
+            [
+              Line
+                (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
+                   attr.field_name attr.type_name);
+              Line (Printf.sprintf "\t## new %s" attr.type_name);
+              Instruction ("pushq", "%rbp", "", "");
+              Instruction ("pushq", "%rdi", "", "");
+              Instruction ("call", type_new, "", "");
+              Instruction ("movq", "%rax", "%r13", "");
+              Instruction ("popq", "%rdi", "", "");
+              Instruction ("popq", "%rbp", "", "");
+              Instruction ("movq", "%r13", stack_location, "");
+            ])
         asm_class_var.attributes
       |> List.flatten
     in
