@@ -670,7 +670,6 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
-               Instruction ("pushq", "%rbp", "", "");
                Instruction ("pushq", "%rdi", "", "");
                Instruction ("movq", prev_addr, "%r11", "");
                Instruction ("movq", "16(%r11)", "%r11", "");
@@ -684,7 +683,6 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("call", "*%r11", "", "");
                Instruction ("popq", "%rdi", "", "");
                Instruction ("movq", "%rax", result, "");
-               Instruction ("popq", "%rbp", "", "");
              ]
            @ [
                Instruction ("popq", "%r9", "", "");
@@ -825,7 +823,6 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
-               Instruction ("pushq", "%rbp", "", "");
                Instruction ("pushq", "%rdi", "", "");
                Instruction ("movq", "$" ^ static_class ^ "..vtable", "%r11", "");
                Instruction
@@ -840,7 +837,6 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("call", "*%r11", "", "");
                Instruction ("popq", "%rdi", "", "");
                Instruction ("movq", "%rax", result, "");
-               Instruction ("popq", "%rbp", "", "");
              ]
            @ [
                Instruction ("popq", "%r9", "", "");
@@ -1640,18 +1636,18 @@ let new_funcs =
             if attr.type_name = "SELF_TYPE" then asm_class_var.vtable.name_id
             else attr.type_name
           in
-          let type_new = Printf.sprintf "%s..new" newtype in
-          let stack_location = Printf.sprintf "%d(%%rax)" (8 * var_index) in
+          let type_new = Printf.sprintf "%s..new" attr.type_name in
+          let stack_location = Printf.sprintf "%d(%%rdi)" (8 * var_index) in
           [
             Line
               (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
                  attr.field_name attr.type_name);
             Line (Printf.sprintf "\t## new %s" attr.type_name);
             Instruction ("pushq", "%rbp", "", "");
-            Instruction ("pushq", "%rax", "", "");
+            Instruction ("pushq", "%rdi", "", "");
             Instruction ("call", type_new, "", "");
             Instruction ("movq", "%rax", "%r13", "");
-            Instruction ("popq", "%rax", "", "");
+            Instruction ("popq", "%rdi", "", "");
             Instruction ("popq", "%rbp", "", "");
             Instruction ("movq", "%r13", stack_location, "");
           ])
@@ -1666,11 +1662,11 @@ let new_funcs =
               add_var_addr retval;
               let ret = get_var_addr retval in
               let stack_location =
-                Printf.sprintf "%d(%%rax)" (8 * (attr.index + 3))
+                Printf.sprintf "%d(%%rdi)" (8 * (attr.index + 3))
               in
               [
                 Instruction ("pushq", "%r13", "", "");
-                Instruction ("pushq", "%rax", "", "");
+                Instruction ("pushq", "%rdi", "", "");
               ]
               @ (List.map
                    (fun tac ->
@@ -1684,7 +1680,7 @@ let new_funcs =
                 |> List.flatten)
               @ [
                   Instruction ("movq", ret, "%r13", "");
-                  Instruction ("popq", "%rax", "", "");
+                  Instruction ("popq", "%rdi", "", "");
                   Instruction ("movq", "%r13", stack_location, "");
                   Instruction ("popq", "%r13", "", "");
                 ]
@@ -1694,6 +1690,7 @@ let new_funcs =
     in
     let return_lines =
       [
+        Instruction ("movq", "%rdi", "%rax", "");
         Instruction ("movq", "%rbp", "%rsp", "");
         Instruction ("popq", "%rbp", "", "");
         Instruction ("ret", "", "", "");
@@ -1717,11 +1714,12 @@ let new_funcs =
         Instruction ("call", "calloc", "", "");
         (* NOTE: Alot of these can be simplified to one line operations *)
         Line "\t## store class tag, object size and vtable pointer";
-        Instruction ("movq", class_id, "0(%rax)", "");
+        Instruction ("movq", "%rax", "%rdi", "");
+        Instruction ("movq", class_id, "0(%rdi)", "");
         Instruction ("movq", object_size, "%r14", "");
-        Instruction ("movq", "%r14", "8(%rax)", "");
+        Instruction ("movq", "%r14", "8(%rdi)", "");
         Instruction ("movq", vtable_name, "%r14", "");
-        Instruction ("movq", "%r14", "16(%rax)", "");
+        Instruction ("movq", "%r14", "16(%rdi)", "");
         Line "\t## return address handling";
         Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
         Line "\t## initialize attributes";
