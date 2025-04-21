@@ -972,10 +972,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       let name = tac.arg2 in
-      if
-        name = "Bool" || name = "IO" || name = "Int" || name = "Object"
-        || name = "String"
-      then
+      if name = "Bool" || name = "Int" || name = "String" then
         (* if name = "SELF_TYPE" then
           [
             Line "\t#Let No Init start";
@@ -1740,8 +1737,7 @@ let new_funcs =
               Instruction ("movq", "%r13", stack_location, "");
             ]
           else if
-            attr.type_name = "Bool" || attr.type_name = "IO"
-            || attr.type_name = "Int" || attr.type_name = "Object"
+            attr.type_name = "Bool" || attr.type_name = "Int"
             || attr.type_name = "String"
           then
             [
