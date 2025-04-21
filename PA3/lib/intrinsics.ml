@@ -815,6 +815,8 @@ let handlers =
     Instruction ("movq", "%rdi", "%rbx", "");
     Instruction ("call", "Bool..new", "", "");
     Instruction ("movq", "%rax", "%r12", "");
+    Instruction ("cmpq", " %rbx, %rbp", "", "");
+    Instruction ("je", " .le_true", "", "");
     Instruction ("testq", "%rbx", "%rbx", "");
     Instruction ("je", ".le_false", "", "");
     Instruction ("testq", "%rbp", "%rbp", "");
@@ -848,6 +850,16 @@ let handlers =
     Instruction ("ret", "", "", "");
     Line "\t.p2align 4,,10";
     Line "\t.p2align 3";
+    Line ".le_true:";
+    Instruction ("movq\t$1,", " %rdx", "", "");
+    Instruction ("movq\t%r12,", " %rax", "", "");
+    Instruction ("movq\t%rdx,", " 24(%r12)", "", "");
+    Instruction ("popq", "%rbx", "", "");
+    Instruction ("popq", "%rbp", "", "");
+    Instruction ("popq", "%r12", "", "");
+    Instruction ("ret", "", "", "");
+    Line ".p2align 4,,10";
+    Line ".p2align 3";
     Line ".le_num:";
     Instruction ("xorl", "%edx", "%edx", "");
     Instruction ("movq", "24(%rbp)", "%rax", "");
@@ -876,6 +888,9 @@ let handlers =
     Instruction ("movq", "%rdi", "%rbx", "");
     Instruction ("call", "Bool..new", "", "");
     Instruction ("movq", "%rax", "%r12", "");
+    Instruction ("movq", "%rax", "%r12", "");
+    Instruction ("cmpq", " %rbx, %rbp", "", "");
+    Instruction ("je", " .le_true", "", "");
     Instruction ("testq", "%rbx", "%rbx", "");
     Instruction ("je", ".eq_false", "", "");
     Instruction ("testq", "%rbp", "%rbp", "");

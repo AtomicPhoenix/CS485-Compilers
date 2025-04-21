@@ -971,18 +971,55 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | LetNoInit ->
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
-      [
-        (*Instruction ("movq", "$0", result, "");*)
-        Line "\t#Let No Init start";
-        Instruction ("pushq", "%rax", "", "");
-        Instruction ("pushq", "%rdi", "", "");
-        Instruction ("call", tac.arg2 ^ "..new", "", "");
-        Instruction ("movq", "%rax", "%r11", "");
-        Instruction ("popq", "%rdi", "", "");
-        Instruction ("popq", "%rax", "", "");
-        Instruction ("movq", "%r11", result, "");
-        Line "\t#Let No Init end";
-      ]
+      let name = tac.arg2 in
+      if
+        name = "Bool" || name = "IO" || name = "Int" || name = "Object"
+        || name = "String"
+      then
+        (* if name = "SELF_TYPE" then
+          [
+            Line "\t#Let No Init start";
+            Instruction ("pushq", "%rax", "", "");
+            Instruction ("pushq", "%rdi", "", "");
+            Instruction ("movq", "16(%rdi)", "%r14", "");
+            Instruction ("movq", "8(%r14)", "%r14", "");
+            Instruction ("call", "*%r14", "", "");
+            Instruction ("movq", "%rax", "%r11", "");
+            Instruction ("popq", "%rdi", "", "");
+            Instruction ("popq", "%rax", "", "");
+            Instruction ("movq", "%r11", result, "");
+            Line "\t#Let No Init end";
+          ]
+        else *)
+        [
+          Line "\t#Let No Init start";
+          Instruction ("pushq", "%rax", "", "");
+          Instruction ("pushq", "%rdi", "", "");
+          Instruction ("call", tac.arg2 ^ "..new", "", "");
+          Instruction ("movq", "%rax", "%r11", "");
+          Instruction ("popq", "%rdi", "", "");
+          Instruction ("popq", "%rax", "", "");
+          Instruction ("movq", "%r11", result, "");
+          Line "\t#Let No Init end";
+        ]
+      else
+        [
+          Line "\t#Let No Init start";
+          Instruction ("movq", "$0", result, "");
+          Line "\t#Let No Init end";
+        ]
+      (* [
+            (*Instruction ("movq", "$0", result, "");*)
+            Line "\t#Let No Init start";
+            Instruction ("pushq", "%rax", "", "");
+            Instruction ("pushq", "%rdi", "", "");
+            Instruction ("call", tac.arg2 ^ "..new", "", "");
+            Instruction ("movq", "%rax", "%r11", "");
+            Instruction ("popq", "%rdi", "", "");
+            Instruction ("popq", "%rax", "", "");
+            Instruction ("movq", "%r11", result, "");
+            Line "\t#Let No Init end";
+          ]  *)
   | Ident_Expr ident_name -> (
       let get_attribute class_name attr_name =
         match Hashtbl.find_opt class_attribute_map class_name with
