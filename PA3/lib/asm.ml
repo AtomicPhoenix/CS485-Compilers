@@ -1080,8 +1080,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | Plus ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
 
       [
         Line "\t#Plus start";
@@ -1109,8 +1114,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | Minus ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
 
       [
         Line "\t#Minus start";
@@ -1138,8 +1148,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | Divide ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
+
       let error_label = get_label () in
       let div_end_label = get_label () in
 
@@ -1182,8 +1198,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | Times ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
       [
         Line "\t#Times start";
         Instruction ("movq", arg1, "%rax", "");
@@ -1210,9 +1231,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | LessThan ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
-
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
       [ Line "\t#Less Than start" ]
       @ pushargs
       @ [
@@ -1225,9 +1250,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | LessEqual ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
-
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
       [ Line "\t#Less Equal start" ]
       @ pushargs
       @ [
@@ -1240,8 +1269,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
   | Equal ->
       let arg1 = get_var_addr tac.arg1 in
       let arg2 = get_var_addr tac.arg2 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
 
       [ Line "\t#Equal start" ] @ pushargs
       @ [
@@ -1252,10 +1286,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       @ popargs
       @ [ Instruction ("movq", "%rax", result, ""); Line "\t#Equal end" ]
   | Not ->
-      add_var_addr tac.arg1;
       let arg1 = get_var_addr tac.arg1 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
 
       [ Line "\t#Not start" ] @ pushargs
       @ [
@@ -1276,8 +1314,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       @ popargs @ [ Line "\t#Not end" ]
   | Negate ->
       let arg1 = get_var_addr tac.arg1 in
-      add_var_addr tac.result;
-      let result = get_var_addr tac.result in
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
 
       [ Line "\t#Negate start" ] @ pushargs
       @ [
