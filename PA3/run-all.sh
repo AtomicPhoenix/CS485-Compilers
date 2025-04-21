@@ -1,5 +1,5 @@
-rm ../testing/test_cases/*.cl-type
-for file in ../testing/test_cases/*; do
+rm ../testing/*.cl-type &>/dev/null
+for file in ../testing/*; do
 	if [[ "$file" != *".cl-type" ]]; then
 		if ! grep -q "cl-type" "$file"; then
 			./run.sh "$file" "$1"
@@ -7,4 +7,4 @@ for file in ../testing/test_cases/*; do
 		fi
 	fi
 done
-rm ../testing/test_cases/*.cl-type
+rm ../testing/*.cl-type &>/dev/null
