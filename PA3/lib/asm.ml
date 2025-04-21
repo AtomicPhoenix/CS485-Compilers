@@ -972,10 +972,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       add_var_addr tac.result;
       let result = get_var_addr tac.result in
       let name = tac.arg2 in
-      if
-        name = "Bool" || name = "IO" || name = "Int" || name = "Object"
-        || name = "String"
-      then
+      if name = "Bool" || name = "Int" || name = "String" then
         (* if name = "SELF_TYPE" then
           [
             Line "\t#Let No Init start";
@@ -1739,8 +1736,12 @@ let new_funcs =
               Instruction ("popq", "%rbp", "", "");
               Instruction ("movq", "%r13", stack_location, "");
             ]
-          else
+          else if
+            attr.type_name = "Bool" || attr.type_name = "Int"
+            || attr.type_name = "String"
+          then
             [
+              Line "\t#Attr No Init start";
               Line
                 (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
                    attr.field_name attr.type_name);
@@ -1752,6 +1753,13 @@ let new_funcs =
               Instruction ("popq", "%rdi", "", "");
               Instruction ("popq", "%rbp", "", "");
               Instruction ("movq", "%r13", stack_location, "");
+              Line "\t#Attr No Init end";
+            ]
+          else
+            [
+              Line "\t#Attr No Init start";
+              Instruction ("movq", "$0", stack_location, "");
+              Line "\t#Attr No Init end";
             ])
         asm_class_var.attributes
       |> List.flatten
