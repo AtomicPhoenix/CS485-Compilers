@@ -951,7 +951,11 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           binding_list
         |> List.flatten
       in
-      b @ exp_to_tac exp result cname mname
+      let returnVal = b @ exp_to_tac exp result cname mname in
+      List.iter
+        (fun ((var : identifier), _, _) -> Hashtbl.remove letTable var.name)
+        binding_list;
+      returnVal
   | Case (case_expr, case_elements) ->
       let init_label_ctr = !label_ctr in
       var_ctr := !var_ctr + 1;
