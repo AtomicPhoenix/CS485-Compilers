@@ -1,6 +1,7 @@
 open Print
 open Parser
 
+(* TAC Element *)
 type tac_elem = {
   operand : tac_operand;
   arg1 : string;
@@ -10,6 +11,7 @@ type tac_elem = {
   static_type : static_type option;
 }
 
+(* TAC Operands *)
 and tac_operand =
   | Assignment
   | Bt
@@ -41,10 +43,16 @@ and tac_operand =
   | Boolean_Constant
   | ClassId
 
+(* Counter for temp values *)
 let var_ctr = ref 0
+
+(* Counter for labels *)
 let label_ctr = ref 0
-let ret = ref 0
+
+(* Clas Map *)
 let class_map = Hashtbl.create 32
+
+(* Defined Variables at a given point in execution *)
 let letTable = Hashtbl.create 32
 
 (** Creates a list of all ancestors of a cool class*)
@@ -65,6 +73,7 @@ and add_class (ast_elem : annotated_ast_elem) =
   | None -> Hashtbl.add class_map name ast_elem
   | Some _ -> ()
 
+(* Get the methods of a class *)
 let get_all_methods (ast_elem : annotated_ast_elem) =
   let ancestors = get_ancestors ast_elem.class_name.name [] in
   (* Gets all methods of ancestors in ancestry order -> alphabetical order *)
@@ -107,6 +116,7 @@ let get_all_methods (ast_elem : annotated_ast_elem) =
     ancestors
   |> List.flatten |> remove_duplicates
 
+(* Convert tac operand into a string *)
 let operand_to_string (operand : tac_operand) : string =
   match operand with
   | Assignment -> "assignment"
@@ -139,79 +149,7 @@ let operand_to_string (operand : tac_operand) : string =
   | Boolean_Constant -> "bool"
   | ClassId -> "classId"
 
-let print_tac_elem t =
-  match t.operand with
-  | Label -> Printf.fprintf out_file "label %s\n" t.arg1
-  | Jmp -> Printf.fprintf out_file "jmp %s\n" t.arg1
-  | Return -> Printf.fprintf out_file "return %s\n" t.arg1
-  | Comment -> Printf.fprintf out_file "comment %s\n" t.arg1
-  | Bt -> Printf.fprintf out_file "bt %s %s\n" t.arg1 t.arg2
-  | Assignment -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
-  | LetNoInit -> Printf.fprintf out_file "%s <- %s %s\n" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.fprintf out_file "%s <- %s\n" t.result t.arg1
-  | Case c -> Printf.fprintf out_file "Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
-  | VoidCase -> Printf.fprintf out_file "VoidCase: %s" t.arg1
-  | EmptyCase -> Printf.fprintf out_file "EmptyCase: %s" t.arg1
-  | _ ->
-      if t.arg2 = "" && t.arg1 = "" then
-        Printf.fprintf out_file "%s <- %s\n" t.result
-          (operand_to_string t.operand)
-      else if t.arg2 = "" then
-        Printf.fprintf out_file "%s <- %s %s\n" t.result
-          (operand_to_string t.operand)
-          t.arg1
-      else
-        Printf.fprintf out_file "%s <- %s %s %s\n" t.result
-          (operand_to_string t.operand)
-          t.arg1 t.arg2
-
-let print_tac_elem_stdout t =
-  match t.operand with
-  | Label ->
-      Printf.printf "operand: label, arg1: %s, arg2: %s, result: %s\n" t.arg1
-        t.arg2 t.result
-  | Jmp ->
-      Printf.printf "operand: jmp, arg1: %s, arg2: %s, result: %s\n" t.arg1
-        t.arg2 t.result
-  | Return ->
-      Printf.printf "operand: return, arg1: %s, arg2: %s, result: %s\n" t.arg1
-        t.arg2 t.result
-  | Comment ->
-      Printf.printf "operand: comment, arg1: %s, arg2: %s, result: %s\n" t.arg1
-        t.arg2 t.result
-  | Bt ->
-      Printf.printf "operand: bt, arg1: %s, arg2: %s, result: %s\n" t.arg1
-        t.arg2 t.result
-  | Assignment ->
-      Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2
-        t.result
-  | LetNoInit ->
-      Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2
-        t.result
-  | String_Constant ->
-      Printf.printf "operand: , arg1: %s, arg2: %s, result: %s\n" t.arg1 t.arg2
-        t.result
-  | Case _ ->
-      Printf.printf "operand: Cmp, arg1: %s, arg2: %s, result: %s\n" t.arg1
-        t.arg2 t.result
-  | VoidCase ->
-      Printf.printf "operand: VoidCase, arg1: %s, arg2: %s, result: %s\n" t.arg1
-        t.arg2 t.result
-  | EmptyCase ->
-      Printf.printf "operand: EmptyCase, arg1: %s, arg2: %s, result: %s\n"
-        t.arg1 t.arg2 t.result
-  | _ ->
-      if t.arg2 = "" && t.arg1 = "" then
-        Printf.printf "%s <- %s\n" t.result (operand_to_string t.operand)
-      else if t.arg2 = "" then
-        Printf.printf "%s <- %s %s\n" t.result
-          (operand_to_string t.operand)
-          t.arg1
-      else
-        Printf.printf "%s <- %s %s %s\n" t.result
-          (operand_to_string t.operand)
-          t.arg1 t.arg2
-
+(* get tac string in a form that is printable in an assembly file *)
 let get_tac_elem_commented t =
   match t.operand with
   | Label -> Printf.sprintf "#;label %s" t.arg1
@@ -242,6 +180,8 @@ let print_tac_elem_commented t =
 
 let print_tac_elems (t : tac_elem list) = List.iter print_tac_elem_commented t
 
+(* Get the different cases for a case statement according to the operational semantics of case *)
+(* Return a list of (string * string) (class_name * the case it corresponds to) *)
 let rec get_cases cases cname mname =
   (* Get list of classes in program *)
   let class_list =
@@ -291,10 +231,11 @@ let rec get_cases cases cname mname =
     Printf.fprintf out_file "\n";
     Printf.fprintf out_file "#\tMatching case: %s\n" mtch;
     Printf.fprintf out_file "#\tMatching label: %s\n" label;
-    (class_name, mtch, label)
+    (class_name, label)
   in
   List.map get_case class_list
 
+(* Converts AST to TAC *)
 and ast_to_tac (ast : annotated_ast_elem list) :
     (tac_elem list * string * string * ast_formal list * int) list =
   let get_tac_elem (ast_elem : annotated_ast_elem) =
@@ -369,6 +310,10 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       let var_id = Hashtbl.find_opt letTable id.name in
       let exp_res = match var_id with Some v -> v | None -> id.name in
       let last_var = exp_to_tac exp exp_res cname mname in
+
+      Printf.fprintf out_file "#; id.name: %s\n" id.name;
+      Printf.fprintf out_file "#; exp_res: %s\n" exp_res;
+      Printf.fprintf out_file "#; result: %s\n" result;
       last_var
       @ [
           {
@@ -770,9 +715,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | Minus (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
       exp1 @ exp2
       @ [
@@ -788,9 +733,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | Divide (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
       exp1 @ exp2
       @ [
@@ -806,9 +751,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | Plus (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
       exp1 @ exp2
       @ [
@@ -824,9 +769,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | Times (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
       exp1 @ exp2
       @ [
@@ -842,9 +787,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | Equal (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
       exp1 @ exp2
       @ [
@@ -860,9 +805,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | LessEqual (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
       exp1 @ exp2
       @ [
@@ -878,9 +823,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | LessThan (exp, exp2) ->
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
       exp1 @ exp2
       @ [
@@ -1048,7 +993,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       let case_jumps = get_cases case_names cname mname in
       let defined_case_jumps =
         List.map
-          (fun (class_name, _, case_label) ->
+          (fun (class_name, case_label) ->
             var_ctr := !var_ctr + 1;
             let caseElemClassResult = get_id !var_ctr in
             var_ctr := !var_ctr + 1;
@@ -1171,18 +1116,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
         "Something is fundamentally wrong (We should not be parsing Internal \
          to TAC)";
       assert false
-(* 
-NOTE: Control-Flow to Three-Address Code
-The traditional approach to converting control-flow statements to three-address code involves a recursive descent traversal of the abstract syntax tree. The recursive descent traversal returns a list of three-address code instructions.
-... code to evaluate COND
-bt COND then_label
-... code to evaluate ELSE_BRANCH
-jmp end_label
-label then_label
-... code to evaluate THEN_BRACH
-label end_label
-*)
 
+(* Print all methods in AST; Debugging purposes only *)
 let print_methods (ast_elem : annotated_ast_elem) =
   Printf.printf "%s\n" ast_elem.class_name.name;
   List.iter
@@ -1192,37 +1127,39 @@ let print_methods (ast_elem : annotated_ast_elem) =
       | Attribute _ -> ())
     (get_all_methods ast_elem)
 
-let default_classes : Parser.annotated_ast_elem list =
-  [
-    {
-      class_name = { line_num = 0; name = "Object" };
-      inherits = None;
-      features = [];
-    };
-    {
-      class_name = { line_num = 0; name = "Bool" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-    {
-      class_name = { line_num = 0; name = "String" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-    {
-      class_name = { line_num = 0; name = "Int" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-    {
-      class_name = { line_num = 0; name = "IO" };
-      inherits = Some { line_num = 0; name = "Object" };
-      features = [];
-    };
-  ]
-
 let () =
+  (* Default classes*)
+  let default_classes : Parser.annotated_ast_elem list =
+    [
+      {
+        class_name = { line_num = 0; name = "Object" };
+        inherits = None;
+        features = [];
+      };
+      {
+        class_name = { line_num = 0; name = "Bool" };
+        inherits = Some { line_num = 0; name = "Object" };
+        features = [];
+      };
+      {
+        class_name = { line_num = 0; name = "String" };
+        inherits = Some { line_num = 0; name = "Object" };
+        features = [];
+      };
+      {
+        class_name = { line_num = 0; name = "Int" };
+        inherits = Some { line_num = 0; name = "Object" };
+        features = [];
+      };
+      {
+        class_name = { line_num = 0; name = "IO" };
+        inherits = Some { line_num = 0; name = "Object" };
+        features = [];
+      };
+    ]
+  in
   List.iter add_class default_classes;
   List.iter add_class Parser.annotated_ast
 
+(* TAC Code of program *)
 let tacs = ast_to_tac Parser.annotated_ast

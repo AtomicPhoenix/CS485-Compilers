@@ -15,7 +15,7 @@ EXTENSION=$(echo "$1" | cut -d'.' -f4)
 
 FILE="$1"
 if [ "$EXTENSION" = "cl" ]; then
-	../testing/cool --type "$1"
+	../cool --type "$1"
 	FILE="$1-type"
 elif [ "$EXTENSION" != "cl-type" ]; then
 	echo "Input a cool file, not $1"
@@ -43,7 +43,7 @@ echo "----------------------------------------------------"
 if [ -n "$2" ]; then
 	echo "Running with COOL Reference Compiler"
 	echo "----------------------------------------------------"
-	../testing/cool "$1"
+	../cool "$1"
 	echo ""
 	echo "----------------------------------------------------"
 fi

@@ -55,7 +55,7 @@ let tac_to_cfg (tacs, class_name, method_name, attributes, temp_count) :
     attributes,
     temp_count )
 
-and print_cfg bbl = List.iter (List.iter print_tac_elem) bbl
+and print_cfg bbl = List.iter (List.iter print_tac_elem_commented) bbl
 
 let cfg_list : (cfg * string * string * Parser.ast_formal list * int) list =
   List.map tac_to_cfg Tac.tacs

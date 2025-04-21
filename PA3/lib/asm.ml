@@ -652,6 +652,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       (* pushargs *)
       [
         Instruction ("movq", prev_addr, "%rax", "");
+        Instruction ("testl", "%eax", "%eax", "");
+        Instruction ("je", void_dispatch_label, "", "");
         Instruction ("movq", "(%rax)", "%rax", "");
         Instruction ("testl", "%eax", "%eax", "");
         Instruction ("je", void_dispatch_label, "", "");
@@ -786,10 +788,6 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("call", "cool_error", "", "");
         Line (finish_void_dispatch_label ^ ":");
       ]
-      (* Push all variables onto stack *)
-      (* Push all onto stack *)
-      (*[Instruction{instruction = "callq"; arg1 = Some tac.arg1; arg2 = ""; arg3 = ""}]*)
-      (*Printf.fprintf out_file "\tcallq %s\n" tac.arg1*)
   | StaticCall static_class ->
       let result =
         match get_attribute static_class tac.result with
@@ -807,6 +805,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       (* pushargs *)
       [
         Instruction ("movq", prev_addr, "%rax", "");
+        Instruction ("testl", "%eax", "%eax", "");
+        Instruction ("je", void_dispatch_label, "", "");
         Instruction ("movq", "(%rax)", "%rax", "");
         Instruction ("testl", "%eax", "%eax", "");
         Instruction ("je", void_dispatch_label, "", "");
@@ -1380,7 +1380,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Instruction ("movl", "$" ^ err_to_num ERR_VOID_CASE, "%edi", "");
         Instruction ("call", "cool_error", "", "");
       ]
-  | Default | New ->
+  | Default ->
       let result =
         match get_attribute class_name tac.result with
         | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
@@ -1388,15 +1388,58 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             add_var_addr tac.result;
             get_var_addr tac.result
       in
-
       Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
         result;
-      pushargs
-      @ [
-          Instruction ("call", tac.arg1 ^ "..new", "", "");
-          Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
-        ]
-      @ popargs
+      let name = tac.arg1 in
+      let new_call =
+        if
+          name = "Bool" || name = "IO" || name = "Int" || name = "Object"
+          || name = "String"
+        then
+          if tac.arg1 = "SELF_TYPE" then
+            [
+              Instruction ("pushq", "%rdi", "", "");
+              Instruction ("movq", "16(%rdi)", "%r14", "");
+              Instruction ("movq", "8(%r14)", "%r14", "");
+              Instruction ("call", "*%r14", "", "");
+              Instruction ("popq", "%rdi", "", "");
+              Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+            ]
+          else
+            [
+              Instruction ("call", tac.arg1 ^ "..new", "", "");
+              Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+            ]
+        else [ Instruction ("movq", "$0", result, "") ]
+      in
+      pushargs @ new_call @ popargs
+  | New ->
+      let result =
+        match get_attribute class_name tac.result with
+        | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
+        | None ->
+            add_var_addr tac.result;
+            get_var_addr tac.result
+      in
+      Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
+        result;
+      let new_call =
+        if tac.arg1 = "SELF_TYPE" then
+          [
+            Instruction ("pushq", "%rdi", "", "");
+            Instruction ("movq", "16(%rdi)", "%r14", "");
+            Instruction ("movq", "8(%r14)", "%r14", "");
+            Instruction ("call", "*%r14", "", "");
+            Instruction ("popq", "%rdi", "", "");
+            Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+          ]
+        else
+          [
+            Instruction ("call", tac.arg1 ^ "..new", "", "");
+            Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
+          ]
+      in
+      pushargs @ new_call @ popargs
   | Isvoid ->
       let result =
         match get_attribute class_name tac.result with
@@ -1589,6 +1632,10 @@ let new_funcs =
       List.map
         (fun (attr : attribute) : asm_line list ->
           let var_index = 3 + attr.index in
+          let newtype =
+            if attr.type_name = "SELF_TYPE" then asm_class_var.vtable.name_id
+            else attr.type_name
+          in
           let type_new = Printf.sprintf "%s..new" attr.type_name in
           let stack_location = Printf.sprintf "%d(%%rdi)" (8 * var_index) in
           [
