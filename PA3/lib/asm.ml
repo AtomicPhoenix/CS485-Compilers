@@ -1739,8 +1739,13 @@ let new_funcs =
               Instruction ("popq", "%rbp", "", "");
               Instruction ("movq", "%r13", stack_location, "");
             ]
-          else
+          else if
+            attr.type_name = "Bool" || attr.type_name = "IO"
+            || attr.type_name = "Int" || attr.type_name = "Object"
+            || attr.type_name = "String"
+          then
             [
+              Line "\t#Attr No Init start";
               Line
                 (Printf.sprintf "\t## self[%d] holds field %s : %s" var_index
                    attr.field_name attr.type_name);
@@ -1752,6 +1757,13 @@ let new_funcs =
               Instruction ("popq", "%rdi", "", "");
               Instruction ("popq", "%rbp", "", "");
               Instruction ("movq", "%r13", stack_location, "");
+              Line "\t#Attr No Init end";
+            ]
+          else
+            [
+              Line "\t#Attr No Init start";
+              Instruction ("movq", "$0", stack_location, "");
+              Line "\t#Attr No Init end";
             ])
         asm_class_var.attributes
       |> List.flatten
