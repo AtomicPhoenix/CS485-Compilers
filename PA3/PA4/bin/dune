@@ -1,4 +1,0 @@
-(executable
- (public_name PA3)
- (name main)
- (libraries PA3))

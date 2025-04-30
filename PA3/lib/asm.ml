@@ -487,7 +487,7 @@ let add_var_addr (var_name : string) =
   match Hashtbl.find_opt var_locations var_name with
   | None -> Hashtbl.add var_locations var_name fp_offset
   | Some _ ->
-      (* Printf.fprintf out_file "Error: Variable %s already has a location\n"
+      (* Printf.fprintf debug_file "Error: Variable %s already has a location\n"
         var_name *)
       ()
 
@@ -499,7 +499,7 @@ let get_var_addr (var_name : string) : string =
       if addr < 0 then (
         let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
         let register = List.nth registers (addr + 5) in
-        Printf.fprintf out_file
+        Printf.fprintf debug_file
           "\t#; Argument %s is stored in register %d (%s)\n" var_name addr
           register;
         register)
@@ -510,7 +510,7 @@ let get_var_addr (var_name : string) : string =
       | Some addr when addr < 0 ->
           let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
           let register = List.nth registers (addr + 5) in
-          Printf.fprintf out_file
+          Printf.fprintf debug_file
             "\t#; Argument %s is stored in register %d (%s)\n" var_name addr
             register;
           register
@@ -521,7 +521,7 @@ let get_var_addr (var_name : string) : string =
           if var_name = "self" || var_name = "%rdi" then "%rdi"
           (* Fifth: That sucks, error *)
             else (
-            Printf.fprintf out_file
+            Printf.fprintf debug_file
               "\t#; Failed to find a temp for variable %s\n" var_name;
             print_var_locations ();
             var_name))
@@ -601,7 +601,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       in
       match List.find_opt (fun f -> f.field_name = tac.arg1) attrs with
       | Some v ->
-          Printf.fprintf out_file
+          Printf.fprintf debug_file
             "#; Assignment in Class %s to attribute %s : %s \n" class_name
             v.field_name v.type_name;
           add_var_addr tac.result;
@@ -614,7 +614,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             Line "\t#Assignment end";
           ]
       | None ->
-          Printf.fprintf out_file
+          Printf.fprintf debug_file
             "#; Class %s does not have an attribute named %s \n" class_name
             tac.result;
           let result = get_var_addr tac.result in
@@ -640,7 +640,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         match get_attribute class_name tac.result with
         | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
         | None ->
-            Printf.fprintf out_file "#; %s.%s: %s is not an attribute\n"
+            Printf.fprintf debug_file "#; %s.%s: %s is not an attribute\n"
               class_name cur_method tac.result;
             add_var_addr tac.result;
             get_var_addr tac.result
@@ -793,7 +793,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         match get_attribute static_class tac.result with
         | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
         | None ->
-            Printf.fprintf out_file "#; %s.%s: %s is not an attribute\n"
+            Printf.fprintf debug_file "#; %s.%s: %s is not an attribute\n"
               static_class cur_method tac.result;
             add_var_addr tac.result;
             get_var_addr tac.result
@@ -950,7 +950,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       let class_id = Hashtbl.find_opt class_id_map class_name in
       match class_id with
       | Some class_id ->
-          (* Printf.fprintf out_file "\t#; Class Id of type %s is %d\n" class_name
+          (* Printf.fprintf debug_file "\t#; Class Id of type %s is %d\n" class_name
             class_id; *)
           [ Instruction ("movq", Printf.sprintf "$%d" class_id, result, "") ]
       | None ->
@@ -1030,7 +1030,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             if addr < 0 then (
               let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
               let register = List.nth registers (addr + 5) in
-              Printf.fprintf out_file
+              Printf.fprintf debug_file
                 "\t#; Argument %s is stored in register %d (%s)\n" ident_name
                 addr register;
               register)
@@ -1039,7 +1039,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             match get_attribute class_name ident_name with
             | Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)
             | None ->
-                Printf.fprintf out_file
+                Printf.fprintf debug_file
                   "\t#; Failed to find a temp for variable %s\n" ident_name;
                 print_class_attributes ();
                 get_var_addr ident_name)
@@ -1063,7 +1063,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             Line "\t#Ident Expr end";
           ]
       | None ->
-          Printf.fprintf out_file
+          Printf.fprintf debug_file
             "#; Class %s does not have an attribute named %s \n" class_name
             tac.result;
           add_var_addr tac.result;
@@ -1465,8 +1465,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             add_var_addr tac.result;
             get_var_addr tac.result
       in
-      Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
-        result;
+      Printf.fprintf debug_file "# NEW: Adding var %s at position %s\n"
+        tac.result result;
       let name = tac.arg1 in
       let new_call =
         if
@@ -1498,8 +1498,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             add_var_addr tac.result;
             get_var_addr tac.result
       in
-      Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
-        result;
+      Printf.fprintf debug_file "# NEW: Adding var %s at position %s\n"
+        tac.result result;
       let new_call =
         if tac.arg1 = "SELF_TYPE" then
           [
@@ -1525,7 +1525,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             add_var_addr tac.result;
             get_var_addr tac.result
       in
-      Printf.fprintf out_file "# Isvoid: Adding var %s at position %s\n"
+      Printf.fprintf debug_file "# Isvoid: Adding var %s at position %s\n"
         tac.result result;
       let true_jump = get_jump () in
       let post_jump = get_jump () in
@@ -1890,8 +1890,9 @@ let method_asm =
         List.mapi
           (fun i arg ->
             Hashtbl.add arg_map arg (i - 5);
-            Printf.fprintf out_file "\t#; Placing var %s in register %d (%s)\n"
-              arg i (List.nth registers i);
+            Printf.fprintf debug_file
+              "\t#; Placing var %s in register %d (%s)\n" arg i
+              (List.nth registers i);
             Instruction ("movq", get_var_addr arg, List.nth registers i, ""))
           args
       in
@@ -1900,8 +1901,8 @@ let method_asm =
         let remaining = List.filteri (fun i _ -> i > 4) args in
         List.iteri
           (fun i arg ->
-            Printf.fprintf out_file "\t#; Adding var %s as position %d(%%rbp)\n"
-              arg
+            Printf.fprintf debug_file
+              "\t#; Adding var %s as position %d(%%rbp)\n" arg
               (8 * (i + 5));
             Hashtbl.add arg_map arg (8 * (i + 2)))
           remaining;
@@ -1916,10 +1917,10 @@ let method_asm =
         if List.length args <= 5 then gen_register_arglist args
         else gen_mixed_arglist args
       in
-      Printf.fprintf out_file "#; %s.%s:\n" class_name method_name;
+      Printf.fprintf debug_file "#; %s.%s:\n" class_name method_name;
       List.iteri
         (fun i (arg : ast_formal) ->
-          Printf.fprintf out_file "\t#; Argument %d: %s\n" i arg.name.name)
+          Printf.fprintf debug_file "\t#; Argument %d: %s\n" i arg.name.name)
         method_args;
 
       let stack_space =

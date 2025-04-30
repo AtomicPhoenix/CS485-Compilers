@@ -22,18 +22,18 @@ open Tac
 type basic_block = tac_elem list
 and cfg = basic_block list
 
-(*
-and control_flow_graph_elem =
+and cfg_elem =
   (* Basic Block followed by next CFG elem *)
-  | Sequence of basic_block
+  | Sequence of basic_block * cfg_elem option
   (* Basic Block (Condition) followed by Basic Block List (If bodies) followed by next CFG elem *)
-  | If_Statement of basic_block * basic_block list
-  (* Basic Block (Condition) followed by Basic Block(Loop Body) followed by next CFG elem *)
-  | Loop of basic_block * basic_block
-  | Function_Call of basic_block
+  | If_Statement of basic_block * basic_block list * cfg_elem option
+  (* Basic Block (Condition) follo* cfg_elem optionwed by Basic Block (Loop Body) followed by next CFG elem *)
+  | Loop of basic_block * basic_block * cfg_elem option
+  | Function_Call of basic_block * cfg_elem option
 
-and cfg = control_flow_graph_elem list *)
+and real_cfg = cfg_elem list
 
+(* Checks if a given tac element is a break point in the CFG *)
 let is_break_point (tac : tac_elem) =
   match tac.operand with
   | Bt | Call | Jmp | Case _ | Default | Return -> true
