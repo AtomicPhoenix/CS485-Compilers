@@ -9,6 +9,7 @@ cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.m
 	     s/Asm\.//
 	     s/Tac\.// 
 	     s/Intrinsics\.//
+	     s/Cfg\.//
 	     w ./main.ml' >main.ml
 
 EXTENSION=$(echo "$1" | cut -d'.' -f4)
@@ -22,24 +23,30 @@ elif [ "$EXTENSION" != "cl-type" ]; then
 	exit 1
 fi
 
-echo "Running $FILE"
-echo "----------------------------------------------------"
 TESTNAME="./test-case.cl-type"
 cp "$FILE" $TESTNAME
+
+echo "Running $FILE"
+echo "----------------------------------------------------"
 
 ocamlc main.ml
 ./a.out "$TESTNAME"
 
 TESTNAME="$(basename "$TESTNAME" .cl-type)"
+mv "$TESTNAME".cl-tac ./our-output.cl-tac
 
-gcc -static -fno-pie -ggdb -o program "$TESTNAME".s
-./program &>./our-output.txt
+../cool --tac "$1" --out "./ref-output"
 
-TESTNAME="$(basename "$TESTNAME" .s)"
+pr -m -t ./our-output.cl-tac ./ref-output.cl-tac
+
 rm "$TESTNAME.cl"* 2>/dev/null
 rm main.cm*
-if [ -z "$2" ]; then
-	../cool "$1" &>./ref-output.txt
-	diff ./ref-output.txt ./our-output.txt
-fi
 echo ""
+
+if [ -n "$2" ]; then
+	../cool --x86 --opt --cfg "$1"
+	dot -Tpng main_pre.dot >filename.png
+	feh ./filename.png
+	rm *".dot"
+	rm ./filename.png
+fi

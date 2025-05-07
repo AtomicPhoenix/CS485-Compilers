@@ -76,7 +76,7 @@ let print_new_funcs (funcs : new_func list) =
     Printf.fprintf Print.out_file "\t.type\t%s..new, @function\n" name;
     List.iter (fun ln -> print_asm ln) lines;
     (*Printf.fprintf Print.out_file "\t.size\t%s, .-%s\n" name name;*)
-    Printf.fprintf Print.out_file
+    Printf.fprintf Print.debug_file
       "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
   in
   List.iter print_new_func funcs
@@ -87,7 +87,8 @@ let var_locations = Hashtbl.create 32
 (* Print var_locations map *)
 let print_var_locations () =
   Hashtbl.iter
-    (fun k v -> Printf.fprintf out_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
+    (fun k v ->
+      Printf.fprintf debug_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
     var_locations
 
 (* Sting Constants in the program; Counter for labeling each string *)
@@ -311,7 +312,7 @@ let print_vtable (table : vtable) =
   Printf.fprintf Print.out_file "%s..vtable:\n" name;
   Printf.fprintf Print.out_file "\t.quad .string%d\n" strid;
   List.iter print_vtable_func table.methods;
-  Printf.fprintf Print.out_file
+  Printf.fprintf Print.debug_file
     "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
 
 (* Vtables for default values *)
@@ -446,10 +447,10 @@ let get_label () =
 let print_class_attributes () =
   Hashtbl.iter
     (fun k attrlist ->
-      Printf.fprintf out_file "\t#; Class: %s\n" k;
+      Printf.fprintf debug_file "\t#; Class: %s\n" k;
       List.iter
         (fun attr ->
-          Printf.fprintf out_file "\t\t#; Attribute: %s\n" attr.field_name)
+          Printf.fprintf debug_file "\t\t#; Attribute: %s\n" attr.field_name)
         attrlist)
     class_attribute_map
 
@@ -587,7 +588,7 @@ let transform_string s =
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
-  [ Line (Tac.get_tac_elem_commented tac) ]
+  [ Line (Tac.get_tac_elem tac) ]
   @
   match tac.operand with
   | Assignment -> (
@@ -1881,7 +1882,8 @@ let method_asm =
     ]
   in
   List.map
-    (fun (cfg, class_name, method_name, method_args, temps) ->
+    (fun (graph : Cfg.graph_elem) ->
+      let cfg = graph.cfg in
       Hashtbl.reset var_locations;
       Hashtbl.reset arg_map;
       (*Printf.printf "new method!!!\n";*)
@@ -1910,19 +1912,19 @@ let method_asm =
       in
 
       let args =
-        List.map (fun (arg : ast_formal) -> arg.name.name) method_args
+        List.map (fun (arg : ast_formal) -> arg.name.name) graph.arguments
       in
       (* While there ARE 6 argument registers in the SysV convention, we are dedicating rdi to always be the self pointer *)
       let arglist =
         if List.length args <= 5 then gen_register_arglist args
         else gen_mixed_arglist args
       in
-      Printf.fprintf debug_file "#; %s.%s:\n" class_name method_name;
+      Printf.fprintf debug_file "#; %s.%s:\n" graph.class_name graph.method_name;
       List.iteri
         (fun i (arg : ast_formal) ->
           Printf.fprintf debug_file "\t#; Argument %d: %s\n" i arg.name.name)
-        method_args;
-
+        graph.arguments;
+      let temps = graph.temp_count in
       let stack_space =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
@@ -1930,15 +1932,18 @@ let method_asm =
       let asms =
         List.map
           (fun tac ->
-            let t = tac_to_as tac method_name class_name !prev_tac in
+            let t =
+              tac_to_as tac graph.method_name graph.class_name !prev_tac
+            in
             prev_tac := tac;
             t)
           method_tac
         |> List.flatten
       in
-      get_start_method_boilerplate method_name class_name stack_space
+      get_start_method_boilerplate graph.method_name graph.class_name
+        stack_space
       @ arglist @ asms
-      @ get_end_method_boilerplate class_name method_name)
+      @ get_end_method_boilerplate graph.class_name graph.method_name)
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst

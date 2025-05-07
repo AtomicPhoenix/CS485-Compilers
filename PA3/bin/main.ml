@@ -7,6 +7,7 @@ module Intrinsics = PA3.Intrinsics
 
 let () =
   (* Print all tacs *)
+  (*
   List.iter (fun (f, _, _, _, _) -> Tac.print_tac_elems f) Tac.tacs;
 
   (* Default vtables *)
@@ -35,3 +36,8 @@ let () =
 
   (* Print start *)
   Asm.print_start ()
+  *)
+  (* List.iter (fun (f, _, _, _, _) -> Tac.print_tac_elems f) Tac.tacs; *)
+  (* List.iter Cfg.print_graph Cfg.cfg_list *)
+  (* Cfg.print_graph (List.hd Cfg.cfg_list)*)
+  List.iter (List.iter Cfg.print_cfg) Cfg.real_cfg

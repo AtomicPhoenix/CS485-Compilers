@@ -150,35 +150,38 @@ let operand_to_string (operand : tac_operand) : string =
   | ClassId -> "classId"
 
 (* get tac string in a form that is printable in an assembly file *)
-let get_tac_elem_commented t =
+let get_tac_elem t =
   match t.operand with
-  | Label -> Printf.sprintf "#;label %s" t.arg1
-  | Jmp -> Printf.sprintf "#;jmp %s" t.arg1
-  | Return -> Printf.sprintf "#;return %s" t.arg1
-  | Comment -> Printf.sprintf "#;comment %s" t.arg1
-  | Bt -> Printf.sprintf "#;bt %s %s" t.arg1 t.arg2
-  | Assignment -> Printf.sprintf "#;%s <- %s" t.result t.arg1
-  | LetNoInit -> Printf.sprintf "#;%s <- %s %s" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.sprintf "#;%s <- %s" t.result t.arg1
-  | Case c -> Printf.sprintf "#Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
-  | VoidCase -> Printf.sprintf "#VoidCase: %s" t.arg1
-  | EmptyCase -> Printf.sprintf "#EmptyCase: %s" t.arg1
+  | Label -> Printf.sprintf "label %s" t.arg1
+  | Jmp -> Printf.sprintf "jmp %s" t.arg1
+  | Return -> Printf.sprintf "return %s" t.arg1
+  | Comment -> Printf.sprintf "comment %s" t.arg1
+  | Bt -> Printf.sprintf "bt %s %s" t.arg1 t.arg2
+  | Assignment -> Printf.sprintf "%s <- %s" t.result t.arg1
+  | LetNoInit -> Printf.sprintf "%s <- %s %s" t.result t.arg1 t.arg2
+  | String_Constant -> Printf.sprintf "%s <- %s" t.result t.arg1
+  | Case c -> Printf.sprintf "Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
+  | VoidCase -> Printf.sprintf "VoidCase: %s" t.arg1
+  | EmptyCase -> Printf.sprintf "EmptyCase: %s" t.arg1
   | _ ->
       if t.arg2 = "" && t.arg1 = "" then
-        Printf.sprintf "#;%s <- %s" t.result (operand_to_string t.operand)
+        Printf.sprintf "%s <- %s" t.result (operand_to_string t.operand)
       else if t.arg2 = "" then
-        Printf.sprintf "#;%s <- %s %s" t.result
+        Printf.sprintf "%s <- %s %s" t.result
           (operand_to_string t.operand)
           t.arg1
       else
-        Printf.sprintf "#;%s <- %s %s %s" t.result
+        Printf.sprintf "%s <- %s %s %s" t.result
           (operand_to_string t.operand)
           t.arg1 t.arg2
 
-let print_tac_elem_commented t =
-  Printf.fprintf out_file "%s\n" (get_tac_elem_commented t)
+let print_tac_elems_commented t =
+  List.iter
+    (fun elem -> Printf.fprintf debug_file "#;%s\n" (get_tac_elem elem))
+    t
 
-let print_tac_elems (t : tac_elem list) = List.iter print_tac_elem_commented t
+let print_tac_elems (t : tac_elem list) =
+  List.iter (fun elem -> Printf.fprintf out_file "%s\n" (get_tac_elem elem)) t
 
 (* Get the different cases for a case statement according to the operational semantics of case *)
 (* Return a list of (string * string) (class_name * the case it corresponds to) *)
@@ -200,7 +203,7 @@ let rec get_cases cases cname mname =
          cases
   in
   List.iter
-    (fun (name, label) -> Printf.fprintf out_file "#Jump %s: %s\n" name label)
+    (fun (name, label) -> Printf.fprintf debug_file "#Jump %s: %s\n" name label)
     jump_points;
   let get_case (class_name, _) =
     let ancestors =
@@ -223,14 +226,14 @@ let rec get_cases cases cname mname =
       match get_matching_case ancestors with Some v -> v | None -> "emptycase"
     in
     let label = snd (List.find (fun (name, _) -> name = mtch) jump_points) in
-    Printf.fprintf out_file "#Class: %s\n" class_name;
-    Printf.fprintf out_file "#\tAncestors: ";
+    Printf.fprintf debug_file "#Class: %s\n" class_name;
+    Printf.fprintf debug_file "#\tAncestors: ";
     List.iter
-      (fun ancestor -> Printf.fprintf out_file "%s, " ancestor)
+      (fun ancestor -> Printf.fprintf debug_file "%s, " ancestor)
       ancestors;
-    Printf.fprintf out_file "\n";
-    Printf.fprintf out_file "#\tMatching case: %s\n" mtch;
-    Printf.fprintf out_file "#\tMatching label: %s\n" label;
+    Printf.fprintf debug_file "\n";
+    Printf.fprintf debug_file "#\tMatching case: %s\n" mtch;
+    Printf.fprintf debug_file "#\tMatching label: %s\n" label;
     (class_name, label)
   in
   List.map get_case class_list
@@ -311,9 +314,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       let exp_res = match var_id with Some v -> v | None -> id.name in
       let last_var = exp_to_tac exp exp_res cname mname in
 
-      Printf.fprintf out_file "#; id.name: %s\n" id.name;
-      Printf.fprintf out_file "#; exp_res: %s\n" exp_res;
-      Printf.fprintf out_file "#; result: %s\n" result;
+      Printf.fprintf debug_file "#; id.name: %s\n" id.name;
+      Printf.fprintf debug_file "#; exp_res: %s\n" exp_res;
+      Printf.fprintf debug_file "#; result: %s\n" result;
       last_var
       @ [
           {
@@ -359,7 +362,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
         ]
   | Static_Dispatch (dispatch_exp, typ, method_name, args) ->
-      Printf.fprintf out_file "#; %s.%s w/ type %s, # of args: %d\n" cname
+      Printf.fprintf debug_file "#; %s.%s w/ type %s, # of args: %d\n" cname
         method_name.name typ.name (List.length args);
       let arg_tacs =
         if List.length args > 0 then
@@ -460,7 +463,15 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       label_ctr := !label_ctr + 1;
       let join_label = get_label !label_ctr mname cname in
       let true_location = (List.hd (List.rev cond_tac)).result in
-      cond_tac
+      {
+        operand = Comment;
+        arg1 = "If-Cond";
+        arg2 = "";
+        result;
+        line = exp.id.line_num;
+        static_type = exp.static_type;
+      }
+      :: cond_tac
       (* may be possible bug, may need to get the last value of cond_tac instead of result *)
       @ [
           {
@@ -482,7 +493,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           (* @ [ { operand = Bt; arg1 = true_location; arg2 = then_label; result; line=exp.id.line_num} ] *)
           {
             operand = Comment;
-            arg1 = "then branch";
+            arg1 = "If-Then";
             arg2 = "";
             result;
             line = exp.id.line_num;
@@ -509,7 +520,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
           {
             operand = Comment;
-            arg1 = "else branch";
+            arg1 = "If-Else";
             arg2 = "";
             result;
             line = exp.id.line_num;
@@ -536,7 +547,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
           {
             operand = Comment;
-            arg1 = "if-join";
+            arg1 = "If-Join";
             arg2 = "";
             result;
             line = exp.id.line_num;
@@ -545,7 +556,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           {
             operand = Label;
             arg1 = join_label;
-            arg2 = "";
+            arg2 = "join";
             result;
             line = exp.id.line_num;
             static_type = exp.static_type;
@@ -570,16 +581,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       let true_location = (List.hd (List.rev cond_tac)).result in
       [
         {
-          operand = Jmp;
-          arg1 = cond_label;
-          arg2 = "";
-          result;
-          line = exp.id.line_num;
-          static_type = exp.static_type;
-        };
-        {
           operand = Comment;
-          arg1 = "while-pred";
+          arg1 = "While-Cond";
           arg2 = "";
           result;
           line = exp.id.line_num;
@@ -613,16 +616,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             static_type = exp.static_type;
           };
           {
-            operand = Bt;
-            arg1 = true_location;
-            arg2 = body_label;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-          {
             operand = Comment;
-            arg1 = "while-body";
+            arg1 = "While-Body";
             arg2 = "";
             result;
             line = exp.id.line_num;
@@ -649,7 +644,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
           {
             operand = Comment;
-            arg1 = "while-join";
+            arg1 = "While-Join";
             arg2 = "";
             result;
             line = exp.id.line_num;
@@ -658,7 +653,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           {
             operand = Label;
             arg1 = join_label;
-            arg2 = "";
+            arg2 = "join";
             result;
             line = exp.id.line_num;
             static_type = exp.static_type;
@@ -890,8 +885,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
   | Ident_Expr s -> (
       match Hashtbl.find_opt letTable s.name with
       | Some t ->
-          Printf.fprintf out_file "#; %s.%s: Retrieved variable %s as temp %s\n"
-            cname mname s.name t;
+          Printf.fprintf debug_file
+            "#; %s.%s: Retrieved variable %s as temp %s\n" cname mname s.name t;
           [
             {
               operand = Ident_Expr t;
@@ -903,7 +898,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             };
           ]
       | None ->
-          Printf.fprintf out_file "#; %s.%s: Retrieved variable %s\n" cname
+          Printf.fprintf debug_file "#; %s.%s: Retrieved variable %s\n" cname
             mname s.name;
           [
             {
@@ -1076,6 +1071,14 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             let case_label = get_label !label_ctr mname cname in
             [
               {
+                operand = Comment;
+                arg1 = "Case-Stmt";
+                arg2 = "";
+                result = "";
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+              {
                 operand = Label;
                 arg1 = case_label;
                 arg2 = "";
@@ -1103,9 +1106,17 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       let case_join =
         [
           {
+            operand = Comment;
+            arg1 = "Case-Join";
+            arg2 = "";
+            result = "";
+            line = exp.id.line_num;
+            static_type = exp.static_type;
+          };
+          {
             operand = Label;
             arg1 = join_label;
-            arg2 = "";
+            arg2 = "join";
             result;
             line = exp.id.line_num;
             static_type = exp.static_type;
@@ -1114,7 +1125,16 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       in
       let jumps = null_case_jump @ defined_case_jumps in
       let cases = null_case @ defined_cases @ empty_case @ case_join in
-      case_expr_value @ case_expr_id @ jumps @ cases
+      {
+        operand = Comment;
+        arg1 = "Case-Expr";
+        arg2 = Printf.sprintf "%d" (List.length jumps);
+        result = "";
+        line = exp.id.line_num;
+        static_type = exp.static_type;
+      }
+      :: case_expr_value
+      @ case_expr_id @ jumps @ cases
   | Internal _ ->
       Printf.fprintf out_file
         "Something is fundamentally wrong (We should not be parsing Internal \
