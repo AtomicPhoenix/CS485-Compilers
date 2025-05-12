@@ -39,7 +39,7 @@ let is_break_point (tac : tac_elem) =
   | Bt | Call | Jmp | Case _ | Default | Return -> true
   | _ -> false
 
-let tac_to_cfg (tacs, class_name, method_name, attributes, temp_count) :
+let tac_to_cfg (tacs, class_name, method_name, args, temp_count) :
     cfg * string * string * Parser.ast_formal list * int =
   let rec create_cfg (tac_list : tac_elem list) acc cfg =
     match tac_list with
@@ -49,13 +49,20 @@ let tac_to_cfg (tacs, class_name, method_name, attributes, temp_count) :
         | false -> create_cfg tail (tac :: acc) cfg)
     | [] -> [ List.rev acc ] @ cfg
   in
-  ( List.rev (create_cfg tacs [] []),
-    class_name,
-    method_name,
-    attributes,
-    temp_count )
+  (List.rev (create_cfg tacs [] []), class_name, method_name, args, temp_count)
 
-and print_cfg bbl = List.iter (List.iter print_tac_elem_commented) bbl
+let tac_attr_to_cfg tacs temp_count : cfg * int =
+  let rec create_cfg (tac_list : tac_elem list) acc cfg =
+    match tac_list with
+    | tac :: tail -> (
+        match is_break_point tac with
+        | true -> create_cfg tail [] ([ List.rev (tac :: acc) ] @ cfg)
+        | false -> create_cfg tail (tac :: acc) cfg)
+    | [] -> [ List.rev acc ] @ cfg
+  in
+  (List.rev (create_cfg tacs [] []), temp_count)
+
+let print_cfg bbl = List.iter (List.iter print_tac_elem_commented) bbl
 
 let cfg_list : (cfg * string * string * Parser.ast_formal list * int) list =
   List.map tac_to_cfg Tac.tacs

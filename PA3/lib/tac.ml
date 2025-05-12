@@ -24,6 +24,7 @@ and tac_operand =
   | Case of string
   | VoidCase
   | EmptyCase
+  | Case_Header
   | Return
   | LetNoInit
   | Ident_Expr of string
@@ -124,6 +125,7 @@ let operand_to_string (operand : tac_operand) : string =
   | Call -> "call"
   | StaticCall s -> Printf.sprintf "StaticCall (%s)" s
   | Case jump -> Printf.sprintf "jump to :%s after comparison of" jump
+  | Case_Header -> Printf.sprintf "Case header"
   | VoidCase -> "VoidCase"
   | EmptyCase -> "EmptyCase"
   | Comment -> "comment"
@@ -693,7 +695,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           operand = New;
           arg1 = id.name;
           arg2 = "";
-          result = get_id !var_ctr;
+          (*result = get_id !var_ctr;*)
+          result;
           line = exp.id.line_num;
           static_type = exp.static_type;
         };
@@ -961,14 +964,14 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let caseResult = get_id !var_ctr in
       let case_expr_value = exp_to_tac case_expr caseResult mname cname in
-      let caseExprResult = get_id !var_ctr in
+      let case_expr_result = get_id !var_ctr in
       var_ctr := !var_ctr + 1;
       let case_id = get_id !var_ctr in
       let case_expr_id =
         [
           {
             operand = ClassId;
-            arg1 = caseExprResult;
+            arg1 = case_expr_result;
             arg2 = "";
             result = case_id;
             line = exp.id.line_num;
@@ -978,16 +981,27 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       in
       label_ctr := !label_ctr + 1;
       let null_case_label = get_label !label_ctr mname cname in
-      let null_case_jump =
+      (*let null_case_jump =*)
+        (*[*)
+          (*{*)
+            (*operand = Case null_case_label;*)
+            (*arg1 = "$0";*)
+            (*arg2 = case_id;*)
+            (*result = "";*)
+            (*line = exp.id.line_num;*)
+            (*static_type = exp.static_type;*)
+          (*};*)
+        (*]*)
+      let case_header =
         [
           {
-            operand = Case null_case_label;
-            arg1 = "$0";
-            arg2 = case_id;
-            result = "";
+            operand = Case_Header;
+            arg1 = case_expr_result;
+            arg2 = "";
+            result = null_case_label;
             line = exp.id.line_num;
             static_type = exp.static_type;
-          };
+          }
         ]
       in
       let join_label = cname ^ "_" ^ mname ^ "_join" in
@@ -1071,7 +1085,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             (* var_ctr := !var_ctr + 1;
             let var_id = get_id !var_ctr in
             Hashtbl.add letTable elem.variable.name var_id; *)
-            Hashtbl.add letTable elem.variable.name caseExprResult;
+            Hashtbl.add letTable elem.variable.name case_expr_result;
             label_ctr := !label_ctr + 1;
             let case_label = get_label !label_ctr mname cname in
             [
@@ -1112,9 +1126,9 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           };
         ]
       in
-      let jumps = null_case_jump @ defined_case_jumps in
+      let jumps = defined_case_jumps in
       let cases = null_case @ defined_cases @ empty_case @ case_join in
-      case_expr_value @ case_expr_id @ jumps @ cases
+      case_expr_value @ case_header @ case_expr_id @ jumps @ cases
   | Internal _ ->
       Printf.fprintf out_file
         "Something is fundamentally wrong (We should not be parsing Internal \
