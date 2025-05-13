@@ -143,7 +143,7 @@ let operand_to_string (operand : tac_operand) : string =
   | Times -> "*"
   | LessThan -> "<"
   | LessEqual -> "<="
-  | Equal -> "equal"
+  | Equal -> "="
   | Not -> "not"
   | Negate -> "negate"
   | Int_Constant -> "int"

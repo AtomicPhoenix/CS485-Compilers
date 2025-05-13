@@ -5,15 +5,15 @@ rm ../Tests/*.cl-tac &>/dev/null
 run() {
 	cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.ml lib/optimizer.ml bin/main.ml |
 		sed 's/Print\.//g
-             s/Parser\.//g  
-	     s/Tac\.//g
-	     s/Asm\.//g
-	     s/Cfg\.//g
-	     s/Optimizer\.//g
-	     s/Intrinsics\.//g
-	     /^open/d
-	     /PA3/d
-	     w ./main.ml' >main.ml
+             s/Parser\.//g
+             s/Tac\.//g
+             s/Asm\.//g
+             s/Cfg\.//g
+             s/Optimizer\.//g
+             s/Intrinsics\.//g
+             /^open/d
+             /PA3/d
+             w ./main.ml' >main.ml
 
 	EXTENSION=$(echo "$1" | cut -d'.' -f4)
 
@@ -37,19 +37,37 @@ run() {
 	../cool --tac $TESTNAME
 	mv "./test-case.cl-tac" "./outputs/ref-output.cl-tac"
 
-	pr -m -t ./outputs/our-output.cl-tac ./outputs/ref-output.cl-tac
-	# TESTNAME="$(basename "$TESTNAME" .cl-type)"
-	# mv "./test-case.s" "./outputs/our-output.s"
-	# gcc -static -fno-pie -ggdb -o program "./outputs/our-output.s"
-	# mv "./program" "./outputs/our-program"
-	# ./outputs/our-program &>./outputs/our-output.txt
+	if [[ -n $2 ]]; then
+		pr -m -t ./outputs/our-output.cl-tac ./outputs/ref-output.cl-tac
+	fi
 
-	# TESTNAME="$(basename "$TESTNAME" .s)"
-	# rm "$TESTNAME.cl"* 2>/dev/null
-	# rm main.cm*
+	ourLC=$(wc -l ./outputs/our-output.cl-tac | cut -d' ' -f 1)
+	refLC=$(wc -l ./outputs/ref-output.cl-tac | cut -d' ' -f 1)
+	percentage="$(printf "%.2f" "$(echo "scale=4; ($ourLC - $refLC)" | bc)")"
 
-	# # echo "----------------------------------------------------"
-	# echo ""
+	../cool ./outputs/our-output.cl-tac &>./outputs/our-output.txt
+	../cool ./outputs/ref-output.cl-tac &>./outputs/ref-output.txt
+
+	diffs=$(diff -U 0 ./outputs/ref-output.txt ./outputs/our-output.txt | tail -n +3 | grep -c '^@')
+
+	if [ "$diffs" != "0" ]; then
+		printf "There are %s differences between the reference output and the actual output\n" "$diffs"
+	else
+		printf "The reference output matches the actual output\n"
+		printf "Line Count: %s line difference : %s v.s. %s\n" "$percentage" "$ourLC" "$refLC"
+
+	fi
+
+	if [[ -n $2 ]]; then
+		pr -m -t ./outputs/our-output.txt ./outputs/ref-output.txt
+	fi
+
+	lcSum=$(echo "$percentage + $lcSum" | bc)
+	count=$((count + 1))
 }
 
-run $1
+count=0
+lcSum=0
+run "$1" "$2"
+echo ""
+printf "Average LC Difference: %.2f\n" "$(echo "$lcSum / $count" | bc)"
