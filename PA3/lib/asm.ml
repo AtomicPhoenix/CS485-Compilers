@@ -588,7 +588,7 @@ let transform_string s =
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
-  [ Line (Tac.get_tac_elem tac) ]
+  [ Line ("#" ^ Tac.get_tac_elem tac) ]
   @
   match tac.operand with
   | Assignment -> (
@@ -1882,8 +1882,7 @@ let method_asm =
     ]
   in
   List.map
-    (fun (graph : Cfg.graph_elem) ->
-      let cfg = graph.cfg in
+    (fun (graph : Cfg.cfg) ->
       Hashtbl.reset var_locations;
       Hashtbl.reset arg_map;
       (*Printf.printf "new method!!!\n";*)
@@ -1928,7 +1927,7 @@ let method_asm =
       let stack_space =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
-      let method_tac = cfg |> List.flatten in
+      let method_tac = Cfg.get_method_tac graph.cfg in
       let asms =
         List.map
           (fun tac ->

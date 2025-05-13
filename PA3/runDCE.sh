@@ -1,15 +1,13 @@
-cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.ml bin/main.ml |
-	sed 's/Print\.//
-             s/Parser\.//  
-	     s/Tac\.// 
-	     s/Asm\.//
-	     s/Cfg\.//
+cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.ml lib/optimizer.ml bin/main.ml |
+	sed 's/Print\.//g
+             s/Parser\.//g  
+	     s/Tac\.//g
+	     s/Asm\.//g
+	     s/Cfg\.//g
+	     s/Optimizer\.//g
+	     s/Intrinsics\.//g
 	     /^open/d
 	     /PA3/d
-	     s/Asm\.//
-	     s/Tac\.// 
-	     s/Intrinsics\.//
-	     s/Cfg\.//
 	     w ./main.ml' >main.ml
 
 EXTENSION=$(echo "$1" | cut -d'.' -f4)
@@ -38,6 +36,8 @@ mv "$TESTNAME".cl-tac ./our-output.cl-tac
 ../cool --tac "$1" --out "./ref-output"
 
 pr -m -t ./our-output.cl-tac ./ref-output.cl-tac
+echo ""
+pr -m -t optimized.cl-tac unoptimized.cl-tac
 
 rm "$TESTNAME.cl"* 2>/dev/null
 rm main.cm*

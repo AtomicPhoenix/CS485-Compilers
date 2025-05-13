@@ -159,7 +159,7 @@ let get_tac_elem t =
   | Bt -> Printf.sprintf "bt %s %s" t.arg1 t.arg2
   | Assignment -> Printf.sprintf "%s <- %s" t.result t.arg1
   | LetNoInit -> Printf.sprintf "%s <- %s %s" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.sprintf "%s <- %s" t.result t.arg1
+  | String_Constant -> Printf.sprintf "%s <- string %s" t.result t.arg1
   | Case c -> Printf.sprintf "Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
   | VoidCase -> Printf.sprintf "VoidCase: %s" t.arg1
   | EmptyCase -> Printf.sprintf "EmptyCase: %s" t.arg1

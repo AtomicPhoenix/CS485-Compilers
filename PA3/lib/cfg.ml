@@ -18,28 +18,15 @@ open Tac
                      Exit
 *)
 
-type basic_block = tac_elem list
-and cfg = basic_block list
-
-and cfg_elem =
+type cfg_elem =
   (* Basic Block *)
-  | Normal_Node of basic_block
+  | Normal_Node of tac_elem list
   (* Condition * Then Stmt * Else Stmt * Join  *)
   | If_Statement of cfg_elem * cfg_elem * cfg_elem * cfg_elem
   (* Condition * Body * Join *)
   | Loop of cfg_elem * cfg_elem * cfg_elem
   (* Case Expr * Cases * Join *)
   | Cases of cfg_elem * cfg_elem list * cfg_elem
-
-and control_flow_graph = cfg_elem list
-
-and graph_elem = {
-  cfg : cfg;
-  class_name : string;
-  method_name : string;
-  arguments : Parser.ast_formal list;
-  temp_count : int;
-}
 
 and basic_block_label =
   | If_Cond
@@ -55,7 +42,17 @@ and basic_block_label =
   | While_Join
   | Normal
 
-and labelled_basic_block = { label : basic_block_label; block : basic_block }
+and labelled_basic_block = { label : basic_block_label; block : tac_elem list }
+(* and cfg_node = { data : cfg_elem; next : cfg_node option } *)
+
+and cfg = {
+  (*  cfg_root : cfg_node; *)
+  mutable cfg : cfg_elem list;
+  class_name : string;
+  method_name : string;
+  arguments : Parser.ast_formal list;
+  temp_count : int;
+}
 
 (* Checks if a given tac element is a break point in the CFG *)
 let is_break_point (tac : tac_elem) =
@@ -63,25 +60,7 @@ let is_break_point (tac : tac_elem) =
   | Bt | Jmp | Case _ | EmptyCase | VoidCase -> true
   | _ -> false
 
-let tac_to_cfg (tacs, class_name, method_name, arguments, temp_count) :
-    graph_elem =
-  let rec create_cfg (tac_list : tac_elem list) acc cfg =
-    match tac_list with
-    | tac :: tail -> (
-        match is_break_point tac with
-        | true -> create_cfg tail [] ([ List.rev (tac :: acc) ] @ cfg)
-        | false -> create_cfg tail (tac :: acc) cfg)
-    | [] -> [ List.rev acc ] @ cfg
-  in
-  {
-    cfg = List.rev (create_cfg tacs [] []);
-    class_name;
-    method_name;
-    arguments;
-    temp_count;
-  }
-
-let get_next_cfg_elem (cfg_base : cfg) =
+let get_next_cfg_elem cfg_base =
   let tacs = cfg_base |> List.flatten in
   let rec get_next cfg_base =
     match cfg_base with
@@ -153,73 +132,53 @@ let get_next_cfg_elem (cfg_base : cfg) =
     }
   *)
 
-(*
-let create_case_cfg_elem (cfg_list : cfg list) =
-  let rec build_case_cfg_elem cfg_list case_acc remaining =
-    match cfg_list with hd :: tail -> true | _ -> false
+let print_cfg (cfg_param : cfg) =
+  let rec print_cfg_elem elem =
+    match elem with
+    | Loop (cond, while_body, join_body) ->
+        Printf.fprintf Print.out_file
+          "#-----------While Stmt Condition:-----------\n";
+        print_cfg_elem cond;
+        Printf.fprintf Print.out_file
+          "#-----------While Stmt Body:-----------\n";
+        print_cfg_elem while_body;
+        Printf.fprintf Print.out_file
+          "#-----------While Stmt Join:-----------\n";
+        print_cfg_elem join_body
+    | If_Statement (cond, then_body, else_body, join_body) ->
+        Printf.fprintf Print.out_file
+          "#---------------If Stmt Condition:-----------------------\n";
+        print_cfg_elem cond;
+        Printf.fprintf Print.out_file
+          "#---------------If Stmt Then:-----------------------\n";
+        print_cfg_elem then_body;
+        Printf.fprintf Print.out_file
+          "#---------------If Stmt Else:-----------------------\n";
+        print_cfg_elem else_body;
+        Printf.fprintf Print.out_file
+          "#---------------If Stmt Join:-----------------------\n";
+        print_cfg_elem join_body
+    | Cases (exp, cases, join) ->
+        Printf.fprintf Print.out_file "#-----------Cases Start:-----------\n";
+        print_cfg_elem exp;
+        List.iteri
+          (fun i case ->
+            Printf.fprintf Print.out_file
+              "#--------------Case %d:---------------\n" i;
+            print_cfg_elem case)
+          cases;
+        Printf.fprintf Print.out_file "#-----------Cases Join:-----------\n";
+        print_cfg_elem join
+    | Normal_Node elems -> print_tac_elems_commented elems
   in
-  assert false
-*)
-and print_graph (graph : graph_elem) =
-  let print_cfg cfg_param =
-    List.iter
-      (fun elem ->
-        let tac = get_tac_elem elem in
-        if elem.operand = Label && elem.arg2 = "join" then
-          Printf.fprintf Print.out_file "JOINING\n";
-        Printf.fprintf Print.out_file "%s\n" tac)
-      cfg_param;
-    Printf.fprintf Print.out_file "-------------------\n"
-    (* Printf.fprintf Print.out_file "-------------------\n" *)
+  (*let rec iter (node : cfg) =
+    print_cfg_elem node.data;
+    match node.next with Some next_node -> iter next_node | None -> ()
   in
-  (*Printf.fprintf Print.out_file "CFG for %s.%s:\n" graph.class_name
-    graph.method_name;
-  Printf.fprintf Print.out_file "Arguments: ";
-  List.iter
-    (fun (arg : Parser.ast_formal) ->
-      Printf.fprintf Print.out_file "(%s : %s) " arg.name.name
-        arg.formal_type.name)
-    graph.arguments;
-  Printf.fprintf Print.out_file "\n"; *)
-  List.iter print_cfg graph.cfg
+  iter cfg_param.cfg *)
+  List.iter print_cfg_elem cfg_param.cfg
 
-let rec print_cfg elem =
-  match elem with
-  | Loop (cond, while_body, join_body) ->
-      Printf.fprintf Print.out_file
-        "-----------While Stmt Condition:-----------\n";
-      print_cfg cond;
-      Printf.fprintf Print.out_file "-----------While Stmt Body:-----------\n";
-      print_cfg while_body;
-      Printf.fprintf Print.out_file "-----------While Stmt Join:-----------\n";
-      print_cfg join_body
-  | If_Statement (cond, then_body, else_body, join_body) ->
-      Printf.fprintf Print.out_file
-        "---------------If Stmt Condition:-----------------------\n";
-      print_cfg cond;
-      Printf.fprintf Print.out_file
-        "---------------If Stmt Then:-----------------------\n";
-      print_cfg then_body;
-      Printf.fprintf Print.out_file
-        "---------------If Stmt Else:-----------------------\n";
-      print_cfg else_body;
-      Printf.fprintf Print.out_file
-        "---------------If Stmt Join:-----------------------\n";
-      print_cfg join_body
-  | Cases (exp, cases, join) ->
-      Printf.fprintf Print.out_file "-----------Cases Start:-----------\n";
-      print_cfg exp;
-      List.iteri
-        (fun i case ->
-          Printf.fprintf Print.out_file
-            "--------------Case %d:---------------\n" i;
-          print_cfg case)
-        cases;
-      Printf.fprintf Print.out_file "-----------Cases Join:-----------\n";
-      print_cfg join
-  | Normal_Node elems -> print_tac_elems elems
-
-let get_label (tacs : basic_block) =
+let get_label tacs =
   let find_label lbl =
     match List.find_opt (fun f -> f.arg1 = lbl) tacs with
     | Some _ -> true
@@ -246,13 +205,9 @@ let get_label (tacs : basic_block) =
   else if find_label "Case-Join" then Case_Join
   else Normal
 
-let label_blocks (cfg_param : cfg) =
-  let label_block (cfg_elem : basic_block) =
-    { label = get_label cfg_elem; block = cfg_elem }
-  in
+let label_blocks cfg_param =
+  let label_block cfg_elem = { label = get_label cfg_elem; block = cfg_elem } in
   List.map label_block cfg_param
-
-let cfg_list : graph_elem list = List.map tac_to_cfg Tac.tacs
 
 let print_labelled_block block =
   let get_label label =
@@ -318,8 +273,66 @@ let create_proper_cfg (labelled_blocks : labelled_basic_block list) =
     | false -> acc
   in
   build_lst []
+(* let cfg_elem_list = build_lst [] in
+  let rec convert lst acc : cfg_node =
+    match lst with
+    | hd :: [] -> { data = hd; next = None }
+    | hd :: tail -> { data = hd; next = Some (convert tail acc) }
+    | [] -> assert false
+  in
+  convert cfg_elem_list [] *)
 
-let real_cfg =
-  let cfgs = List.map (fun cfg -> cfg.cfg) cfg_list in
-  let labelled_blocks = List.map label_blocks cfgs in
-  List.map create_proper_cfg labelled_blocks
+let tac_to_cfg (tacs, class_name, method_name, arguments, temp_count) =
+  let create_cfg tac_list =
+    let rec create_cfg_inner (tac_list : tac_elem list) acc cfg =
+      match tac_list with
+      | tac :: tail -> (
+          match is_break_point tac with
+          | true -> create_cfg_inner tail [] ([ List.rev (tac :: acc) ] @ cfg)
+          | false -> create_cfg_inner tail (tac :: acc) cfg)
+      | [] -> [ List.rev acc ] @ cfg
+    in
+    List.rev (create_cfg_inner tac_list [] [])
+  in
+  let cfg = tacs |> create_cfg |> label_blocks |> create_proper_cfg in
+  (* let cfg_root = create_cfg tacs |> label_blocks |> create_proper_cfg in
+  { cfg_root; class_name; method_name; arguments; temp_count } *)
+  { cfg; class_name; method_name; arguments; temp_count }
+
+(* let rec get_cfg_elem_list (root : cfg_node) =
+  match root.next with
+  | None -> [ root.data ]
+  | Some next -> root.data :: get_cfg_elem_list next
+*)
+let rec block_tac (node : cfg_elem) =
+  let rec parse acc (node : cfg_elem) =
+    match node with
+    | Normal_Node a -> a :: acc
+    | If_Statement (c, t, e, j) ->
+        parse acc c @ parse acc t @ parse acc e @ parse acc j
+    | Loop (a, b, c) -> parse acc a @ parse acc b @ parse acc c
+    | Cases (node1, node_list, node2) ->
+        let start = parse acc node1 in
+        let middle = List.map (parse acc) node_list |> List.flatten in
+        let e = parse acc node2 in
+        start @ middle @ e
+  in
+  parse [] node
+
+and get_method_tac (nodes : cfg_elem list) =
+  (*get_cfg_elem_list nodes.cfg_root*)
+  nodes |> List.map block_tac |> List.flatten |> List.flatten
+(* 
+  (* Basic Block *)
+  | Normal_Node of basic_block
+  (* Condition * Then Stmt * Else Stmt * Join  *)
+  | If_Statement of cfg_elem * cfg_elem * cfg_elem * cfg_elem
+  (* Condition * Body * Join *)
+  | Loop of cfg_elem * cfg_elem * cfg_elem
+  (* Case Expr * Cases * Join *)
+  | Cases of cfg_elem * cfg_elem list * cfg_elem
+
+       *)
+
+(* Convert Tac to cfg *)
+let cfg_list = List.map tac_to_cfg Tac.tacs
