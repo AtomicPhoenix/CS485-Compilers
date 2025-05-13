@@ -8,7 +8,6 @@ cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.m
 	     s/Intrinsics\.//g
 	     /^open/d
 	     /PA3/d
-	     s/let debug =.*/let debug = true/
 	     w ./main.ml' >main.ml
 
 EXTENSION=$(echo "$1" | cut -d'.' -f4)
@@ -34,6 +33,7 @@ mv "./test-case.s" "./outputs/our-output.s"
 gcc -static -fno-pie -ggdb -o program "./outputs/our-output.s"
 mv "./program" "./outputs/our-program"
 ./outputs/our-program &>./outputs/our-output.txt
+mv "./our-output.cl-tac" "./outputs/our-tac.cl-tac"
 
 TESTNAME="$(basename "$TESTNAME" .s)"
 rm "$TESTNAME.cl"* 2>/dev/null

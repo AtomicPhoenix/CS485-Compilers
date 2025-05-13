@@ -4,7 +4,7 @@ let base_file_name = String.sub file_name 0 (String.length file_name - 8)
 let out_file = open_out (base_file_name ^ ".s")
 
 (* let debug_file = open_out "/dev/null"*)
-let debug = true
+let debug = false
 let debug_file = if debug then out_file else open_out "/dev/null"
 
 (*let tac_file = open_out (base_file_name ^ ".cl-tac")*)

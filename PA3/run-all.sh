@@ -38,6 +38,7 @@ run() {
 	gcc -static -fno-pie -ggdb -o program "./outputs/our-output.s"
 	mv "./program" "./outputs/our-program"
 	./outputs/our-program &>./outputs/our-output.txt
+	mv "./our-output.cl-tac" "./outputs/our-tac.cl-tac"
 
 	TESTNAME="$(basename "$TESTNAME" .s)"
 	rm "$TESTNAME.cl"* 2>/dev/null
@@ -48,7 +49,12 @@ run() {
 		../cool --tac "$1"
 		FILE="$(basename "$1" .cl)"
 		mv "../Tests/$FILE.cl-tac" "./outputs/ref-tac.cl-tac"
-		ourLC=$(grep -v "^comment" "./outputs/our-tac.cl-tac" | wc -l | cut -d' ' -f 1)
+
+		grep -v "^comment" "./outputs/our-tac.cl-tac" >"./new_output.tac"
+		mv "./new_output.tac" "./outputs/our-tac.cl-tac"
+		ourLC=$(wc -l ./outputs/our-tac.cl-tac | cut -d' ' -f 1)
+		grep -v "^comment" "./outputs/ref-tac.cl-tac" >"./new_output.tac"
+		mv "./new_output.tac" "./outputs/ref-tac.cl-tac"
 		refLC=$(wc -l ./outputs/ref-tac.cl-tac | cut -d' ' -f 1)
 
 		../cool --x86 "$1"
@@ -83,7 +89,7 @@ lcSum=0
 sizeSum=0
 for file in ../Tests/*; do
 	if [[ "$file" != *".cl-type" ]]; then
-		if [[ "$file" = *"primes.cl"* ]] || [[ "$file" = *"in-"* ]] || [[ "$file" = *".cl-input" ]]; then
+		if [[ "$file" = *"case"* ]] || [[ "$file" = *"primes.cl"* ]] || [[ "$file" = *"in-"* ]] || [[ "$file" = *".cl-input" ]]; then
 			continue
 		fi
 		if ! grep -q "cl-type" "$file"; then
@@ -94,4 +100,4 @@ for file in ../Tests/*; do
 done
 echo ""
 printf "Average LC Difference: %.2f\n" "$(echo "$lcSum / $count" | bc)"
-printf "Average Size Difference: %.2f\n" "$(echo "$sizeSum / $count" | bc)"
+printf "Average Size Difference: %.2f%%\n" "$(echo "$sizeSum / $count" | bc)"

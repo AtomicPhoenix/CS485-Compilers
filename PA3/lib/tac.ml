@@ -123,7 +123,7 @@ let operand_to_string (operand : tac_operand) : string =
   | Assignment -> "assignment"
   | Bt -> "bt"
   | Call -> "call"
-  | StaticCall s -> Printf.sprintf "StaticCall (%s)" s
+  | StaticCall _ -> "call"
   | Case jump -> Printf.sprintf "jump to :%s after comparison of" jump
   | Case_Header -> Printf.sprintf "Case header"
   | VoidCase -> "VoidCase"
@@ -145,7 +145,7 @@ let operand_to_string (operand : tac_operand) : string =
   | LessEqual -> "<="
   | Equal -> "="
   | Not -> "not"
-  | Negate -> "negate"
+  | Negate -> "~"
   | Int_Constant -> "int"
   | String_Constant -> "string"
   | Boolean_Constant -> "bool"
@@ -161,7 +161,7 @@ let get_tac_elem t =
   | Bt -> Printf.sprintf "bt %s %s" t.arg1 t.arg2
   | Assignment -> Printf.sprintf "%s <- %s" t.result t.arg1
   | LetNoInit -> Printf.sprintf "%s <- %s %s" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.sprintf "%s <- string \n%s" t.result t.arg1
+  | String_Constant -> Printf.sprintf "%s <- string %s" t.result t.arg1
   | Case c -> Printf.sprintf "Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
   | VoidCase -> Printf.sprintf "VoidCase: %s" t.arg1
   | EmptyCase -> Printf.sprintf "EmptyCase: %s" t.arg1
@@ -179,14 +179,24 @@ let get_tac_elem t =
 
 let print_tac_elems_commented t =
   List.iter
-    (fun elem -> Printf.fprintf debug_file "#;%s\n" (get_tac_elem elem))
+    (fun elem ->
+      if elem.operand != Comment then
+        Printf.fprintf debug_file "#;%s\n" (get_tac_elem elem))
     t
 
 let print_tac_elems (t : tac_elem list) =
-  List.iter (fun elem -> Printf.fprintf out_file "%s\n" (get_tac_elem elem)) t
+  List.iter
+    (fun elem ->
+      if elem.operand != Comment then
+        Printf.fprintf out_file "%s\n" (get_tac_elem elem))
+    t
 
 let print_tac_elems_file (t : tac_elem list) f =
-  List.iter (fun elem -> Printf.fprintf f "%s\n" (get_tac_elem elem)) t
+  List.iter
+    (fun elem ->
+      if elem.operand != Comment then
+        Printf.fprintf f "%s\n" (get_tac_elem elem))
+    t
 
 (* Get the different cases for a case statement according to the operational semantics of case *)
 (* Return a list of (string * string) (class_name * the case it corresponds to) *)
