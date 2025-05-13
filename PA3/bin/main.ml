@@ -11,13 +11,17 @@ let () =
     (fun (node : Cfg.cfg) ->
       node.cfg <- Optimizer.dead_code_elimination node.cfg)
     !Cfg.cfg_list;
-  let method_asm = Asm.get_method_asm !Cfg.cfg_list in
+
+  let file_name = Sys.argv.(1) in
+  let base_file_name = String.sub file_name 0 (String.length file_name - 8) in
+  let out_file = open_out (base_file_name ^ ".cl-tac") in
 
   (* Print Tac for First Method *)
   if Print.debug then
     ((!Cfg.cfg_list |> List.hd).cfg |> Cfg.get_method_tac
    |> Tac.print_tac_elems_file)
-      (open_out "./outputs/our-tac.cl-tac");
+      out_file
+(*
 
   Optimizer.print_optimization_comparison ();
   List.iter Asm.print_vtable Asm.vtables;
@@ -39,4 +43,4 @@ let () =
   List.iter Asm.print_asm Intrinsics.handlers;
 
   (* Print start *)
-  Asm.print_start ()
+  Asm.print_start () *)

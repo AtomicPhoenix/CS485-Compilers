@@ -1,5 +1,10 @@
-cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.ml lib/optimizer.ml bin/main.ml |
-	sed 's/Print\.//g
+rm ../Tests/*.cl-type &>/dev/null
+rm ../Tests/*.s &>/dev/null
+rm ../Tests/*.cl-tac &>/dev/null
+
+run() {
+	cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.ml lib/optimizer.ml bin/main.ml |
+		sed 's/Print\.//g
              s/Parser\.//g  
 	     s/Tac\.//g
 	     s/Asm\.//g
@@ -10,43 +15,41 @@ cat lib/print.ml lib/parser.ml lib/tac.ml lib/cfg.ml lib/asm.ml lib/intrinsics.m
 	     /PA3/d
 	     w ./main.ml' >main.ml
 
-EXTENSION=$(echo "$1" | cut -d'.' -f4)
+	EXTENSION=$(echo "$1" | cut -d'.' -f4)
 
-FILE="$1"
-if [ "$EXTENSION" = "cl" ]; then
-	../cool --type "$1"
-	FILE="$1-type"
-elif [ "$EXTENSION" != "cl-type" ]; then
-	echo "Input a cool file, not $1"
-	exit 1
-fi
+	FILE="$1"
+	if [ "$EXTENSION" = "cl" ]; then
+		../cool --type "$1"
+		FILE="$1-type"
+	elif [ "$EXTENSION" != "cl-type" ]; then
+		echo "Input a cool file, not $1"
+		exit 1
+	fi
 
-TESTNAME="./test-case.cl-type"
-cp "$FILE" $TESTNAME
+	echo "Running $FILE"
+	TESTNAME="./test-case.cl-type"
+	cp "$FILE" $TESTNAME
 
-echo "Running $FILE"
-echo "----------------------------------------------------"
+	ocamlc main.ml
+	./a.out "$TESTNAME"
+	mv "./test-case.cl-tac" "./outputs/our-output.cl-tac"
 
-ocamlc main.ml
-./a.out "$TESTNAME"
+	../cool --tac $TESTNAME
+	mv "./test-case.cl-tac" "./outputs/ref-output.cl-tac"
 
-TESTNAME="$(basename "$TESTNAME" .cl-type)"
-mv "$TESTNAME".cl-tac ./our-output.cl-tac
+	pr -m -t ./outputs/our-output.cl-tac ./outputs/ref-output.cl-tac
+	# TESTNAME="$(basename "$TESTNAME" .cl-type)"
+	# mv "./test-case.s" "./outputs/our-output.s"
+	# gcc -static -fno-pie -ggdb -o program "./outputs/our-output.s"
+	# mv "./program" "./outputs/our-program"
+	# ./outputs/our-program &>./outputs/our-output.txt
 
-../cool --tac "$1" --out "./ref-output"
+	# TESTNAME="$(basename "$TESTNAME" .s)"
+	# rm "$TESTNAME.cl"* 2>/dev/null
+	# rm main.cm*
 
-pr -m -t ./our-output.cl-tac ./ref-output.cl-tac
-echo ""
-pr -m -t optimized.cl-tac unoptimized.cl-tac
+	# # echo "----------------------------------------------------"
+	# echo ""
+}
 
-rm "$TESTNAME.cl"* 2>/dev/null
-rm main.cm*
-echo ""
-
-if [ -n "$2" ]; then
-	../cool --x86 --opt --cfg "$1"
-	dot -Tpng main_pre.dot >filename.png
-	feh ./filename.png
-	rm *".dot"
-	rm ./filename.png
-fi
+run $1
