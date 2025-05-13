@@ -76,7 +76,7 @@ let print_new_funcs (funcs : new_func list) =
     Printf.fprintf Print.out_file "\t.type\t%s..new, @function\n" name;
     List.iter (fun ln -> print_asm ln) lines;
     (*Printf.fprintf Print.out_file "\t.size\t%s, .-%s\n" name name;*)
-    Printf.fprintf Print.out_file
+    Printf.fprintf Print.debug_file
       "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
   in
   List.iter print_new_func funcs
@@ -87,7 +87,8 @@ let var_locations = Hashtbl.create 32
 (* Print var_locations map *)
 let print_var_locations () =
   Hashtbl.iter
-    (fun k v -> Printf.fprintf out_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
+    (fun k v ->
+      Printf.fprintf debug_file "\t#; Key: %s, Value: %d(%%rbp)\n" k v)
     var_locations
 
 (* Sting Constants in the program; Counter for labeling each string *)
@@ -312,7 +313,7 @@ let print_vtable (table : vtable) =
   Printf.fprintf Print.out_file "%s..vtable:\n" name;
   Printf.fprintf Print.out_file "\t.quad .string%d\n" strid;
   List.iter print_vtable_func table.methods;
-  Printf.fprintf Print.out_file
+  Printf.fprintf Print.debug_file
     "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
 
 (* Vtables for default values *)
@@ -447,10 +448,10 @@ let get_label () =
 let print_class_attributes () =
   Hashtbl.iter
     (fun k attrlist ->
-      Printf.fprintf out_file "\t#; Class: %s\n" k;
+      Printf.fprintf debug_file "\t#; Class: %s\n" k;
       List.iter
         (fun attr ->
-          Printf.fprintf out_file "\t\t#; Attribute: %s\n" attr.field_name)
+          Printf.fprintf debug_file "\t\t#; Attribute: %s\n" attr.field_name)
         attrlist)
     class_attribute_map
 
@@ -489,7 +490,7 @@ let add_var_addr (var_name : string) =
   match Hashtbl.find_opt var_locations var_name with
   | None -> Hashtbl.add var_locations var_name fp_offset
   | Some _ ->
-      (* Printf.fprintf out_file "Error: Variable %s already has a location\n"
+      (* Printf.fprintf debug_file "Error: Variable %s already has a location\n"
         var_name *)
       ()
 
@@ -559,7 +560,7 @@ let get_var_addr (var_name : string) (class_name : string): string =
           (*"\t#; Failed to find a temp for variable %s (or it's an attribute!)\n" var_name;*)
         (*print_var_locations ();*)
         (*add_var_addr var_name; Printf.sprintf "-%d(%%rbp)" (Hashtbl.find var_locations var_name))*)
-  
+ 
 
 (* Global counter for jump points *)
 let jump_number = ref 1
@@ -622,7 +623,7 @@ let transform_string s =
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
-  [ Line (Tac.get_tac_elem_commented tac) ]
+  [ Line ("#" ^ Tac.get_tac_elem tac) ]
   @
   match tac.operand with
   | Assignment -> (
@@ -636,7 +637,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       in
       match List.find_opt (fun f -> f.field_name = tac.arg1) attrs with
       | Some v ->
-          Printf.fprintf out_file
+          Printf.fprintf debug_file
             "#; Assignment in Class %s to attribute %s : %s \n" class_name
             v.field_name v.type_name;
           (*add_var_addr tac.result;*)
@@ -649,7 +650,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             Line "\t#Assignment end";
           ]
       | None ->
-          Printf.fprintf out_file
+          Printf.fprintf debug_file
             "#; Class %s does not have an attribute named %s \n" class_name
             tac.result;
           let result = get_var_addr tac.result class_name in
@@ -680,6 +681,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             (*(*add_var_addr tac.result;*)*)
             (*get_var_addr tac.result class_name*)
         get_var_addr tac.result class_name
+
       in
       let prev_addr = get_var_addr prev_tac.result class_name in
       let meth = tac.arg1 in
@@ -835,6 +837,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
               (*static_class cur_method tac.result;*)
             (*(*add_var_addr tac.result;*)*)
             get_var_addr tac.result class_name
+
       in
       let prev_addr = get_var_addr prev_tac.result class_name in
       let meth = tac.arg1 in
@@ -987,7 +990,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       let class_id = Hashtbl.find_opt class_id_map (*class_name*)tac.arg1 in
       match class_id with
       | Some class_id ->
-          (* Printf.fprintf out_file "\t#; Class Id of type %s is %d\n" class_name
+          (* Printf.fprintf debug_file "\t#; Class Id of type %s is %d\n" class_name
             class_id; *)
           [ Instruction ("movq", Printf.sprintf "$%d" class_id, result, "") ]
       | None ->
@@ -1487,8 +1490,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             (*get_var_addr tac.result class_name*)
         get_var_addr tac.result class_name
       in
-      Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
-        result;
+      Printf.fprintf debug_file "# NEW: Adding var %s at position %s\n"
+        tac.result result;
       let name = tac.arg1 in
       let new_call =
         if
@@ -1537,8 +1540,8 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             (*get_var_addr tac.result class_name*)
         get_var_addr tac.result class_name
       in
-      Printf.fprintf out_file "# NEW: Adding var %s at position %s\n" tac.result
-        result;
+      Printf.fprintf debug_file "# NEW: Adding var %s at position %s\n"
+        tac.result result;
       let new_call =
         if tac.arg1 = "SELF_TYPE" then
           [
@@ -1581,7 +1584,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             (*get_var_addr tac.result class_name*)
         get_var_addr tac.result class_name
       in
-      Printf.fprintf out_file "# Isvoid: Adding var %s at position %s\n"
+      Printf.fprintf debug_file "# Isvoid: Adding var %s at position %s\n"
         tac.result result;
       let true_jump = get_jump () in
       let post_jump = get_jump () in
@@ -1925,7 +1928,7 @@ let method_asm =
     ]
   in
   List.map
-    (fun (cfg, class_name, method_name, method_args, temps) ->
+    (fun (graph : Cfg.cfg) ->
       Hashtbl.reset var_locations;
       Hashtbl.reset arg_map;
       (*Printf.printf "new method!!!\n";*)
@@ -1937,6 +1940,7 @@ let method_asm =
             Printf.fprintf out_file "\t#; Placing var %s in register %d (%s)\n"
               arg i (List.nth registers i);
             Instruction ("movq", get_var_addr arg class_name, List.nth registers i, ""))
+
           args
       in
       let gen_mixed_arglist args =
@@ -1944,8 +1948,8 @@ let method_asm =
         let remaining = List.filteri (fun i _ -> i > 4) args in
         List.iteri
           (fun i arg ->
-            Printf.fprintf out_file "\t#; Adding var %s as position %d(%%rbp)\n"
-              arg
+            Printf.fprintf debug_file
+              "\t#; Adding var %s as position %d(%%rbp)\n" arg
               (8 * (i + 5));
             Hashtbl.add arg_map arg (8 * (i + 2)))
           remaining;
@@ -1953,35 +1957,38 @@ let method_asm =
       in
 
       let args =
-        List.map (fun (arg : ast_formal) -> arg.name.name) method_args
+        List.map (fun (arg : ast_formal) -> arg.name.name) graph.arguments
       in
       (* While there ARE 6 argument registers in the SysV convention, we are dedicating rdi to always be the self pointer *)
       let arglist =
         if List.length args <= 5 then gen_register_arglist args
         else gen_mixed_arglist args
       in
-      Printf.fprintf out_file "#; %s.%s:\n" class_name method_name;
+      Printf.fprintf debug_file "#; %s.%s:\n" graph.class_name graph.method_name;
       List.iteri
         (fun i (arg : ast_formal) ->
-          Printf.fprintf out_file "\t#; Argument %d: %s\n" i arg.name.name)
-        method_args;
-
+          Printf.fprintf debug_file "\t#; Argument %d: %s\n" i arg.name.name)
+        graph.arguments;
+      let temps = graph.temp_count in
       let stack_space =
         if temps * 8 mod 16 != 0 then (temps + 1) * 8 else temps * 8
       in
-      let method_tac = cfg |> List.flatten in
+      let method_tac = Cfg.get_method_tac graph.cfg in
       let asms =
         List.map
           (fun tac ->
-            let t = tac_to_as tac method_name class_name !prev_tac in
+            let t =
+              tac_to_as tac graph.method_name graph.class_name !prev_tac
+            in
             prev_tac := tac;
             t)
           method_tac
         |> List.flatten
       in
-      get_start_method_boilerplate method_name class_name stack_space
+      get_start_method_boilerplate graph.method_name graph.class_name
+        stack_space
       @ arglist @ asms
-      @ get_end_method_boilerplate class_name method_name)
+      @ get_end_method_boilerplate graph.class_name graph.method_name)
     Cfg.cfg_list
 
 let tac_list_to_asm lst = List.map tac_to_as lst

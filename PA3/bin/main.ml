@@ -3,12 +3,23 @@ module Parser = PA3.Parser
 module Tac = PA3.Tac
 module Asm = PA3.Asm
 module Cfg = PA3.Cfg
+module Optimizer = PA3.Optimizer
 module Intrinsics = PA3.Intrinsics
 
 let () =
+  let node = Cfg.cfg_list |> List.hd in
+  node.cfg <- Optimizer.dead_code_elimination node.cfg;
+  List.iter
+    (fun (node : Cfg.cfg) ->
+      node.cfg <- Optimizer.dead_code_elimination node.cfg)
+    Cfg.cfg_list;
+  List.iter Cfg.print_cfg Cfg.cfg_list;
   (* Print all tacs *)
+  (* Printf.fprintf Print.out_file "BASE TAC:\n";
   List.iter (fun (f, _, _, _, _) -> Tac.print_tac_elems f) Tac.tacs;
 
+  Printf.fprintf Print.out_file "OPTIMIZED CFG:\n";
+  List.iter Cfg.print_cfg Cfg.cfg_list *)
   (* Default vtables *)
   List.iter Asm.print_vtable Asm.vtables;
 
@@ -35,3 +46,6 @@ let () =
 
   (* Print start *)
   Asm.print_start ()
+(* List.iter (fun (f, _, _, _, _) -> Tac.print_tac_elems f) Tac.tacs; *)
+(* List.iter Cfg.print_graph Cfg.cfg_list *)
+(* Cfg.print_graph (List.hd Cfg.cfg_list)*)

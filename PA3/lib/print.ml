@@ -2,6 +2,10 @@ let file_name = Sys.argv.(1)
 let file = open_in file_name
 let base_file_name = String.sub file_name 0 (String.length file_name - 8)
 let out_file = open_out (base_file_name ^ ".s")
+
+(* let debug_file = open_out "/dev/null"*)
+let debug_file = out_file
+
 (*let tac_file = open_out (base_file_name ^ ".cl-tac")*)
 (*let out_file = stdout*)
 
