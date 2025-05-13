@@ -1,3 +1,4 @@
+open Print
 open Cfg
 
 (* 
@@ -21,7 +22,7 @@ and cfg = {
 }
 *)
 
-let dce_worked = ref false
+let last_result = ref ""
 
 (* Dead Code Elimination *)
 let rec dead_code_elimination (method_cfg : Cfg.cfg_elem list) =
@@ -53,22 +54,29 @@ and localDCE (tacs : Tac.tac_elem list) : cfg_elem =
   let set_values (tac : string) =
     match Hashtbl.find_opt living_map tac with
     | Some _ ->
-        (* Printf.printf "\tSetting %s to true\n" tac; *)
+        Printf.fprintf debug_file "#\tSetting %s to true\n" tac;
         Hashtbl.replace living_map tac true
-    | None -> ()
+    | None -> (* Printf.printf "\tValue %s not found\n" tac*) ()
   in
   let modify_table (tac : Tac.tac_elem) =
     if Tac.operand_to_string tac.operand <> "comment" then (
-      (* Printf.printf "Parsing the following line: %s <- 1.%s 2.%s 3.%s\n"
-        tac.result
+      Printf.fprintf debug_file
+        "# Parsing the following line: %s <- (%s) (%s) (%s)\n" tac.result
         (Tac.operand_to_string tac.operand)
-        tac.arg1 tac.arg2; *)
+        tac.arg1 tac.arg2;
       set_values (Tac.operand_to_string tac.operand);
-      set_values tac.arg1;
-      set_values tac.arg2;
-      match Hashtbl.find_opt living_map tac.result with
-      | Some _ -> ()
-      | None -> Hashtbl.add living_map tac.result false)
+      (match tac.operand with
+      | Call | StaticCall _ ->
+          set_values !last_result;
+          List.iter set_values (String.split_on_char ' ' tac.arg2)
+      | Ident_Expr v -> set_values v
+      | _ -> (
+          set_values tac.arg1;
+          set_values tac.arg2;
+          match Hashtbl.find_opt living_map tac.result with
+          | Some _ -> ()
+          | None -> Hashtbl.add living_map tac.result false));
+      last_result := tac.result)
     else ()
     (* | Some _ ->
         (* Printf.printf "\tSetting %s to true\n" tac.result; *)
@@ -83,10 +91,15 @@ and localDCE (tacs : Tac.tac_elem list) : cfg_elem =
     |> List.filter (fun (_, v) -> not v)
     |> List.map (fun (k, _) -> k)
   in
+  let alive_operand (op : Tac.tac_operand) =
+    match op with
+    | Bt | Call | StaticCall _ | Label | Jmp | VoidCase | EmptyCase | Return
+    | Ident_Expr _ ->
+        true
+    | _ -> false
+  in
   let is_alive (tac : Tac.tac_elem) : bool =
-    ((not (List.mem tac.result dead_code))
-    || List.mem tac.operand
-         [ Bt; Call; Label; Jmp; VoidCase; EmptyCase; Return ])
+    ((not (List.mem tac.result dead_code)) || alive_operand tac.operand)
     || not (String.contains tac.result '$')
   in
   let filtered_tac = List.filter is_alive tacs in
@@ -118,7 +131,7 @@ and localDCE (tacs : Tac.tac_elem list) : cfg_elem =
 let print_optimization_comparison () =
   let opt_file = open_out "./optimized.cl-tac" in
   let unopt_file = open_out "./unoptimized.cl-tac" in
-  let node = Cfg.cfg_list |> List.hd in
+  let node = !Cfg.cfg_list |> List.hd in
 
   List.iter
     (fun elem -> Printf.fprintf unopt_file "%s\n" (Tac.get_tac_elem elem))

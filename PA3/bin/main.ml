@@ -7,35 +7,29 @@ module Optimizer = PA3.Optimizer
 module Intrinsics = PA3.Intrinsics
 
 let () =
-  let node = Cfg.cfg_list |> List.hd in
-  node.cfg <- Optimizer.dead_code_elimination node.cfg;
   List.iter
     (fun (node : Cfg.cfg) ->
       node.cfg <- Optimizer.dead_code_elimination node.cfg)
-    Cfg.cfg_list;
-  List.iter Cfg.print_cfg Cfg.cfg_list;
-  (* Print all tacs *)
-  (* Printf.fprintf Print.out_file "BASE TAC:\n";
-  List.iter (fun (f, _, _, _, _) -> Tac.print_tac_elems f) Tac.tacs;
+    !Cfg.cfg_list;
+  let method_asm = Asm.get_method_asm !Cfg.cfg_list in
 
-  Printf.fprintf Print.out_file "OPTIMIZED CFG:\n";
-  List.iter Cfg.print_cfg Cfg.cfg_list *)
-  (* Default vtables *)
+  (* Print Tac for First Method *)
+  if Print.debug then
+    ((!Cfg.cfg_list |> List.hd).cfg |> Cfg.get_method_tac
+   |> Tac.print_tac_elems_file)
+      (open_out "./outputs/our-tac.cl-tac");
+
+  Optimizer.print_optimization_comparison ();
   List.iter Asm.print_vtable Asm.vtables;
 
-  (* New functions (class initializers) *)
   Asm.print_new_funcs Asm.new_funcs;
 
   (* Important default functions *)
-  let print_instrinsic_func ifunc =
-    List.iter Asm.print_asm ifunc;
-    Printf.fprintf Print.out_file
-      "\t#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
-  in
+  let print_instrinsic_func ifunc = List.iter Asm.print_asm ifunc in
   List.iter print_instrinsic_func Intrinsics.intrinsic_funcs;
 
   (* Assembly for methods *)
-  List.iter (List.iter Asm.print_asm) Asm.method_asm;
+  List.iter (List.iter Asm.print_asm) method_asm;
   Printf.fprintf Print.out_file "\t.section\t.rodata\n";
 
   (* Assembly Strings *)
@@ -46,6 +40,3 @@ let () =
 
   (* Print start *)
   Asm.print_start ()
-(* List.iter (fun (f, _, _, _, _) -> Tac.print_tac_elems f) Tac.tacs; *)
-(* List.iter Cfg.print_graph Cfg.cfg_list *)
-(* Cfg.print_graph (List.hd Cfg.cfg_list)*)

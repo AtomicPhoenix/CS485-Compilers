@@ -134,7 +134,7 @@ let operand_to_string (operand : tac_operand) : string =
   | Default -> "default"
   | Return -> "return"
   | LetNoInit -> "letnoinit"
-  | Ident_Expr v -> v
+  | Ident_Expr v -> "Ident_Expr " ^ v
   | New -> "new"
   | Isvoid -> "isvoid"
   | Plus -> "+"
@@ -184,6 +184,9 @@ let print_tac_elems_commented t =
 
 let print_tac_elems (t : tac_elem list) =
   List.iter (fun elem -> Printf.fprintf out_file "%s\n" (get_tac_elem elem)) t
+
+let print_tac_elems_file (t : tac_elem list) f =
+  List.iter (fun elem -> Printf.fprintf f "%s\n" (get_tac_elem elem)) t
 
 (* Get the different cases for a case statement according to the operational semantics of case *)
 (* Return a list of (string * string) (class_name * the case it corresponds to) *)
@@ -977,16 +980,16 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       label_ctr := !label_ctr + 1;
       let null_case_label = get_label !label_ctr mname cname in
       (*let null_case_jump =*)
-        (*[*)
-          (*{*)
-            (*operand = Case null_case_label;*)
-            (*arg1 = "$0";*)
-            (*arg2 = case_id;*)
-            (*result = "";*)
-            (*line = exp.id.line_num;*)
-            (*static_type = exp.static_type;*)
-          (*};*)
-        (*]*)
+      (*[*)
+      (*{*)
+      (*operand = Case null_case_label;*)
+      (*arg1 = "$0";*)
+      (*arg2 = case_id;*)
+      (*result = "";*)
+      (*line = exp.id.line_num;*)
+      (*static_type = exp.static_type;*)
+      (*};*)
+      (*]*)
       let case_header =
         [
           {
@@ -996,7 +999,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             result = null_case_label;
             line = exp.id.line_num;
             static_type = exp.static_type;
-          }
+          };
         ]
       in
       let join_label = cname ^ "_" ^ mname ^ "_join" in
@@ -1139,9 +1142,8 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       in
       let jumps = defined_case_jumps in
       let cases = null_case @ defined_cases @ empty_case @ case_join in
-(* LOGAN CODE
       case_expr_value @ case_header @ case_expr_id @ jumps @ cases
-*)
+      (* 
       {
         operand = Comment;
         arg1 = "Case-Expr";
@@ -1151,7 +1153,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
         static_type = exp.static_type;
       }
       :: case_expr_value
-      @ case_expr_id @ jumps @ cases
+      @ case_expr_id @ jumps @ cases *)
   | Internal _ ->
       Printf.fprintf out_file
         "Something is fundamentally wrong (We should not be parsing Internal \

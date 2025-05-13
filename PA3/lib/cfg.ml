@@ -84,11 +84,13 @@ let tac_attr_to_cfg tacs temp_count : cfg * int =
   in
   (List.rev (create_cfg tacs [] []), temp_count)
 
-let print_cfg bbl = List.iter (List.iter print_tac_elem_commented) bbl
+let print_cfg bbl = List.iter (List.iter print_tac_elem_commented) bblprint_cfg
+
 
 let cfg_list : (cfg * string * string * Parser.ast_formal list * int) list =
   List.map tac_to_cfg Tac.tacs
 *)
+
 let get_next_cfg_elem cfg_base =
   let tacs = cfg_base |> List.flatten in
   let rec get_next cfg_base =
@@ -161,42 +163,38 @@ let get_next_cfg_elem cfg_base =
     }
   *)
 
-let print_cfg (cfg_param : cfg) =
+let print_cfg file (cfg_param : cfg) =
   let rec print_cfg_elem elem =
     match elem with
     | Loop (cond, while_body, join_body) ->
-        Printf.fprintf Print.out_file
-          "#-----------While Stmt Condition:-----------\n";
+        Printf.fprintf file "#-----------While Stmt Condition:-----------\n";
         print_cfg_elem cond;
-        Printf.fprintf Print.out_file
-          "#-----------While Stmt Body:-----------\n";
+        Printf.fprintf file "#-----------While Stmt Body:-----------\n";
         print_cfg_elem while_body;
-        Printf.fprintf Print.out_file
-          "#-----------While Stmt Join:-----------\n";
+        Printf.fprintf file "#-----------While Stmt Join:-----------\n";
         print_cfg_elem join_body
     | If_Statement (cond, then_body, else_body, join_body) ->
-        Printf.fprintf Print.out_file
+        Printf.fprintf file
           "#---------------If Stmt Condition:-----------------------\n";
         print_cfg_elem cond;
-        Printf.fprintf Print.out_file
+        Printf.fprintf file
           "#---------------If Stmt Then:-----------------------\n";
         print_cfg_elem then_body;
-        Printf.fprintf Print.out_file
+        Printf.fprintf file
           "#---------------If Stmt Else:-----------------------\n";
         print_cfg_elem else_body;
-        Printf.fprintf Print.out_file
+        Printf.fprintf file
           "#---------------If Stmt Join:-----------------------\n";
         print_cfg_elem join_body
     | Cases (exp, cases, join) ->
-        Printf.fprintf Print.out_file "#-----------Cases Start:-----------\n";
+        Printf.fprintf file "#-----------Cases Start:-----------\n";
         print_cfg_elem exp;
         List.iteri
           (fun i case ->
-            Printf.fprintf Print.out_file
-              "#--------------Case %d:---------------\n" i;
+            Printf.fprintf file "#--------------Case %d:---------------\n" i;
             print_cfg_elem case)
           cases;
-        Printf.fprintf Print.out_file "#-----------Cases Join:-----------\n";
+        Printf.fprintf file "#-----------Cases Join:-----------\n";
         print_cfg_elem join
     | Normal_Node elems -> print_tac_elems_commented elems
   in
@@ -364,4 +362,4 @@ and get_method_tac (nodes : cfg_elem list) =
        *)
 
 (* Convert Tac to cfg *)
-let cfg_list = List.map tac_to_cfg Tac.tacs
+let cfg_list = ref (List.map tac_to_cfg Tac.tacs)
