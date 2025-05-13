@@ -1,7 +1,9 @@
 class Main inherits IO {
+  my_attribute : Int <- 5 ;
   main() : Object {
     {
-    out_int(3+5);
+    out_int(my_attribute+5);
+    out_string("Hello, world.\n");
     }
   } ;
 } ;

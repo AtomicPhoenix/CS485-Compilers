@@ -4,7 +4,7 @@ class Main inherits IO {
   main() : Object { {
     out_string("Hello, world.\n");
       case my_attribute of
-       c1 : Bool => c1;
+       c1 : Int => out_int(c1);
        c2 : String => out_string(c2);
       esac;
 }

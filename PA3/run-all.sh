@@ -32,13 +32,12 @@ run() {
 
 	ocamlc main.ml
 	./a.out "$TESTNAME"
-
+	mv "./test-case.cl-tac" "./outputs/our-tac.cl-tac"
 	TESTNAME="$(basename "$TESTNAME" .cl-type)"
 	mv "./test-case.s" "./outputs/our-output.s"
 	gcc -static -fno-pie -ggdb -o program "./outputs/our-output.s"
 	mv "./program" "./outputs/our-program"
 	./outputs/our-program &>./outputs/our-output.txt
-	mv "./our-output.cl-tac" "./outputs/our-tac.cl-tac"
 
 	TESTNAME="$(basename "$TESTNAME" .s)"
 	rm "$TESTNAME.cl"* 2>/dev/null

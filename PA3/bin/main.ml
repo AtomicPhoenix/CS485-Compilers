@@ -8,7 +8,9 @@ module Intrinsics = PA3.Intrinsics
 
 let pa4c1 () =
   (* Print Tac for First Method *)
-  let out_file = open_out "./our-output.cl-tac" in
+  let file_name = Sys.argv.(1) in
+  let base_file_name = String.sub file_name 0 (String.length file_name - 8) in
+  let out_file = open_out (base_file_name ^ ".cl-tac") in
   List.iter
     (fun (node : Cfg.cfg) -> Optimizer.dead_code_elimination node)
     !Cfg.cfg_list;

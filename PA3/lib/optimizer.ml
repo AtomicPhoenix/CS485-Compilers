@@ -10,37 +10,24 @@ let rec dead_code_elimination (method_graph : Cfg.cfg) =
   Hashtbl.reset living_map;
   dce_changed := false;
   let parse_dce (method_cfg : Cfg.cfg_elem list) =
-    let rec parse_cfg (node : cfg_elem) =
+    let rec parse_dead_code (node : cfg_elem) =
       match node with
       | Normal_Node tacs -> parse_dead tacs
       | If_Statement (cond_stmt, then_stmt, else_stmt, join_stmt) ->
-          (*    let a = parse_cfg cond_stmt in
-          let b = parse_cfg then_stmt in
-          let c = parse_cfg else_stmt in
-          let d = parse_cfg join_stmt in
-          If_Statement (a, b, c, d) *)
-          parse_cfg cond_stmt;
-          parse_cfg then_stmt;
-          parse_cfg else_stmt;
-          parse_cfg join_stmt
+          parse_dead_code cond_stmt;
+          parse_dead_code then_stmt;
+          parse_dead_code else_stmt;
+          parse_dead_code join_stmt
       | Loop (loop_cond, loop_body, join_body) ->
-          (* let l_cond = parse_cfg loop_cond in
-          let l_body = parse_cfg loop_body in
-          let l_join = parse_cfg join_body in
-          Loop (l_cond, l_body, l_join) *)
-          parse_cfg loop_cond;
-          parse_cfg loop_body;
-          parse_cfg join_body
+          parse_dead_code loop_cond;
+          parse_dead_code loop_body;
+          parse_dead_code join_body
       | Cases (case_cond, case_options, case_join) ->
-          (* let cond = parse_cfg case_cond in
-          let case_ops = List.map parse_cfg case_options in
-          let case_join = parse_cfg case_join in
-          Cases (cond, case_ops, case_join) *)
-          parse_cfg case_cond;
-          List.iter parse_cfg case_options;
-          parse_cfg case_join
+          parse_dead_code case_cond;
+          List.iter parse_dead_code case_options;
+          parse_dead_code case_join
     in
-    List.iter parse_cfg method_cfg
+    List.iter parse_dead_code method_cfg
   in
   parse_dce method_graph.cfg;
   method_graph.cfg <- filter_dead method_graph;
@@ -101,8 +88,8 @@ and filter_dead cfg =
   in
   let alive_operand (op : Tac.tac_operand) =
     match op with
-    | Bt | Call | StaticCall _ | Label | Jmp | VoidCase | EmptyCase | ClassId
-    | Comment | Case_Header | Return ->
+    | Bt | Call | StaticCall _ | Comment | Label | Jmp | VoidCase | EmptyCase
+    | Case_Header | ClassId | Return ->
         true
     | _ -> false
   in

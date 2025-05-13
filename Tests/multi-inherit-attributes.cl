@@ -1,14 +1,14 @@
 class A {
-    a : Int;
+a : Int;
 };
 class B inherits A {
-    b : Int;
+b : Int;
 };
 class C inherits B {
-    c: Int;
+c: Int;
 };
 class D inherits C {
-    d: Int;
+d: Int;
 };
 class Main inherits IO {
     main() : Object { out_string("Hello, World\n") };
