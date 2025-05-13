@@ -60,6 +60,35 @@ let is_break_point (tac : tac_elem) =
   | Bt | Jmp | Case _ | EmptyCase | VoidCase -> true
   | _ -> false
 
+(* LOGAN CODE
+let tac_to_cfg (tacs, class_name, method_name, args, temp_count) :
+    cfg * string * string * Parser.ast_formal list * int =
+  let rec create_cfg (tac_list : tac_elem list) acc cfg =
+    match tac_list with
+    | tac :: tail -> (
+        match is_break_point tac with
+        | true -> create_cfg tail [] ([ List.rev (tac :: acc) ] @ cfg)
+        | false -> create_cfg tail (tac :: acc) cfg)
+    | [] -> [ List.rev acc ] @ cfg
+  in
+  (List.rev (create_cfg tacs [] []), class_name, method_name, args, temp_count)
+
+let tac_attr_to_cfg tacs temp_count : cfg * int =
+  let rec create_cfg (tac_list : tac_elem list) acc cfg =
+    match tac_list with
+    | tac :: tail -> (
+        match is_break_point tac with
+        | true -> create_cfg tail [] ([ List.rev (tac :: acc) ] @ cfg)
+        | false -> create_cfg tail (tac :: acc) cfg)
+    | [] -> [ List.rev acc ] @ cfg
+  in
+  (List.rev (create_cfg tacs [] []), temp_count)
+
+let print_cfg bbl = List.iter (List.iter print_tac_elem_commented) bbl
+
+let cfg_list : (cfg * string * string * Parser.ast_formal list * int) list =
+  List.map tac_to_cfg Tac.tacs
+*)
 let get_next_cfg_elem cfg_base =
   let tacs = cfg_base |> List.flatten in
   let rec get_next cfg_base =
