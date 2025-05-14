@@ -51,6 +51,7 @@ run() {
 	diffs=$(diff -U 0 ./outputs/ref-output.txt ./outputs/our-output.txt | tail -n +3 | grep -c '^@')
 
 	if [ "$diffs" != "0" ]; then
+		echo ""
 		printf "There are %s differences between the reference output and the actual output\n" "$diffs"
 	else
 		printf "The reference output matches the actual output\n"

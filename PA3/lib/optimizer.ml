@@ -89,7 +89,7 @@ and filter_dead cfg =
   let alive_operand (op : Tac.tac_operand) =
     match op with
     | Bt | Call | StaticCall _ | Comment | Label | Jmp | VoidCase | EmptyCase
-    | Case_Header | ClassId | Return ->
+    | Case_Header | ClassId | Case _ | Return ->
         true
     | _ -> false
   in
@@ -141,14 +141,228 @@ and filter_dead cfg =
   in
   List.map get_filtered_node cfg.cfg
 
+(* NOTE: Single Static Assignment *)
+
+(* Key = Original Name; Value = SSA Name *)
+let ssa_names = ref (Hashtbl.create 32)
+
+let singe_static_assignment (method_graph : Cfg.cfg) =
+  let create_new_tac (tac : Tac.tac_elem) : Tac.tac_elem =
+    let result =
+      match Hashtbl.find_opt !ssa_names tac.result with
+      | Some v when String.contains tac.result '$' ->
+          Printf.fprintf Print.debug_file "# UPDATED SSA: (%s) : (%d%s)\n"
+            tac.result (v + 1) tac.result;
+          Hashtbl.replace !ssa_names tac.result (v + 1);
+          string_of_int (v + 1) ^ tac.result
+      | None when String.contains tac.result '$' ->
+          Printf.fprintf Print.debug_file "# NEW SSA: (%s) : (%d%s)\n"
+            tac.result 0 tac.result;
+          Hashtbl.add !ssa_names tac.result 0;
+          string_of_int 0 ^ tac.result
+      | _ -> tac.result
+    in
+    let arg1 =
+      match tac.operand with
+      | _ -> (
+          match Hashtbl.find_opt !ssa_names tac.arg1 with
+          | Some v when String.contains tac.arg1 '$' ->
+              let arg1 = string_of_int v ^ tac.arg1 in
+              Printf.fprintf Print.debug_file
+                "# Retrieved SSA for value %s (%s)\n" tac.arg1 arg1;
+              arg1
+          | _ ->
+              Printf.fprintf Print.debug_file
+                "# Failed to find SSA for value %s\n" tac.arg1;
+              tac.arg1)
+    in
+    let arg2 =
+      match tac.operand with
+      | Call | StaticCall _ ->
+          String.concat " "
+            (List.map
+               (fun arg ->
+                 match Hashtbl.find_opt !ssa_names arg with
+                 | Some v when String.contains arg '$' -> string_of_int v ^ arg
+                 | _ -> arg)
+               (String.split_on_char ' ' tac.arg2))
+      | _ -> (
+          match Hashtbl.find_opt !ssa_names tac.arg2 with
+          | Some v when String.contains tac.arg2 '$' ->
+              let arg2 = string_of_int v ^ tac.arg2 in
+              Printf.fprintf Print.debug_file
+                "# Retrieved SSA for value %s (%s)\n" tac.arg2 arg2;
+              arg2
+          | _ ->
+              Printf.fprintf Print.debug_file
+                "# Failed to find SSA for value %s\n" tac.arg2;
+              tac.arg2)
+    in
+    let (operand : Tac.tac_operand) =
+      match tac.operand with
+      | Ident_Expr identVal -> (
+          match Hashtbl.find_opt !ssa_names identVal with
+          | Some v when String.contains identVal '$' ->
+              let newVal = string_of_int v ^ identVal in
+              Printf.fprintf Print.debug_file
+                "# Retrieved SSA for value %s (%s)\n" identVal newVal;
+              Ident_Expr newVal
+          | _ ->
+              Printf.fprintf Print.debug_file
+                "# Failed to find SSA for value %s\n" identVal;
+              Ident_Expr identVal)
+      | _ ->
+          Printf.fprintf Print.debug_file
+            "# Failed to find SSA for tac with operand %s\n"
+            (Tac.operand_to_string tac.operand);
+          tac.operand
+    in
+    {
+      operand;
+      arg1;
+      arg2;
+      result;
+      line = tac.line;
+      static_type = tac.static_type;
+    }
+  in
+
+  (* Converts a basic block into SSA form and return the variables modified *)
+  let ssaify_tac (tacs : Tac.tac_elem list) = List.map create_new_tac tacs in
+  (* let get_hash_values () =
+    Hashtbl.fold (fun k v acc -> (k, v) :: acc) !ssa_names []
+  in*)
+  (* let phi changes_one changes_two merging_hash :
+      Tac.tac_elem list * Tac.tac_elem list =
+    (*
+
+[Ocaml Wiki](https://ocaml.org/manual/5.3/api/List.html)
+partition f l returns a pair of lists (l1, l2), where l1 is the list of all the elements of l that satisfy the predicate f, and l2 is the list of all the elements of l that do not satisfy f. The order of the elements in the input list is preserved.
+*)
+    List.iter
+      (fun (k, v) -> Printf.fprintf Print.debug_file "\tONE: Value %s (%d)\n" k v)
+      changes_one;
+    List.iter
+      (fun (k, v) -> Printf.fprintf Print.debug_file "\tTWO: Value %s (%d)\n" k v)
+      changes_two;
+    let pred1 f = List.mem f changes_two in
+    let pred2 f = List.mem f changes_one in
+    (* A list of all key-value pairs of list_one not also in list_two *)
+    let samesies, unmatched_one = List.partition pred1 changes_one in
+
+    List.iter
+      (fun (k, v) -> Printf.fprintf Print.debug_file "\tSAMESIES: Value %s (%d)\n" k v)
+      samesies;
+    List.iter
+      (fun (k, v) -> Printf.fprintf Print.debug_file "\tUNMATCHED: Value %s (%d)\n" k v)
+      unmatched_one;
+    (* A list of all key-value pairs of list_two not also in list_one *)
+    let samesies, unmatched_two = List.partition pred2 changes_two in
+    List.iter
+      (fun (k, v) -> Printf.fprintf Print.debug_file "\tSAMESIES: Value %s (%d)\n" k v)
+      samesies;
+    List.iter
+      (fun (k, v) -> Printf.fprintf Print.debug_file "\tUNMATCHED: Value %s (%d)\n" k v)
+      unmatched_two;
+
+    let changed_values = unmatched_one @ unmatched_two in
+    Printf.fprintf Print.debug_file "JOINING %d VALUES: ---------------\n"
+      (List.length changed_values);
+    List.iter
+      (fun (k, v) -> Printf.fprintf Print.debug_file "\tJOINING: Value %s (%d)\n" k v)
+      changed_values;
+    let original_spots_one =
+      List.map
+        (fun ((f : string), _) ->
+          let keys, values = List.split unmatched_one in
+          if List.mem f keys then (f, List.find (fun k -> k = f) keys)
+          else ("", ""))
+        changed_values
+    in
+    List.iter
+      (fun (k, v) ->
+        match Hashtbl.find_opt merging_hash k with
+        | Some currVal when currVal < v -> Hashtbl.add merging_hash k (v + 1)
+        | None -> Hashtbl.add merging_hash k (v + 1)
+        | _ -> ())
+      changed_values;
+    let new_spots =
+      List.map (fun (f, _) -> (f, Hashtbl.find merging_hash f)) changed_values
+    in
+    ssa_names := merging_hash;
+    let merge_one =
+      List.map
+        (fun ((k1, v1), (k2, v2)) : Tac.tac_elem ->
+          let result = string_of_int v1 ^ k1 in
+          let arg1 = string_of_int v2 ^ k2 in
+          {
+            operand = Assignment;
+            result;
+            arg1;
+            arg2 = "";
+            line = 0;
+            static_type = None;
+          })
+        (List.combine original_spots_one new_spots)
+    in
+    let merge_two =
+      List.map
+        (fun ((k1, v1), (k2, v2)) : Tac.tac_elem ->
+          let result = string_of_int v1 ^ k1 in
+          let arg1 = string_of_int v2 ^ k2 in
+          {
+            operand = Assignment;
+            result;
+            arg1;
+            arg2 = "";
+            line = 0;
+            static_type = None;
+          })
+        (List.combine original_spots_two new_spots)
+    in
+    (merge_one, merge_two)
+  in *)
+  let rec ssaify_cfg_node (elem : cfg_elem) : cfg_elem =
+    match elem with
+    | Normal_Node tacs ->
+        let new_tac = ssaify_tac tacs in
+        Normal_Node new_tac
+    | If_Statement (cond_stmt, then_stmt, else_stmt, join_stmt) ->
+        let new_cond = ssaify_cfg_node cond_stmt in
+        (* let cond_hash = Hashtbl.copy !ssa_names in *)
+        let new_then = ssaify_cfg_node then_stmt in
+        (*  let then_hash = get_hash_values () in *)
+        let new_else = ssaify_cfg_node else_stmt in
+        (* let else_hash = get_hash_values () in *)
+        (* PHI:  Get diff of ssa_then and ssa_else, create list of changed values *)
+        (* phi then_hash else_hash cond_hash;*)
+        let new_join = ssaify_cfg_node join_stmt in
+        If_Statement (new_cond, new_then, new_else, new_join)
+    | Loop (cond_stmt, body_stmt, join_stmt) ->
+        let new_cond = ssaify_cfg_node cond_stmt in
+        let new_body = ssaify_cfg_node body_stmt in
+        let new_join = ssaify_cfg_node join_stmt in
+        Loop (new_cond, new_body, new_join)
+    | Cases (cond_stmt, case_options, join_stmt) ->
+        let new_cond = ssaify_cfg_node cond_stmt in
+        let new_options = List.map ssaify_cfg_node case_options in
+        let new_join = ssaify_cfg_node join_stmt in
+        Cases (new_cond, new_options, new_join)
+  in
+  method_graph.cfg <- List.map ssaify_cfg_node method_graph.cfg
+
 let print_optimization_comparison () =
   let opt_file = open_out "./optimized.cl-tac" in
   let unopt_file = open_out "./unoptimized.cl-tac" in
   let node = !Cfg.cfg_list |> List.hd in
 
+  let tac = Cfg.get_method_tac node.cfg in
+
   List.iter
     (fun elem -> Printf.fprintf unopt_file "%s\n" (Tac.get_tac_elem elem))
-    (Cfg.get_method_tac node.cfg);
+    tac;
+
+  dead_code_elimination node;
 
   List.iter
     (fun elem -> Printf.fprintf opt_file "%s\n" (Tac.get_tac_elem elem))
