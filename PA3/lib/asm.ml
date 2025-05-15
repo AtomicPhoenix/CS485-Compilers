@@ -636,6 +636,33 @@ let transform_string s =
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
+  let pushargs =
+    let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+    (*let r = List.take (Hashtbl.length arg_map) registers in*)
+  let r = List.filteri (fun i _ -> i < (Hashtbl.length arg_map)) registers in
+    let r = List.map (fun reg -> Instruction ("pushq", reg, "", "")) r in
+    let r = if ((Hashtbl.length arg_map + 1 )mod 2) = 0 then r @ [Instruction ("pushq", "%rdi", "", "")] else r @ [Instruction ("pushq", "%rdi", "", ""); Instruction ("subq", "$8", "%rsp", "")]
+  in r
+in let popargs =
+    (*let registers = [ "%r9"; "%r8"; "%rcx"; "%rdx"; "%rsi" ] in*)
+    let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+  let r = List.filteri (fun i _ -> i < (Hashtbl.length arg_map)) registers in 
+    let r = List.map (fun reg -> Instruction ("popq", reg, "", "")) r in
+    let r = List.rev r in 
+    let r = if ((Hashtbl.length arg_map + 1) mod 2) = 0 then [Instruction ("popq", "%rdi", "", "")] @ r else [Instruction ("addq", "$8", "%rsp", "");Instruction ("popq", "%rdi", "", ""); ] @ r in r in
+  let pushargs_call =
+    let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+  let r = List.filteri (fun i _ -> i < (Hashtbl.length arg_map)) registers in
+    let r = List.map (fun reg -> Instruction ("pushq", reg, "", "")) r in
+    let r = if (Hashtbl.length arg_map mod 2) = 1 then r else r @ [Instruction ("subq", "$8", "%rsp", "")]
+  in r
+in let popargs_call =
+    let registers = [ "%rsi"; "%rdx"; "%rcx"; "%r8"; "%r9" ] in
+  let r = List.filteri (fun i _ -> i < (Hashtbl.length arg_map)) registers in 
+    let r = List.map (fun reg -> Instruction ("popq", reg, "", "")) r in
+    let r = List.rev r in 
+    let r = if (Hashtbl.length arg_map mod 2) = 1 then r else [Instruction ("addq", "$8", "%rsp", "")] @ r in r in
+
   let tac_comment =
     if tac.operand == String_Constant then
       Printf.sprintf "# %s <- string %s" tac.result tac.arg1
@@ -707,12 +734,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       @ (if tac.arg2 = "" then
            [
              Line ("\t#Call w/o args start for method " ^ meth);
-             Instruction ("pushq", "%rsi", "", "");
-             Instruction ("pushq", "%rdx", "", "");
-             Instruction ("pushq", "%rcx", "", "");
-             Instruction ("pushq", "%r8", "", "");
-             Instruction ("pushq", "%r9", "", "");
-           ]
+             (*Instruction ("pushq", "%rsi", "", "");*)
+             (*Instruction ("pushq", "%rdx", "", "");*)
+             (*Instruction ("pushq", "%rcx", "", "");*)
+             (*Instruction ("pushq", "%r8", "", "");*)
+             (*Instruction ("pushq", "%r9", "", "");*)
+           ] @ pushargs_call
            @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
@@ -730,12 +757,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("popq", "%rdi", "", "");
                Instruction ("movq", "%rax", result, "");
              ]
-           @ [
-               Instruction ("popq", "%r9", "", "");
-               Instruction ("popq", "%r8", "", "");
-               Instruction ("popq", "%rcx", "", "");
-               Instruction ("popq", "%rdx", "", "");
-               Instruction ("popq", "%rsi", "", "");
+           @ popargs_call @ [
+               (*Instruction ("popq", "%r9", "", "");*)
+               (*Instruction ("popq", "%r8", "", "");*)
+               (*Instruction ("popq", "%rcx", "", "");*)
+               (*Instruction ("popq", "%rdx", "", "");*)
+               (*Instruction ("popq", "%rsi", "", "");*)
                Line ("\t#Call w/o args end for method " ^ meth);
              ]
          else
@@ -776,13 +803,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            in
            [
              Line ("\t#Call w/ args start for method " ^ meth);
-             Instruction ("pushq", "%rsi", "", "");
-             Instruction ("pushq", "%rdx", "", "");
-             Instruction ("pushq", "%rcx", "", "");
-             Instruction ("pushq", "%r8", "", "");
-             Instruction ("pushq", "%r9", "", "");
-             Instruction ("pushq", "%rdi", "", "");
-           ]
+             (*Instruction ("pushq", "%rsi", "", "");*)
+             (*Instruction ("pushq", "%rdx", "", "");*)
+             (*Instruction ("pushq", "%rcx", "", "");*)
+             (*Instruction ("pushq", "%r8", "", "");*)
+             (*Instruction ("pushq", "%r9", "", "");*)
+             (*Instruction ("pushq", "%rdi", "", "");*)
+           ] @ pushargs_call @ 
+             [Instruction ("pushq", "%rdi", "", "");]
            @ (if List.length arglist > 5 then
                 if List.length arglist mod 2 = 1 then []
                 else [ Instruction ("subq", "$8", "%rsp", "") ]
@@ -817,12 +845,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("popq", "%rdi", "", "");
                Instruction ("movq", "%rax", result, "");
              ]
-           @ [
-               Instruction ("popq", "%r9", "", "");
-               Instruction ("popq", "%r8", "", "");
-               Instruction ("popq", "%rcx", "", "");
-               Instruction ("popq", "%rdx", "", "");
-               Instruction ("popq", "%rsi", "", "");
+           @ popargs_call @ [
+               (*Instruction ("popq", "%r9", "", "");*)
+               (*Instruction ("popq", "%r8", "", "");*)
+               (*Instruction ("popq", "%rcx", "", "");*)
+               (*Instruction ("popq", "%rdx", "", "");*)
+               (*Instruction ("popq", "%rsi", "", "");*)
                Line ("\t#Call w/ args end for method" ^ meth);
              ])
       (* @ popargs *)
@@ -862,13 +890,13 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       @ (if tac.arg2 = "" then
            [
              Line ("\t#Call w/o args start for method " ^ meth);
-             Instruction ("pushq", "%rsi", "", "");
-             Instruction ("pushq", "%rdx", "", "");
-             Instruction ("pushq", "%rcx", "", "");
-             Instruction ("pushq", "%r8", "", "");
-             Instruction ("pushq", "%r9", "", "");
+             (*Instruction ("pushq", "%rsi", "", "");*)
+             (*Instruction ("pushq", "%rdx", "", "");*)
+             (*Instruction ("pushq", "%rcx", "", "");*)
+             (*Instruction ("pushq", "%r8", "", "");*)
+             (*Instruction ("pushq", "%r9", "", "");*)
            ]
-           @ [
+           @ pushargs_call @ [
                (*Instruction ("andq", "$0xFFFFFFFFFFFFFFF0", "%rsp", "");*)
                (*Instruction ("call", "IO." ^ tac.arg1, "", "");*)
                Instruction ("pushq", "%rdi", "", "");
@@ -886,12 +914,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("popq", "%rdi", "", "");
                Instruction ("movq", "%rax", result, "");
              ]
-           @ [
-               Instruction ("popq", "%r9", "", "");
-               Instruction ("popq", "%r8", "", "");
-               Instruction ("popq", "%rcx", "", "");
-               Instruction ("popq", "%rdx", "", "");
-               Instruction ("popq", "%rsi", "", "");
+           @ popargs_call @ [
+               (*Instruction ("popq", "%r9", "", "");*)
+               (*Instruction ("popq", "%r8", "", "");*)
+               (*Instruction ("popq", "%rcx", "", "");*)
+               (*Instruction ("popq", "%rdx", "", "");*)
+               (*Instruction ("popq", "%rsi", "", "");*)
                Line ("\t#Call w/o args end for method " ^ meth);
              ]
          else
@@ -930,13 +958,14 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
            in
            [
              Line ("\t#Call w/ args start for method " ^ meth);
-             Instruction ("pushq", "%rsi", "", "");
-             Instruction ("pushq", "%rdx", "", "");
-             Instruction ("pushq", "%rcx", "", "");
-             Instruction ("pushq", "%r8", "", "");
-             Instruction ("pushq", "%r9", "", "");
-             Instruction ("pushq", "%rdi", "", "");
-           ]
+             (*Instruction ("pushq", "%rsi", "", "");*)
+             (*Instruction ("pushq", "%rdx", "", "");*)
+             (*Instruction ("pushq", "%rcx", "", "");*)
+             (*Instruction ("pushq", "%r8", "", "");*)
+             (*Instruction ("pushq", "%r9", "", "");*)
+             (*Instruction ("pushq", "%rdi", "", "");*)
+           ] @ pushargs_call @
+             [Instruction ("pushq", "%rdi", "", "");]
            @ (if List.length arglist > 5 then
                 if List.length arglist mod 2 = 0 then []
                 else [ Instruction ("subq", "$8", "%rsp", "") ]
@@ -972,12 +1001,12 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
                Instruction ("popq", "%rdi", "", "");
                Instruction ("movq", "%rax", result, "");
              ]
-           @ [
-               Instruction ("popq", "%r9", "", "");
-               Instruction ("popq", "%r8", "", "");
-               Instruction ("popq", "%rcx", "", "");
-               Instruction ("popq", "%rdx", "", "");
-               Instruction ("popq", "%rsi", "", "");
+           @ popargs_call @ [
+               (*Instruction ("popq", "%r9", "", "");*)
+               (*Instruction ("popq", "%r8", "", "");*)
+               (*Instruction ("popq", "%rcx", "", "");*)
+               (*Instruction ("popq", "%rdx", "", "");*)
+               (*Instruction ("popq", "%rsi", "", "");*)
                Line ("\t#Call w/ args end for method" ^ meth);
              ])
       (* @ popargs *)
@@ -1110,14 +1139,36 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         get_var_addr tac.result class_name
       in
 
-      [
-        Line "\t#Plus start";
-        Instruction ("movq", arg1, "%rax", "");
+      let op = (match arg1, arg2 with
+      | a, b when a.[0] = '$' && b.[0] = '$' -> [
+        Instruction ("movl", a, "%eax", "");
+        Instruction ("addl", b, "%eax", "");
+      ]
+      | a,b when a.[0] = '$' && b.[0] <> '$' -> [
+        Instruction ("movq", b, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
-        Instruction ("movq", arg2, "%r11", "");
+        Instruction ("addl", a, "%eax", "");
+      ]
+      | a,b when a.[0] <> '$' && b.[0] = '$' -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("addl", b, "%eax", "");
+      ]
+      | a,b -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("movq", b, "%r11", "");
         Instruction ("movq", "24(%r11)", "%r11", "");
         Instruction ("addl", "%r11d", "%eax", "");
-      ]
+      ]) in
+      [
+        Line "\t#Plus start";
+        (*Instruction ("movq", arg1, "%rax", "");*)
+        (*Instruction ("movq", "24(%rax)", "%rax", "");*)
+        (*Instruction ("movq", arg2, "%r11", "");*)
+        (*Instruction ("movq", "24(%r11)", "%r11", "");*)
+        (*Instruction ("addl", "%r11d", "%eax", "");*)
+      ] @ op
       @ pushargs
       @ [
           Instruction ("pushq", "%rax", "", "");
@@ -1144,15 +1195,34 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         get_var_addr tac.result class_name
       in
 
-      [
-        Line "\t#Minus start";
-        Instruction ("movq", arg1, "%rax", "");
-        Instruction ("movq", "24(%rax)", "%rax", "");
-        Instruction ("movq", arg2, "%r11", "");
+      let op = (match arg1, arg2 with
+      | a,b when a.[0] = '$' && b.[0] <> '$' -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", b, "%r11", "");
         Instruction ("movq", "24(%r11)", "%r11", "");
         Instruction ("subl", "%r11d", "%eax", "");
       ]
-      @ pushargs
+      | a,b when a.[0] <> '$' && b.[0] = '$' -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("subl", b, "%eax", "");
+      ]
+      | a,b -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("movq", b, "%r11", "");
+        Instruction ("movq", "24(%r11)", "%r11", "");
+        Instruction ("subl", "%r11d", "%eax", "");
+      ]) in
+      [
+        Line "\t#Minus start";
+        (*Instruction ("movq", arg1, "%rax", "");*)
+        (*Instruction ("movq", "24(%rax)", "%rax", "");*)
+        (*Instruction ("movq", arg2, "%r11", "");*)
+        (*Instruction ("movq", "24(%r11)", "%r11", "");*)
+        (*Instruction ("subl", "%r11d", "%eax", "");*)
+      ]
+      @ op @pushargs
       @ [
           Instruction ("pushq", "%rax", "", "");
           Instruction ("subq", "$8", "%rsp", "");
@@ -1180,21 +1250,54 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
 
       let error_label = get_label () in
       let div_end_label = get_label () in
+      (* Intentionally misaligning the stack here because it saves a push :) *)
+      let op =[
+        Instruction("pushq", "%rdx", "", "");
+        
+      ] @ (match arg1, arg2 with
+      | a,b when a.[0] = '$' && b.[0] <> '$' -> [
+        Instruction ("movq", b, "%r11", "");
+        Instruction ("movq", "24(%r11)", "%r11", "");
+        Instruction ("testq", "%r11", "%r11", "");
+        Instruction ("je", error_label, "", "");
+        Instruction ("movl", a, "%eax", "");
+        Instruction ("cltd", "", "", "");
+        Instruction ("idivl", "%r11d", "", "");
+      ]
+      | a,b when a.[0] <> '$' && b.[0] = '$' -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", b, "%r11", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("cltd", "", "", "");
+        Instruction ("idivl", "%r11d", "", "");
+      ]
+      | a,b -> [
+        Instruction ("movq", b, "%r11", "");
+        Instruction ("movq", "24(%r11)", "%r11", "");
+        Instruction ("testq", "%r11", "%r11", "");
+        Instruction ("je", error_label, "", "");
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("cltd", "", "", "");
+        Instruction ("idivl", "%r11d", "", "");
+      ]) @ [
+        Instruction ("popq", "%rdx", "", "");
+      ] in
 
       [
         Line "\t#Divide start";
-        Instruction ("pushq", "%rdx", "", "");
-        Instruction ("pushq", "%rcx", "", "");
-        Instruction ("movq", arg2, "%rcx", "");
-        Instruction ("movq", "24(%rcx)", "%rcx", "");
-        Instruction ("testq", "%rcx", "%rcx", "");
-        Instruction ("je", error_label, "", "");
-        Instruction ("movq", arg1, "%rax", "");
-        Instruction ("movq", "24(%rax)", "%rax", "");
-        Instruction ("cltd", "", "", "");
-        Instruction ("idivl", "%ecx", "", "");
+        (*Instruction ("pushq", "%rdx", "", "");*)
+        (*Instruction ("pushq", "%rcx", "", "");*)
+        (*Instruction ("movq", arg2, "%rcx", "");*)
+        (*Instruction ("movq", "24(%rcx)", "%rcx", "");*)
+        (*Instruction ("testq", "%rcx", "%rcx", "");*)
+        (*Instruction ("je", error_label, "", "");*)
+        (*Instruction ("movq", arg1, "%rax", "");*)
+        (*Instruction ("movq", "24(%rax)", "%rax", "");*)
+        (*Instruction ("cltd", "", "", "");*)
+        (*Instruction ("idivl", "%ecx", "", "");*)
       ]
-      @ pushargs
+      @ op @ pushargs
       @ [
           Instruction ("pushq", "%rax", "", "");
           Instruction ("subq", "$8", "%rsp", "");
@@ -1207,10 +1310,9 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       @ [
           Instruction ("movq", "%rax", "24(%r11)", "");
           Instruction ("movq", "%r11", result, "");
-          Instruction ("popq", "%rcx", "", "");
-          Instruction ("popq", "%rdx", "", "");
           Instruction ("jmp", div_end_label, "", "");
           Line (error_label ^ ":");
+          Instruction ("subq", "$8", "%rsp", "");
           Instruction ("movl", "$" ^ string_of_int tac.line, "%esi", "");
           Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "%edi", "");
           Instruction ("call", "cool_error", "", "");
@@ -1227,15 +1329,33 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         (*(*add_var_addr tac.result;*)*)
         get_var_addr tac.result class_name
       in
-      [
-        Line "\t#Times start";
-        Instruction ("movq", arg1, "%rax", "");
+      let op = (match arg1, arg2 with
+      | a,b when a.[0] = '$' && b.[0] <> '$' -> [
+        Instruction ("movq", b, "%rax", "");
         Instruction ("movq", "24(%rax)", "%rax", "");
-        Instruction ("movq", arg2, "%r11", "");
+        Instruction ("imull", a, "%eax", "");
+      ]
+      | a,b when a.[0] <> '$' && b.[0] = '$' -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("imull", b, "%eax", "");
+      ]
+      | a,b -> [
+        Instruction ("movq", a, "%rax", "");
+        Instruction ("movq", "24(%rax)", "%rax", "");
+        Instruction ("movq", b, "%r11", "");
         Instruction ("movq", "24(%r11)", "%r11", "");
         Instruction ("imull", "%r11d", "%eax", "");
+      ]) in
+      [
+        Line "\t#Times start";
+        (*Instruction ("movq", arg1, "%rax", "");*)
+        (*Instruction ("movq", "24(%rax)", "%rax", "");*)
+        (*Instruction ("movq", arg2, "%r11", "");*)
+        (*Instruction ("movq", "24(%r11)", "%r11", "");*)
+        (*Instruction ("imull", "%r11d", "%eax", "");*)
       ]
-      @ pushargs
+      @ op @ pushargs
       @ [
           Instruction ("pushq", "%rax", "", "");
           Instruction ("subq", "$8", "%rsp", "");
@@ -1369,21 +1489,21 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
       in
 
       [
-        Line "\t#iconst start";
-        Instruction ("pushq", "%rsi", "", "");
-        Instruction ("pushq", "%rdx", "", "");
-        Instruction ("pushq", "%rcx", "", "");
-        Instruction ("pushq", "%r8", "", "");
-        Instruction ("pushq", "%r9", "", "");
+        Line "\t#iconst start";] @ pushargs_call @[
+        (*Instruction ("pushq", "%rsi", "", "");*)
+        (*Instruction ("pushq", "%rdx", "", "");*)
+        (*Instruction ("pushq", "%rcx", "", "");*)
+        (*Instruction ("pushq", "%r8", "", "");*)
+        (*Instruction ("pushq", "%r9", "", "");*)
         Instruction ("pushq", "%rdi", "", "");
         Instruction ("call", "Int..new", "", "");
         Instruction ("popq", "%rdi", "", "");
-        Instruction ("movq", "$" ^ tac.arg1, "24(%rax)", "");
-        Instruction ("popq", "%r9", "", "");
-        Instruction ("popq", "%r8", "", "");
-        Instruction ("popq", "%rcx", "", "");
-        Instruction ("popq", "%rdx", "", "");
-        Instruction ("popq", "%rsi", "", "");
+        Instruction ("movq", "$" ^ tac.arg1, "24(%rax)", "");] @popargs_call @[
+        (*Instruction ("popq", "%r9", "", "");*)
+        (*Instruction ("popq", "%r8", "", "");*)
+        (*Instruction ("popq", "%rcx", "", "");*)
+        (*Instruction ("popq", "%rdx", "", "");*)
+        (*Instruction ("popq", "%rsi", "", "");*)
         Instruction ("movq", "%rax", result, "");
         Line "\t#iconst end";
       ]
@@ -1575,25 +1695,25 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
             Instruction ("movq", "%rax", Printf.sprintf "%s" result, "");
           ]
       in
-      let pu =
-        [
-          Instruction ("pushq", "%rsi", "", "");
-          Instruction ("pushq", "%rdx", "", "");
-          Instruction ("pushq", "%rcx", "", "");
-          Instruction ("pushq", "%r8", "", "");
-          Instruction ("pushq", "%r9", "", "");
-        ]
-      in
-      let po =
-        [
-          Instruction ("popq", "%r9", "", "");
-          Instruction ("popq", "%r8", "", "");
-          Instruction ("popq", "%rcx", "", "");
-          Instruction ("popq", "%rdx", "", "");
-          Instruction ("popq", "%rsi", "", "");
-        ]
-      in
-      pu @ new_call @ po
+      (*let pu =*)
+        (*[*)
+          (*Instruction ("pushq", "%rsi", "", "");*)
+          (*Instruction ("pushq", "%rdx", "", "");*)
+          (*Instruction ("pushq", "%rcx", "", "");*)
+          (*Instruction ("pushq", "%r8", "", "");*)
+          (*Instruction ("pushq", "%r9", "", "");*)
+        (*]*)
+      (*in*)
+      (*let po =*)
+        (*[*)
+          (*Instruction ("popq", "%r9", "", "");*)
+          (*Instruction ("popq", "%r8", "", "");*)
+          (*Instruction ("popq", "%rcx", "", "");*)
+          (*Instruction ("popq", "%rdx", "", "");*)
+          (*Instruction ("popq", "%rsi", "", "");*)
+        (*]*)
+      (*in*)
+      pushargs_call @ new_call @ popargs_call
   | Isvoid ->
       let result =
         (*match get_attribute class_name tac.result with*)
@@ -1638,6 +1758,11 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
           Instruction ("jmp", Printf.sprintf "l%d" post_jump, "", "");
           Line post_jump_label;
         ]
+  | Die ->[
+      Instruction ("movl", "$" ^ string_of_int tac.line, "%esi", "");
+      Instruction ("movl", "$" ^ err_to_num ERR_DIV_BY_ZERO, "%edi", "");
+      Instruction ("call", "cool_error", "", "");
+  ]
 
 let print_start () =
   let start =
