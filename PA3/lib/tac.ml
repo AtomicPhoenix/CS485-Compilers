@@ -237,21 +237,39 @@ let rec get_cases cases cname mname =
       | _ :: tail -> get_matching_case tail
       | [] -> None
     in
-    let mtch =
-      match get_matching_case ancestors with Some v -> v | None -> "emptycase"
-    in
-    let label = snd (List.find (fun (name, _) -> name = mtch) jump_points) in
-    Printf.fprintf debug_file "#Class: %s\n" class_name;
-    Printf.fprintf debug_file "#\tAncestors: ";
-    List.iter
-      (fun ancestor -> Printf.fprintf debug_file "%s, " ancestor)
-      ancestors;
-    Printf.fprintf debug_file "\n";
-    Printf.fprintf debug_file "#\tMatching case: %s\n" mtch;
-    Printf.fprintf debug_file "#\tMatching label: %s\n" label;
-    (class_name, label)
+
+    match get_matching_case ancestors with
+    | Some mtch ->
+        let label =
+          snd (List.find (fun (name, _) -> name = mtch) jump_points)
+        in
+        Printf.fprintf debug_file "#Class: %s\n" class_name;
+        Printf.fprintf debug_file "#\tAncestors: ";
+        List.iter
+          (fun ancestor -> Printf.fprintf debug_file "%s, " ancestor)
+          ancestors;
+        Printf.fprintf debug_file "\n";
+        Printf.fprintf debug_file "#\tMatching case: %s\n" mtch;
+        Printf.fprintf debug_file "#\tMatching label: %s\n" label;
+        Some (class_name, label)
+    | None ->
+        if Hashtbl.length class_map < 5 then (
+          let mtch = "emptycase" in
+          let label =
+            snd (List.find (fun (name, _) -> name = mtch) jump_points)
+          in
+          Printf.fprintf debug_file "#Class: %s\n" class_name;
+          Printf.fprintf debug_file "#\tAncestors: ";
+          List.iter
+            (fun ancestor -> Printf.fprintf debug_file "%s, " ancestor)
+            ancestors;
+          Printf.fprintf debug_file "\n";
+          Printf.fprintf debug_file "#\tMatching case: %s\n" mtch;
+          Printf.fprintf debug_file "#\tMatching label: %s\n" label;
+          Some (class_name, label))
+        else None
   in
-  List.map get_case class_list
+  List.filter_map get_case class_list
 
 (* Converts AST to TAC *)
 and ast_to_tac (ast : annotated_ast_elem list) :

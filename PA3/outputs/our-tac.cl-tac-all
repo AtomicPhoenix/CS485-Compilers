@@ -1,0 +1,98 @@
+comment start
+label A_b_0
+0t$0 <- a
+return 0t$0
+comment start
+label A_init_0
+a <- num
+0t$3 <- num
+0t$4 <- new B
+b <- call init 0t$3
+2t$0 <- self
+return 2t$0
+comment start
+label A_getb_0
+4t$0 <- b
+return 4t$0
+comment start
+label A_copyself_0
+comment self
+6t$0 <- call copy
+return 6t$0
+comment start
+label A_seta_0
+a <- num
+8t$0 <- a
+return 8t$0
+comment start
+label B_init_0
+c <- num
+10t$0 <- self
+return 10t$0
+comment start
+label B_getc_0
+12t$0 <- c
+return 12t$0
+comment start
+label B_setc_0
+c <- num
+14t$0 <- c
+return 14t$0
+comment start
+label Main_main_0
+1t$2 <- int 3
+1t$3 <- new A
+2t$1 <- call init 1t$2
+0t$5 <- 2t$1
+1t$4 <- call copyself
+0t$9 <- 1t$4
+0t$8 <- call getb
+0t$7 <- call getc
+comment self
+0t$6 <- call out_int 0t$7
+0t$12 <- string
+\n
+comment self
+0t$11 <- call out_string 0t$12
+0t$15 <- int 7
+0t$17 <- 1t$4
+0t$16 <- call getb
+0t$14 <- call setc 0t$15
+0t$21 <- 2t$1
+0t$20 <- call getb
+0t$19 <- call getc
+comment self
+0t$18 <- call out_int 0t$19
+0t$24 <- string
+\n
+comment self
+0t$23 <- call out_string 0t$24
+0t$28 <- 2t$1
+0t$27 <- call b
+comment self
+0t$26 <- call out_int 0t$27
+0t$31 <- string
+\n
+comment self
+0t$30 <- call out_string 0t$31
+0t$34 <- int 27
+0t$35 <- 2t$1
+0t$33 <- call seta 0t$34
+0t$38 <- 1t$4
+0t$37 <- call b
+comment self
+0t$36 <- call out_int 0t$37
+0t$41 <- string
+\n
+comment self
+0t$40 <- call out_string 0t$41
+0t$45 <- 2t$1
+0t$44 <- call b
+comment self
+0t$43 <- call out_int 0t$44
+0t$47 <- string
+\n
+comment self
+16t$0 <- call out_string 0t$47
+return 16t$0
+	.section	.rodata

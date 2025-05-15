@@ -28,6 +28,7 @@ cp "$FILE" $TESTNAME
 ocamlc main.ml
 ./a.out "$TESTNAME"
 mv "./test-case.cl-tac" "./outputs/our-tac.cl-tac"
+mv "./test-case.cl-tac-all" "./outputs/our-tac.cl-tac-all"
 TESTNAME="$(basename "$TESTNAME" .cl-type)"
 mv "./test-case.s" "./outputs/our-output.s"
 gcc -static -fno-pie -ggdb -o program "./outputs/our-output.s"

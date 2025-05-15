@@ -21,8 +21,8 @@ open Tac
 type cfg_elem =
   (* Basic Block *)
   | Normal_Node of tac_elem list
-  (* Condition * Then Stmt * Else Stmt * Join  *)
-  | If_Statement of cfg_elem * cfg_elem * cfg_elem * cfg_elem
+  (* Condition * Then Stmt * Else Stmt * Join * phi_elem Functions *)
+  | If_Statement of cfg_elem * cfg_elem * cfg_elem * cfg_elem * phi_elem list
   (* Condition * Body * Join *)
   | Loop of cfg_elem * cfg_elem * cfg_elem
   (* Case Expr * Cases * Join *)
@@ -44,6 +44,8 @@ and basic_block_label =
 
 and labelled_basic_block = { label : basic_block_label; block : tac_elem list }
 (* and cfg_node = { data : cfg_elem; next : cfg_node option } *)
+
+and phi_elem = string * string * string list
 
 and cfg = {
   (*  cfg_root : cfg_node; *)
@@ -173,7 +175,7 @@ let print_cfg file (cfg_param : cfg) =
         print_cfg_elem while_body;
         Printf.fprintf file "#-----------While Stmt Join:-----------\n";
         print_cfg_elem join_body
-    | If_Statement (cond, then_body, else_body, join_body) ->
+    | If_Statement (cond, then_body, else_body, join_body, _) ->
         Printf.fprintf file
           "#---------------If Stmt Condition:-----------------------\n";
         print_cfg_elem cond;
@@ -281,7 +283,7 @@ let create_proper_cfg (labelled_blocks : labelled_basic_block list) =
         let then_stmt = get_next () in
         let else_stmt = get_next () in
         let join_stmt = get_next () in
-        If_Statement (cond, then_stmt, else_stmt, join_stmt)
+        If_Statement (cond, then_stmt, else_stmt, join_stmt, [])
     | Case_Expr ->
         let case_expr = Normal_Node hd.block in
         let case_stmts = get_case_stmts () in
@@ -335,7 +337,7 @@ let rec block_tac (node : cfg_elem) =
   let rec parse acc (node : cfg_elem) =
     match node with
     | Normal_Node a -> a :: acc
-    | If_Statement (c, t, e, j) ->
+    | If_Statement (c, t, e, j, _) ->
         parse acc c @ parse acc t @ parse acc e @ parse acc j
     | Loop (a, b, c) -> parse acc a @ parse acc b @ parse acc c
     | Cases (node1, node_list, node2) ->
