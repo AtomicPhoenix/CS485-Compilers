@@ -9,23 +9,38 @@ let simplify_cfg (method_graph : Cfg.cfg) =
     let value_map = Hashtbl.create 32 in
     let get_ident str =
       match Hashtbl.find_opt value_map str with
-      | Some v when String.contains v '$' -> v
+      | Some v when String.contains v '$' && String.contains v 't' -> v
       | _ -> str
     in
     let get_tac_value (tac : Tac.tac_elem) : Tac.tac_elem =
       match tac.operand with
       | Plus | Minus | Times | Divide | LessThan | LessEqual | Equal | Isvoid
-      | Negate | Not ->
+      | Negate | Not | Int_Constant | Boolean_Constant | String_Constant -> (
           let arg1 = get_ident tac.arg1 in
           let arg2 = get_ident tac.arg2 in
-          {
-            operand = tac.operand;
-            arg1;
-            arg2;
-            result = tac.result;
-            line = tac.line;
-            static_type = tac.static_type;
-          }
+          let rhs =
+            Tac.operand_to_string tac.operand ^ " " ^ tac.arg1 ^ " " ^ tac.arg2
+          in
+          match Hashtbl.find_opt value_map rhs with
+          | None ->
+              Hashtbl.add value_map rhs tac.result;
+              {
+                operand = tac.operand;
+                arg1;
+                arg2;
+                result = tac.result;
+                line = tac.line;
+                static_type = tac.static_type;
+              }
+          | Some v ->
+              {
+                operand = Ident_Expr v;
+                arg1 = "";
+                arg2 = "";
+                result = tac.result;
+                line = tac.line;
+                static_type = tac.static_type;
+              })
       | Call | StaticCall _ ->
           let arg_list = String.split_on_char ' ' tac.arg2 in
           let new_arg_list = List.map get_ident arg_list in
@@ -40,7 +55,7 @@ let simplify_cfg (method_graph : Cfg.cfg) =
           }
       | Ident_Expr v ->
           (match Hashtbl.find_opt value_map tac.result with
-          | None when String.contains tac.result '$' ->
+          | None when String.contains tac.result '$' && String.contains v 't' ->
               Hashtbl.add value_map tac.result v
           | _ -> ());
           tac
