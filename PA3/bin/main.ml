@@ -28,16 +28,6 @@ let do_dce () =
     !Cfg.cfg_list;
   clean ()
 
-let constant_fold () =
-  clean ();
-  List.iter (fun (node : Cfg.cfg) -> Optimizer.constant_fold node) !Cfg.cfg_list;
-  clean ()
-
-let revert_ints () =
-  clean ();
-  List.iter (fun (node : Cfg.cfg) -> Optimizer.revert_ints node) !Cfg.cfg_list;
-  clean ()
-
 let print_all_tac file_name =
   let out_file = open_out (Print.base_file_name ^ file_name ^ ".cl-tac") in
   List.iter
@@ -60,10 +50,8 @@ let do_dce_2_eb () =
 let optimize () =
   do_dce ();
   do_dce_2_eb ();
-  constant_fold ();
   do_dce ();
-  constant_fold ();
-  revert_ints ();
+  do_dce_2_eb ();
   do_dce ()
 
 (* Optimizer.print_optimization_comparison () *)
