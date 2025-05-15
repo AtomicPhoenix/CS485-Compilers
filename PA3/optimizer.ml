@@ -5,17 +5,14 @@ let last_result = ref ""
 let living_map = Hashtbl.create 32
 
 let simplify_cfg (method_graph : Cfg.cfg) =
-  let simplify_tac (tacs : Tac.tac_elem list) =
+  (* let simplify_tac (tacs : Tac.tac_elem list) =
     let value_map = Hashtbl.create 32 in
     let get_ident str =
-      match Hashtbl.find_opt value_map str with
-      | Some v when String.contains v '$' -> v
-      | _ -> str
+      match Hashtbl.find_opt value_map str with Some v -> v | None -> str
     in
     let get_tac_value (tac : Tac.tac_elem) : Tac.tac_elem =
       match tac.operand with
-      | Plus | Minus | Times | Divide | LessThan | LessEqual | Equal | Isvoid
-      | Negate | Not ->
+      | Plus | Minus | Times | Divide | LessThan | LessEqual | Equal ->
           let arg1 = get_ident tac.arg1 in
           let arg2 = get_ident tac.arg2 in
           {
@@ -40,9 +37,8 @@ let simplify_cfg (method_graph : Cfg.cfg) =
           }
       | Ident_Expr v ->
           (match Hashtbl.find_opt value_map tac.result with
-          | None when String.contains tac.result '$' ->
-              Hashtbl.add value_map tac.result v
-          | _ -> ());
+          | Some _ -> ()
+          | None -> Hashtbl.add value_map tac.result v);
           tac
       | _ -> tac
     in
@@ -68,7 +64,8 @@ let simplify_cfg (method_graph : Cfg.cfg) =
         let new_join = simplify_cfg_elem join_stmt in
         Cases (new_cond, new_options, new_join)
   in
-  method_graph.cfg <- List.map simplify_cfg_elem method_graph.cfg
+  method_graph.cfg <- List.map simplify_cfg_elem method_graph.cfg*)
+  ()
 
 (* Dead Code Elimination *)
 let rec dead_code_elimination (method_graph : Cfg.cfg) =
@@ -624,7 +621,11 @@ let remove_self_assigns (method_graph : Cfg.cfg) =
             let new_then = clean_elem then_stmt in
             let new_join = clean_elem join_stmt in
             If_Statement
-              (remove_jump new_cond, new_then, Normal_Node [], new_join, phi)
+              ( remove_jump new_cond,
+                remove_jump new_then,
+                Normal_Node [],
+                new_join,
+                phi )
         | "false" ->
             let new_else = clean_elem else_stmt in
             let new_join = clean_elem join_stmt in

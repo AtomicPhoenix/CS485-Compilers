@@ -1,98 +1,142 @@
 comment start
-label A_b_0
-0t$0 <- a
-return 0t$0
+label Complex_init_0
+x <- a
+y <- b
+t$0 <- self
+return t$0
 comment start
-label A_init_0
-a <- num
-0t$3 <- num
-0t$4 <- new B
-b <- call init 0t$3
-2t$0 <- self
-return 2t$0
-comment start
-label A_getb_0
-4t$0 <- b
-return 4t$0
-comment start
-label A_copyself_0
+label Complex_print_0
+comment If-Cond
+t$3 <- int 0
+t$1 <- = y t$3
+t$14 <- not t$1
+bt t$14 print_Complex_2
+comment If-Then
+label print_Complex_1
+t$4 <- x
 comment self
-6t$0 <- call copy
-return 6t$0
+t$0 <- call out_int x
+t$10 <- 0
+t$11 <- 0
+t$12 <- 0
+t$6 <- 0
+t$7 <- 0
+t$9 <- 0
+jmp print_Complex_3
+comment If-Else
+label print_Complex_2
+t$6 <- string
+I
+t$10 <- string
++
+t$12 <- x
+comment self
+t$11 <- call out_int x
+t$9 <- call out_string t$10
+t$7 <- call out_int y
+t$0 <- call out_string t$6
+jmp print_Complex_3
+comment If-Join
+label print_Complex_3
+return t$0
 comment start
-label A_seta_0
-a <- num
-8t$0 <- a
-return 8t$0
+label Complex_reflect_0_0
+x <- ~ x
+y <- ~ y
+t$0 <- self
+return t$0
 comment start
-label B_init_0
-c <- num
-10t$0 <- self
-return 10t$0
+label Complex_reflect_X_0
+y <- ~ y
+t$0 <- self
+return t$0
 comment start
-label B_getc_0
-12t$0 <- c
-return 12t$0
+label Complex_reflect_Y_0
+x <- ~ x
+t$0 <- self
+return t$0
 comment start
-label B_setc_0
-c <- num
-14t$0 <- c
-return 14t$0
+label Complex_equal_0
+comment If-Cond
+t$4 <- d
+t$3 <- call x_value
+t$1 <- = x t$3
+t$10 <- not t$1
+bt t$10 equal_Complex_5
+comment If-Join
+label equal_Complex_3
+jmp equal_Complex_6
+comment If-Else
+label equal_Complex_5
+t$0 <- bool false
+jmp equal_Complex_6
+comment If-Join
+label equal_Complex_6
+return t$0
+comment start
+label Complex_x_value_0
+t$0 <- x
+return t$0
+comment start
+label Complex_y_value_0
+t$0 <- y
+return t$0
 comment start
 label Main_main_0
-1t$2 <- int 3
-1t$3 <- new A
-2t$1 <- call init 1t$2
-0t$5 <- 2t$1
-1t$4 <- call copyself
-0t$9 <- 1t$4
-0t$8 <- call getb
-0t$7 <- call getc
+t$2 <- int 1
+t$3 <- int 1
+t$4 <- new Complex
+t$1 <- call init t$2 t$3
+comment If-Cond
+t$8 <- t$1
+t$7 <- call reflect_X
+t$10 <- t$1
+t$9 <- call reflect_0
+t$6 <- = t$7 t$9
+t$15 <- not t$6
+bt t$15 main_Main_2
+comment If-Then
+label main_Main_1
+t$11 <- string
+passed\n
 comment self
-0t$6 <- call out_int 0t$7
-0t$12 <- string
-\n
+t$5 <- call out_string t$11
+t$13 <- 0
+jmp main_Main_3
+comment If-Else
+label main_Main_2
+t$13 <- string
+failed\n
 comment self
-0t$11 <- call out_string 0t$12
-0t$15 <- int 7
-0t$17 <- 1t$4
-0t$16 <- call getb
-0t$14 <- call setc 0t$15
-0t$21 <- 2t$1
-0t$20 <- call getb
-0t$19 <- call getc
+t$5 <- call out_string t$13
+jmp main_Main_3
+comment If-Join
+label main_Main_3
+comment If-Cond
+t$18 <- t$1
+t$17 <- call reflect_0
+t$21 <- t$1
+t$20 <- call reflect_X
+t$19 <- call reflect_Y
+t$16 <- call equal t$17
+t$26 <- not t$16
+bt t$26 main_Main_5
+comment If-Then
+label main_Main_4
+t$22 <- string
+passed\n
 comment self
-0t$18 <- call out_int 0t$19
-0t$24 <- string
-\n
+t$0 <- call out_string t$22
+t$24 <- 0
+jmp main_Main_6
+comment If-Else
+label main_Main_5
+t$24 <- string
+failed\n
 comment self
-0t$23 <- call out_string 0t$24
-0t$28 <- 2t$1
-0t$27 <- call b
-comment self
-0t$26 <- call out_int 0t$27
-0t$31 <- string
-\n
-comment self
-0t$30 <- call out_string 0t$31
-0t$34 <- int 27
-0t$35 <- 2t$1
-0t$33 <- call seta 0t$34
-0t$38 <- 1t$4
-0t$37 <- call b
-comment self
-0t$36 <- call out_int 0t$37
-0t$41 <- string
-\n
-comment self
-0t$40 <- call out_string 0t$41
-0t$45 <- 2t$1
-0t$44 <- call b
-comment self
-0t$43 <- call out_int 0t$44
-0t$47 <- string
-\n
-comment self
-16t$0 <- call out_string 0t$47
-return 16t$0
+t$0 <- call out_string t$24
+jmp main_Main_6
+comment If-Join
+label main_Main_6
+return t$0
 	.section	.rodata

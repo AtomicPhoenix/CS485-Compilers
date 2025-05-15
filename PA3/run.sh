@@ -28,7 +28,6 @@ cp "$FILE" $TESTNAME
 ocamlc main.ml
 ./a.out "$TESTNAME"
 mv "./test-case.cl-tac" "./outputs/our-tac.cl-tac"
-mv "./test-case.cl-tac-all" "./outputs/our-tac.cl-tac-all"
 TESTNAME="$(basename "$TESTNAME" .cl-type)"
 mv "./test-case.s" "./outputs/our-output.s"
 gcc -static -fno-pie -ggdb -o program "./outputs/our-output.s"
@@ -36,8 +35,6 @@ mv "./program" "./outputs/our-program"
 ./outputs/our-program &>./outputs/our-output.txt
 
 TESTNAME="$(basename "$TESTNAME" .s)"
-rm "$TESTNAME.cl"* 2>/dev/null
-rm main.cm*
 
 ../cool "$1" &>./outputs/ref-output.txt
 ../cool --tac "$1"
@@ -58,7 +55,6 @@ gcc -static -fno-pie -ggdb -o ref-program "./outputs/ref.s"
 mv "./ref-program" "./outputs/ref-program"
 refSize=$(stat -c %s "./outputs/ref-program")
 ourSize=$(stat -c %s "./outputs/our-program")
-rm a.out
 # diff ./outputs/ref-output.txt ./outputs/our-output.txt
 diffs=$(diff -U 0 ./outputs/ref-output.txt ./outputs/our-output.txt | tail -n +3 | grep -c '^@')
 if [ "$diffs" != "0" ]; then

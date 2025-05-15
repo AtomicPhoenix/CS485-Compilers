@@ -16,26 +16,41 @@ let undo_ssa () =
     (fun (node : Cfg.cfg) -> Optimizer.undo_singe_static_assignment node)
     !Cfg.cfg_list
 
+let clean () =
+  List.iter (fun (node : Cfg.cfg) -> Optimizer.simplify_cfg node) !Cfg.cfg_list;
+
+  List.iter
+    (fun (node : Cfg.cfg) -> Optimizer.remove_self_assigns node)
+    !Cfg.cfg_list
+
 let do_dce () =
+  clean ();
   List.iter
     (fun (node : Cfg.cfg) -> Optimizer.dead_code_elimination node)
+    !Cfg.cfg_list;
+  clean ()
+
+let print_all_tac file_name =
+  let out_file = open_out (Print.base_file_name ^ file_name ^ ".cl-tac") in
+  List.iter
+    (fun (f : Cfg.cfg) ->
+      (Cfg.get_method_tac f.cfg |> Tac.print_tac_elems_file) out_file)
     !Cfg.cfg_list
 
 let do_dce_2_eb () =
+  clean ();
+  do_ssa ();
   List.iter
     (fun (node : Cfg.cfg) ->
       Optimizer.dead_code_elimination_2_electic_boogaloo node)
-    !Cfg.cfg_list
+    !Cfg.cfg_list;
+  undo_ssa ();
+  clean ()
 
 let optimize () =
-  let out_file = open_out (Print.base_file_name ^ ".pre-cl-tac") in
-  ((!Cfg.cfg_list |> List.hd).cfg |> Cfg.get_method_tac
- |> Tac.print_tac_elems_file)
-    out_file;
   do_dce ();
-  do_ssa ();
   do_dce_2_eb ();
-  undo_ssa ();
+  do_dce ();
   do_dce ()
 
 (* Optimizer.print_optimization_comparison () *)
@@ -52,12 +67,6 @@ let pa4c1 () =
 
 let pa4full () =
   (* Print Tac for First Method *)
-  let out_file = open_out (Print.base_file_name ^ ".cl-tac-all") in
-  List.iter
-    (fun (f : Cfg.cfg) ->
-      (Cfg.get_method_tac f.cfg |> Tac.print_tac_elems_file) out_file)
-    !Cfg.cfg_list;
-
   List.iter Asm.print_vtable Asm.vtables;
 
   Asm.print_new_funcs Asm.new_funcs;
@@ -80,6 +89,8 @@ let pa4full () =
   Asm.print_start ()
 
 let () =
+  print_all_tac "unoptimized";
   optimize ();
+  print_all_tac "optimized";
   pa4c1 ();
   pa4full ()

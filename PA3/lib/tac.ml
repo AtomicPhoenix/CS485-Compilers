@@ -743,396 +743,577 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
             static_type = exp.static_type;
           };
         ]
-  | Minus (exp, exp2) ->
+  | Minus (exp, exp2) -> (
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
-      let real_exp1 = (match exp1 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp1) in
-      let real_exp2 = (match exp2 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp2) in
-      let arg1 = (match real_exp1 with | [] -> "$" ^(List.hd exp1).arg1 | _ -> arg1) in
-      let arg2 = (match real_exp2 with | [] -> "$" ^(List.hd exp2).arg1 | _ -> arg2) in
+      let real_exp1 =
+        match exp1 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp1
+      in
+      let real_exp2 =
+        match exp2 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp2
+      in
+      let arg1 =
+        match real_exp1 with [] -> "$" ^ (List.hd exp1).arg1 | _ -> arg1
+      in
+      let arg2 =
+        match real_exp2 with [] -> "$" ^ (List.hd exp2).arg1 | _ -> arg2
+      in
       let exp1 = real_exp1 in
-      let exp2 = real_exp2 in(
-      match arg1, arg2 with 
-      | a,b when a.[0] = '$' && b.[0] = '$' ->
-        [
-          {
-            operand = Int_Constant;
-            arg1 = Int32.to_string (Int32.sub (Int32.of_string (String.sub a 1 (String.length a - 1))) (Int32.of_string (String.sub b 1 (String.length b - 1))));
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-      | _ -> exp1 @ exp2
-      @ [
-          {
-            operand = Minus;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | Divide (exp, exp2) ->
-      var_ctr := !var_ctr + 1;
-      let arg1 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
-      var_ctr := !var_ctr + 1;
-      let arg2 = get_id !var_ctr in
-      let exp2 = exp_to_tac exp2 arg2 cname mname in
-      let real_exp1 = (match exp1 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp1) in
-      let real_exp2 = (match exp2 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp2) in
-      let arg1 = (match real_exp1 with | [] -> "$" ^(List.hd exp1).arg1 | _ -> arg1) in
-      let arg2 = (match real_exp2 with | [] -> "$" ^(List.hd exp2).arg1 | _ -> arg2) in
-      let exp1 = real_exp1 in
-      let exp2 = real_exp2 in(
-      match arg1, arg2 with 
-      | a,b when a.[0] = '$' && b.[0] = '$' ->(
-        match b with
-        | b when b = "$0" -> [
-          {
-            operand = Die;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-        | _ ->
-        [
-          {
-            operand = Int_Constant;
-            arg1 = Int32.to_string (Int32.div (Int32.of_string (String.sub a 1 (String.length a - 1))) (Int32.of_string (String.sub b 1 (String.length b - 1))));
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ])
-      | a,b when a.[0] <> '$' && b.[0] = '$' -> (
-        match b with
-        | b when b = "$0" -> [
-          {
-            operand = Die;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-        | _ ->exp1 @
-      [
-          {
-            operand = Divide;
-            arg1 = a;
-            arg2 = b;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-        
-      | _ -> exp1 @ exp2
-      @ [
-          {
-            operand = Divide;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | Plus (exp, exp2) ->
-
-      var_ctr := !var_ctr + 1;
-      let arg1 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
-      var_ctr := !var_ctr + 1;
-      let arg2 = get_id !var_ctr in
-      let exp2 = exp_to_tac exp2 arg2 cname mname in
-      let real_exp1 = (match exp1 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp1) in
-      let real_exp2 = (match exp2 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp2) in
-      let arg1 = (match real_exp1 with | [] -> "$" ^(List.hd exp1).arg1 | _ -> arg1) in
-      let arg2 = (match real_exp2 with | [] -> "$" ^(List.hd exp2).arg1 | _ -> arg2) in
-      let exp1 = real_exp1 in
-      let exp2 = real_exp2 in(
-      match arg1, arg2 with 
-      | a,b when a.[0] = '$' && b.[0] = '$' ->
-        [
-          {
-            operand = Int_Constant;
-            arg1 = Int32.to_string (Int32.add (Int32.of_string (String.sub a 1 (String.length a - 1))) (Int32.of_string (String.sub b 1 (String.length b - 1))));
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-      | _ -> exp1 @ exp2
-      @ [
-          {
-            operand = Plus;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | Times (exp, exp2) ->
-      var_ctr := !var_ctr + 1;
-      let arg1 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
-      var_ctr := !var_ctr + 1;
-      let arg2 = get_id !var_ctr in
-      let exp2 = exp_to_tac exp2 arg2 cname mname in
-      let real_exp1 = (match exp1 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp1) in
-      let real_exp2 = (match exp2 with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp2) in
-      let arg1 = (match real_exp1 with | [] -> "$" ^(List.hd exp1).arg1 | _ -> arg1) in
-      let arg2 = (match real_exp2 with | [] -> "$" ^(List.hd exp2).arg1 | _ -> arg2) in
-      let exp1 = real_exp1 in
-      let exp2 = real_exp2 in(
-      match arg1, arg2 with 
-      | a,b when a.[0] = '$' && b.[0] = '$' ->
-        [
-          {
-            operand = Int_Constant;
-            arg1 = Int32.to_string (Int32.mul (Int32.of_string (String.sub a 1 (String.length a - 1))) (Int32.of_string (String.sub b 1 (String.length b - 1))));
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-      | _ -> exp1 @ exp2
-      @ [
-          {
-            operand = Times;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | Equal (exp, exp2) ->
-      var_ctr := !var_ctr + 1;
-      let arg1 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
-      var_ctr := !var_ctr + 1;
-      let arg2 = get_id !var_ctr in
-      let exp2 = exp_to_tac exp2 arg2 cname mname in
-      let real_exp1 = (match exp1 with
-      | c :: [] when operand_to_string c.operand = "int" || operand_to_string c.operand = "bool" || operand_to_string c.operand = "string" -> [] | _ -> exp1) in
-      let real_exp2 = (match exp2 with
-      | c :: [] when operand_to_string c.operand = "int" || operand_to_string c.operand = "bool" || operand_to_string c.operand = "string" -> [] | _ -> exp2) in
-      let new_arg1 = (match real_exp1 with | [] -> if operand_to_string (List.hd exp1).operand = "int" then "$" ^(List.hd exp1).arg1 else (List.hd exp1).arg1 | _ -> arg1) in
-      let new_arg2 = (match real_exp2 with | [] -> if operand_to_string (List.hd exp2).operand = "int" then "$" ^(List.hd exp2).arg1 else (List.hd exp2).arg1 | _ -> arg2) in(
-      match new_arg1, new_arg2 with 
-      | a,b when a.[0] = '$' && b.[0] = '$' ->
-        [
-          {
-            operand = Boolean_Constant;
-            arg1 = Bool.to_string (Int32.equal (Int32.of_string (String.sub a 1 (String.length a - 1))) (Int32.of_string (String.sub b 1 (String.length b - 1))));
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-      | a,b when ((a.[0] = 't' && a.[1] = 'r') || a.[0] <> 't') && ((b.[0] = 't' && b.[1] = 'r') || b.[0] <> 't') ->
-        [
-          {
-            operand = Boolean_Constant;
-            arg1 = Bool.to_string (a = b);
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-      | _ -> exp1 @ exp2
-      @ [
-          {
-            operand = Equal;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | LessEqual (exp, exp2) ->
-      var_ctr := !var_ctr + 1;
-      let arg1 = get_id !var_ctr in
-      let exp1 = exp_to_tac exp arg1 cname mname in
-      var_ctr := !var_ctr + 1;
-      let arg2 = get_id !var_ctr in
-      let exp2 = exp_to_tac exp2 arg2 cname mname in
-      let real_exp1 = (match exp1 with
-      | c :: [] when operand_to_string c.operand = "int" || operand_to_string c.operand = "bool" || operand_to_string c.operand = "string" -> [] | _ -> exp1) in
-      let real_exp2 = (match exp2 with
-      | c :: [] when operand_to_string c.operand = "int" || operand_to_string c.operand = "bool" || operand_to_string c.operand = "string" -> [] | _ -> exp2) in
-      let new_arg1 = (match real_exp1 with | [] -> if operand_to_string (List.hd exp1).operand = "int" then "$" ^(List.hd exp1).arg1 else (List.hd exp1).arg1 | _ -> arg1) in
-      let new_arg2 = (match real_exp2 with | [] -> if operand_to_string (List.hd exp2).operand = "int" then "$" ^(List.hd exp2).arg1 else (List.hd exp2).arg1 | _ -> arg2) in(
-      match new_arg1, new_arg2 with 
-      | a,b when a.[0] = '$' && b.[0] = '$' ->
-        [
-          {
-            operand = Boolean_Constant;
-            arg1 = Bool.to_string ((Int32.compare (Int32.of_string (String.sub a 1 (String.length a - 1))) (Int32.of_string (String.sub b 1 (String.length b - 1)))) <= 0);
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-      | a,b when ((a.[0] = 't' && a.[1] = 'r') || a.[0] <> 't') && ((b.[0] = 't' && b.[1] = 'r') || b.[0] <> 't') ->
-        [
-          {
-            operand = Boolean_Constant;
-            arg1 = Bool.to_string (a <= b);
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
+      let exp2 = real_exp2 in
+      match (arg1, arg2) with
+      | a, b when a.[0] = '$' && b.[0] = '$' ->
+          [
+            {
+              operand = Int_Constant;
+              arg1 =
+                Int32.to_string
+                  (Int32.sub
+                     (Int32.of_string (String.sub a 1 (String.length a - 1)))
+                     (Int32.of_string (String.sub b 1 (String.length b - 1))));
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
       | _ ->
-         exp1 @ exp2
-      @ [
-          {
-            operand = LessEqual;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | LessThan (exp, exp2) ->
+          exp1 @ exp2
+          @ [
+              {
+                operand = Minus;
+                arg1;
+                arg2;
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | Divide (exp, exp2) -> (
       var_ctr := !var_ctr + 1;
       let arg1 = get_id !var_ctr in
       let exp1 = exp_to_tac exp arg1 cname mname in
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
-      let real_exp1 = (match exp1 with
-      | c :: [] when operand_to_string c.operand = "int" || operand_to_string c.operand = "bool" || operand_to_string c.operand = "string" -> [] | _ -> exp1) in
-      let real_exp2 = (match exp2 with
-      | c :: [] when operand_to_string c.operand = "int" || operand_to_string c.operand = "bool" || operand_to_string c.operand = "string" -> [] | _ -> exp2) in
-      let new_arg1 = (match real_exp1 with | [] -> if operand_to_string (List.hd exp1).operand = "int" then "$" ^(List.hd exp1).arg1 else (List.hd exp1).arg1 | _ -> arg1) in
-      let new_arg2 = (match real_exp2 with | [] -> if operand_to_string (List.hd exp2).operand = "int" then "$" ^(List.hd exp2).arg1 else (List.hd exp2).arg1 | _ -> arg2) in(
-      match new_arg1, new_arg2 with 
-      | a,b when a.[0] = '$' && b.[0] = '$' ->
-        [
-          {
-            operand = Boolean_Constant;
-            arg1 = Bool.to_string ((Int32.compare (Int32.of_string (String.sub a 1 (String.length a - 1))) (Int32.of_string (String.sub b 1 (String.length b - 1)))) < 0);
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
-      | a,b when ((a.[0] = 't' && a.[1] = 'r') || a.[0] <> 't') && ((b.[0] = 't' && b.[1] = 'r') || b.[0] <> 't') ->
-        [
-          {
-            operand = Boolean_Constant;
-            arg1 = Bool.to_string (a < b);
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-        ]
+      let real_exp1 =
+        match exp1 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp1
+      in
+      let real_exp2 =
+        match exp2 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp2
+      in
+      let arg1 =
+        match real_exp1 with [] -> "$" ^ (List.hd exp1).arg1 | _ -> arg1
+      in
+      let arg2 =
+        match real_exp2 with [] -> "$" ^ (List.hd exp2).arg1 | _ -> arg2
+      in
+      let exp1 = real_exp1 in
+      let exp2 = real_exp2 in
+      match (arg1, arg2) with
+      | a, b when a.[0] = '$' && b.[0] = '$' -> (
+          match b with
+          | b when b = "$0" ->
+              [
+                {
+                  operand = Die;
+                  arg1;
+                  arg2;
+                  result;
+                  line = exp.id.line_num;
+                  static_type = exp.static_type;
+                };
+              ]
+          | _ ->
+              [
+                {
+                  operand = Int_Constant;
+                  arg1 =
+                    Int32.to_string
+                      (Int32.div
+                         (Int32.of_string
+                            (String.sub a 1 (String.length a - 1)))
+                         (Int32.of_string
+                            (String.sub b 1 (String.length b - 1))));
+                  arg2 = "";
+                  result;
+                  line = exp.id.line_num;
+                  static_type = exp.static_type;
+                };
+              ])
+      | a, b when a.[0] <> '$' && b.[0] = '$' -> (
+          match b with
+          | b when b = "$0" ->
+              [
+                {
+                  operand = Die;
+                  arg1;
+                  arg2;
+                  result;
+                  line = exp.id.line_num;
+                  static_type = exp.static_type;
+                };
+              ]
+          | _ ->
+              exp1
+              @ [
+                  {
+                    operand = Divide;
+                    arg1 = a;
+                    arg2 = b;
+                    result;
+                    line = exp.id.line_num;
+                    static_type = exp.static_type;
+                  };
+                ])
       | _ ->
-         exp1 @ exp2
-      @ [
-          {
-            operand = LessThan;
-            arg1;
-            arg2;
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | Not exp ->
+          exp1 @ exp2
+          @ [
+              {
+                operand = Divide;
+                arg1;
+                arg2;
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | Plus (exp, exp2) -> (
+      var_ctr := !var_ctr + 1;
+      let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      var_ctr := !var_ctr + 1;
+      let arg2 = get_id !var_ctr in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      let real_exp1 =
+        match exp1 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp1
+      in
+      let real_exp2 =
+        match exp2 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp2
+      in
+      let arg1 =
+        match real_exp1 with [] -> "$" ^ (List.hd exp1).arg1 | _ -> arg1
+      in
+      let arg2 =
+        match real_exp2 with [] -> "$" ^ (List.hd exp2).arg1 | _ -> arg2
+      in
+      let exp1 = real_exp1 in
+      let exp2 = real_exp2 in
+      match (arg1, arg2) with
+      | a, b when a.[0] = '$' && b.[0] = '$' ->
+          [
+            {
+              operand = Int_Constant;
+              arg1 =
+                Int32.to_string
+                  (Int32.add
+                     (Int32.of_string (String.sub a 1 (String.length a - 1)))
+                     (Int32.of_string (String.sub b 1 (String.length b - 1))));
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | _ ->
+          exp1 @ exp2
+          @ [
+              {
+                operand = Plus;
+                arg1;
+                arg2;
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | Times (exp, exp2) -> (
+      var_ctr := !var_ctr + 1;
+      let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      var_ctr := !var_ctr + 1;
+      let arg2 = get_id !var_ctr in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      let real_exp1 =
+        match exp1 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp1
+      in
+      let real_exp2 =
+        match exp2 with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp2
+      in
+      let arg1 =
+        match real_exp1 with [] -> "$" ^ (List.hd exp1).arg1 | _ -> arg1
+      in
+      let arg2 =
+        match real_exp2 with [] -> "$" ^ (List.hd exp2).arg1 | _ -> arg2
+      in
+      let exp1 = real_exp1 in
+      let exp2 = real_exp2 in
+      match (arg1, arg2) with
+      | a, b when a.[0] = '$' && b.[0] = '$' ->
+          [
+            {
+              operand = Int_Constant;
+              arg1 =
+                Int32.to_string
+                  (Int32.mul
+                     (Int32.of_string (String.sub a 1 (String.length a - 1)))
+                     (Int32.of_string (String.sub b 1 (String.length b - 1))));
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | _ ->
+          exp1 @ exp2
+          @ [
+              {
+                operand = Times;
+                arg1;
+                arg2;
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | Equal (exp, exp2) -> (
+      var_ctr := !var_ctr + 1;
+      let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      var_ctr := !var_ctr + 1;
+      let arg2 = get_id !var_ctr in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      let real_exp1 =
+        match exp1 with
+        | c :: []
+          when operand_to_string c.operand = "int"
+               || operand_to_string c.operand = "bool"
+               || operand_to_string c.operand = "string" ->
+            []
+        | _ -> exp1
+      in
+      let real_exp2 =
+        match exp2 with
+        | c :: []
+          when operand_to_string c.operand = "int"
+               || operand_to_string c.operand = "bool"
+               || operand_to_string c.operand = "string" ->
+            []
+        | _ -> exp2
+      in
+      let new_arg1 =
+        match real_exp1 with
+        | [] ->
+            if operand_to_string (List.hd exp1).operand = "int" then
+              "$" ^ (List.hd exp1).arg1
+            else (List.hd exp1).arg1
+        | _ -> arg1
+      in
+      let new_arg2 =
+        match real_exp2 with
+        | [] ->
+            if operand_to_string (List.hd exp2).operand = "int" then
+              "$" ^ (List.hd exp2).arg1
+            else (List.hd exp2).arg1
+        | _ -> arg2
+      in
+      match (new_arg1, new_arg2) with
+      | a, b when a.[0] = '$' && b.[0] = '$' ->
+          [
+            {
+              operand = Boolean_Constant;
+              arg1 =
+                Bool.to_string
+                  (Int32.equal
+                     (Int32.of_string (String.sub a 1 (String.length a - 1)))
+                     (Int32.of_string (String.sub b 1 (String.length b - 1))));
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | a, b
+        when ((a.[0] = 't' && a.[1] = 'r') || a.[0] <> 't')
+             && ((b.[0] = 't' && b.[1] = 'r') || b.[0] <> 't') ->
+          [
+            {
+              operand = Boolean_Constant;
+              arg1 = Bool.to_string (a = b);
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | _ ->
+          exp1 @ exp2
+          @ [
+              {
+                operand = Equal;
+                arg1;
+                arg2;
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | LessEqual (exp, exp2) -> (
+      var_ctr := !var_ctr + 1;
+      let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      var_ctr := !var_ctr + 1;
+      let arg2 = get_id !var_ctr in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      let real_exp1 =
+        match exp1 with
+        | c :: []
+          when operand_to_string c.operand = "int"
+               || operand_to_string c.operand = "bool"
+               || operand_to_string c.operand = "string" ->
+            []
+        | _ -> exp1
+      in
+      let real_exp2 =
+        match exp2 with
+        | c :: []
+          when operand_to_string c.operand = "int"
+               || operand_to_string c.operand = "bool"
+               || operand_to_string c.operand = "string" ->
+            []
+        | _ -> exp2
+      in
+      let new_arg1 =
+        match real_exp1 with
+        | [] ->
+            if operand_to_string (List.hd exp1).operand = "int" then
+              "$" ^ (List.hd exp1).arg1
+            else (List.hd exp1).arg1
+        | _ -> arg1
+      in
+      let new_arg2 =
+        match real_exp2 with
+        | [] ->
+            if operand_to_string (List.hd exp2).operand = "int" then
+              "$" ^ (List.hd exp2).arg1
+            else (List.hd exp2).arg1
+        | _ -> arg2
+      in
+      match (new_arg1, new_arg2) with
+      | a, b when a.[0] = '$' && b.[0] = '$' ->
+          [
+            {
+              operand = Boolean_Constant;
+              arg1 =
+                Bool.to_string
+                  (Int32.compare
+                     (Int32.of_string (String.sub a 1 (String.length a - 1)))
+                     (Int32.of_string (String.sub b 1 (String.length b - 1)))
+                  <= 0);
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | a, b
+        when ((a.[0] = 't' && a.[1] = 'r') || a.[0] <> 't')
+             && ((b.[0] = 't' && b.[1] = 'r') || b.[0] <> 't') ->
+          [
+            {
+              operand = Boolean_Constant;
+              arg1 = Bool.to_string (a <= b);
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | _ ->
+          exp1 @ exp2
+          @ [
+              {
+                operand = LessEqual;
+                arg1;
+                arg2;
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | LessThan (exp, exp2) -> (
+      var_ctr := !var_ctr + 1;
+      let arg1 = get_id !var_ctr in
+      let exp1 = exp_to_tac exp arg1 cname mname in
+      var_ctr := !var_ctr + 1;
+      let arg2 = get_id !var_ctr in
+      let exp2 = exp_to_tac exp2 arg2 cname mname in
+      let real_exp1 =
+        match exp1 with
+        | c :: []
+          when operand_to_string c.operand = "int"
+               || operand_to_string c.operand = "bool"
+               || operand_to_string c.operand = "string" ->
+            []
+        | _ -> exp1
+      in
+      let real_exp2 =
+        match exp2 with
+        | c :: []
+          when operand_to_string c.operand = "int"
+               || operand_to_string c.operand = "bool"
+               || operand_to_string c.operand = "string" ->
+            []
+        | _ -> exp2
+      in
+      let new_arg1 =
+        match real_exp1 with
+        | [] ->
+            if operand_to_string (List.hd exp1).operand = "int" then
+              "$" ^ (List.hd exp1).arg1
+            else (List.hd exp1).arg1
+        | _ -> arg1
+      in
+      let new_arg2 =
+        match real_exp2 with
+        | [] ->
+            if operand_to_string (List.hd exp2).operand = "int" then
+              "$" ^ (List.hd exp2).arg1
+            else (List.hd exp2).arg1
+        | _ -> arg2
+      in
+      match (new_arg1, new_arg2) with
+      | a, b when a.[0] = '$' && b.[0] = '$' ->
+          [
+            {
+              operand = Boolean_Constant;
+              arg1 =
+                Bool.to_string
+                  (Int32.compare
+                     (Int32.of_string (String.sub a 1 (String.length a - 1)))
+                     (Int32.of_string (String.sub b 1 (String.length b - 1)))
+                  < 0);
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | a, b
+        when ((a.[0] = 't' && a.[1] = 'r') || a.[0] <> 't')
+             && ((b.[0] = 't' && b.[1] = 'r') || b.[0] <> 't') ->
+          [
+            {
+              operand = Boolean_Constant;
+              arg1 = Bool.to_string (a < b);
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | _ ->
+          exp1 @ exp2
+          @ [
+              {
+                operand = LessThan;
+                arg1;
+                arg2;
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | Not exp -> (
       var_ctr := !var_ctr + 1;
       let vc = get_id !var_ctr in
       let exp_list = exp_to_tac exp (get_id !var_ctr) cname mname in
-      let real_exp = (match exp_list with
-      | c :: [] when operand_to_string c.operand = "bool" -> [] | _ -> exp_list) in
-      (match real_exp with
-      | [] -> [
-          {
-            operand = Boolean_Constant;
-            arg1 = Bool.to_string (not (((List.hd exp_list).arg1) = "true"));
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-      ]
-      | _ -> exp_list @
-      [
-          {
-            operand = Not;
-            (*arg1 = get_id !var_ctr;*)
-            arg1 = vc;
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
-  | Negate exp ->
+      let real_exp =
+        match exp_list with
+        | c :: [] when operand_to_string c.operand = "bool" -> []
+        | _ -> exp_list
+      in
+      match real_exp with
+      | [] ->
+          [
+            {
+              operand = Boolean_Constant;
+              arg1 = Bool.to_string (not ((List.hd exp_list).arg1 = "true"));
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | _ ->
+          exp_list
+          @ [
+              {
+                operand = Not;
+                (*arg1 = get_id !var_ctr;*)
+                arg1 = vc;
+                arg2 = "";
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
+  | Negate exp -> (
       (*let result = get_id !var_ctr in*)
       (*var_ctr := !var_ctr + 1;*)
       let vc = get_id !var_ctr in
       let exp_list = exp_to_tac exp (get_id !var_ctr) cname mname in
-      let real_exp = (match exp_list with
-      | c :: [] when operand_to_string c.operand = "int" -> [] | _ -> exp_list) in
-      (match real_exp with
-      | [] -> [
-          {
-            operand = Int_Constant;
-            arg1 = Int32.to_string (Int32.neg (Int32.of_string (List.hd exp_list).arg1));
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          }
-      ]
-      | _ -> exp_list @ [
-          {
-            operand = Negate;
-            (*arg1 = get_id !var_ctr;*)
-            arg1 = vc;
-            arg2 = "";
-            result;
-            line = exp.id.line_num;
-            static_type = exp.static_type;
-          };
-        ])
+      let real_exp =
+        match exp_list with
+        | c :: [] when operand_to_string c.operand = "int" -> []
+        | _ -> exp_list
+      in
+      match real_exp with
+      | [] ->
+          [
+            {
+              operand = Int_Constant;
+              arg1 =
+                Int32.to_string
+                  (Int32.neg (Int32.of_string (List.hd exp_list).arg1));
+              arg2 = "";
+              result;
+              line = exp.id.line_num;
+              static_type = exp.static_type;
+            };
+          ]
+      | _ ->
+          exp_list
+          @ [
+              {
+                operand = Negate;
+                (*arg1 = get_id !var_ctr;*)
+                arg1 = vc;
+                arg2 = "";
+                result;
+                line = exp.id.line_num;
+                static_type = exp.static_type;
+              };
+            ])
   | Int_Constant i ->
       [
         {
