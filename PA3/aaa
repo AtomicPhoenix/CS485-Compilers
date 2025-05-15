@@ -1,0 +1,58 @@
+comment start
+label Main_main_0
+t$1 <- int -2147483648
+t$5 <- t$1
+comment self
+t$4 <- call out_int t$5
+t$8 <- string
+\n
+comment self
+t$7 <- call out_string t$8
+t$11 <- t$1
+t$11 <- ~ t$11
+comment self
+t$10 <- call out_int t$11
+t$14 <- string
+\n
+comment self
+t$13 <- call out_string t$14
+t$18 <- t$1
+t$18 <- ~ t$18
+t$17 <- - t$18 $1
+comment self
+t$16 <- call out_int t$17
+t$22 <- string
+\n
+comment self
+t$21 <- call out_string t$22
+t$26 <- t$1
+t$25 <- - t$26 $1
+t$25 <- ~ t$25
+comment self
+t$24 <- call out_int t$25
+t$30 <- string
+\n
+comment self
+t$29 <- call out_string t$30
+t$33 <- int -2147483648
+comment self
+t$32 <- call out_int t$33
+t$38 <- string
+\n
+comment self
+t$37 <- call out_string t$38
+t$41 <- int -2147483648
+comment self
+t$40 <- call out_int t$41
+t$46 <- string
+\n
+comment self
+t$45 <- call out_string t$46
+t$49 <- int -2147483648
+comment self
+t$48 <- call out_int t$49
+t$53 <- string
+\n
+comment self
+t$0 <- call out_string t$53
+return t$0

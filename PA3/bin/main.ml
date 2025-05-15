@@ -17,8 +17,6 @@ let undo_ssa () =
     !Cfg.cfg_list
 
 let clean () =
-  List.iter (fun (node : Cfg.cfg) -> Optimizer.simplify_cfg node) !Cfg.cfg_list;
-
   List.iter
     (fun (node : Cfg.cfg) -> Optimizer.remove_self_assigns node)
     !Cfg.cfg_list
@@ -28,6 +26,16 @@ let do_dce () =
   List.iter
     (fun (node : Cfg.cfg) -> Optimizer.dead_code_elimination node)
     !Cfg.cfg_list;
+  clean ()
+
+let constant_fold () =
+  clean ();
+  List.iter (fun (node : Cfg.cfg) -> Optimizer.constant_fold node) !Cfg.cfg_list;
+  clean ()
+
+let revert_ints () =
+  clean ();
+  List.iter (fun (node : Cfg.cfg) -> Optimizer.revert_ints node) !Cfg.cfg_list;
   clean ()
 
 let print_all_tac file_name =
@@ -40,17 +48,22 @@ let print_all_tac file_name =
 let do_dce_2_eb () =
   clean ();
   do_ssa ();
+  List.iter (fun (node : Cfg.cfg) -> Optimizer.simplify_cfg node) !Cfg.cfg_list;
   List.iter
     (fun (node : Cfg.cfg) ->
       Optimizer.dead_code_elimination_2_electic_boogaloo node)
     !Cfg.cfg_list;
+  List.iter (fun (node : Cfg.cfg) -> Optimizer.simplify_cfg node) !Cfg.cfg_list;
   undo_ssa ();
   clean ()
 
 let optimize () =
   do_dce ();
   do_dce_2_eb ();
+  constant_fold ();
   do_dce ();
+  constant_fold ();
+  revert_ints ();
   do_dce ()
 
 (* Optimizer.print_optimization_comparison () *)

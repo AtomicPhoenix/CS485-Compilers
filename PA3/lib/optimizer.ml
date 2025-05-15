@@ -4,7 +4,80 @@ let dce_changed = ref false
 let last_result = ref ""
 let living_map = Hashtbl.create 32
 
-let simplify_cfg (method_graph : Cfg.cfg) =
+let revert_ints (method_graph : Cfg.cfg) =
+  let is_immeidate s =
+    let len = String.length s in
+    if len < 2 || s.[0] <> '$' then false
+    else
+      let rec all_digits i =
+        if i >= len then true
+        else
+          let c = s.[i] in
+          c >= '0' && c <= '9' && all_digits (i + 1)
+      in
+      all_digits 1
+  in
+  let extract_number s =
+    let number_part = String.sub s 1 (String.length s - 1) in
+    int_of_string number_part
+  in
+  let simplify_tac (tacs : Tac.tac_elem list) =
+    let get_tac_value (tac : Tac.tac_elem) : Tac.tac_elem =
+      match tac.operand with
+      | Assignment ->
+          if is_immeidate tac.arg1 then
+            {
+              operand = Int_Constant;
+              arg1 = string_of_int (extract_number tac.arg1);
+              arg2 = "";
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+          else tac
+      | _ -> tac
+    in
+    List.map get_tac_value tacs
+  in
+  let rec simplify_cfg_elem (node : cfg_elem) =
+    match node with
+    | Normal_Node tacs -> Normal_Node (simplify_tac tacs)
+    | If_Statement (cond_stmt, then_stmt, else_stmt, join_stmt, phi) ->
+        let new_cond = simplify_cfg_elem cond_stmt in
+        let new_then = simplify_cfg_elem then_stmt in
+        let new_else = simplify_cfg_elem else_stmt in
+        let new_join = simplify_cfg_elem join_stmt in
+        If_Statement (new_cond, new_then, new_else, new_join, phi)
+    | Loop (cond_stmt, body_stmt, join_stmt) ->
+        let new_cond = simplify_cfg_elem cond_stmt in
+        let new_body = simplify_cfg_elem body_stmt in
+        let new_join = simplify_cfg_elem join_stmt in
+        Loop (new_cond, new_body, new_join)
+    | Cases (cond_stmt, case_options, join_stmt) ->
+        let new_cond = simplify_cfg_elem cond_stmt in
+        let new_options = List.map simplify_cfg_elem case_options in
+        let new_join = simplify_cfg_elem join_stmt in
+        Cases (new_cond, new_options, new_join)
+  in
+  method_graph.cfg <- List.map simplify_cfg_elem method_graph.cfg
+
+let constant_fold (method_graph : Cfg.cfg) =
+  let is_immeidate s =
+    let len = String.length s in
+    if len < 2 || s.[0] <> '$' then false
+    else
+      let rec all_digits i =
+        if i >= len then true
+        else
+          let c = s.[i] in
+          c >= '0' && c <= '9' && all_digits (i + 1)
+      in
+      all_digits 1
+  in
+  let extract_number s =
+    let number_part = String.sub s 1 (String.length s - 1) in
+    int_of_string number_part
+  in
   let simplify_tac (tacs : Tac.tac_elem list) =
     let value_map = Hashtbl.create 32 in
     let get_ident str =
@@ -14,8 +87,118 @@ let simplify_cfg (method_graph : Cfg.cfg) =
     in
     let get_tac_value (tac : Tac.tac_elem) : Tac.tac_elem =
       match tac.operand with
-      | Plus | Minus | Times | Divide | LessThan | LessEqual | Equal | Isvoid
-      | Negate | Not ->
+      | Int_Constant ->
+          Hashtbl.add value_map tac.result ("$" ^ tac.arg1);
+          let arg1 = get_ident tac.arg1 in
+          let arg2 = get_ident tac.arg2 in
+          {
+            operand = tac.operand;
+            arg1;
+            arg2;
+            result = tac.result;
+            line = tac.line;
+            static_type = tac.static_type;
+          }
+      | Boolean_Constant | String_Constant ->
+          let arg1 = get_ident tac.arg1 in
+          let arg2 = get_ident tac.arg2 in
+          {
+            operand = tac.operand;
+            arg1;
+            arg2;
+            result = tac.result;
+            line = tac.line;
+            static_type = tac.static_type;
+          }
+      | Plus ->
+          let arg1 = get_ident tac.arg1 in
+          let arg2 = get_ident tac.arg2 in
+          if is_immeidate arg1 && is_immeidate arg2 then
+            let sum = extract_number arg1 + extract_number arg2 in
+            {
+              operand = Assignment;
+              arg1 = "$" ^ string_of_int sum;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+          else
+            {
+              operand = tac.operand;
+              arg1;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+      | Times ->
+          let arg1 = get_ident tac.arg1 in
+          let arg2 = get_ident tac.arg2 in
+          if is_immeidate arg1 && is_immeidate arg2 then
+            let sum = extract_number arg1 * extract_number arg2 in
+            {
+              operand = Assignment;
+              arg1 = "$" ^ string_of_int sum;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+          else
+            {
+              operand = tac.operand;
+              arg1;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+      | Divide ->
+          let arg1 = get_ident tac.arg1 in
+          let arg2 = get_ident tac.arg2 in
+          if is_immeidate arg1 && is_immeidate arg2 then
+            let sum = extract_number arg1 / extract_number arg2 in
+            {
+              operand = Assignment;
+              arg1 = "$" ^ string_of_int sum;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+          else
+            {
+              operand = tac.operand;
+              arg1;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+      | Minus ->
+          let arg1 = get_ident tac.arg1 in
+          let arg2 = get_ident tac.arg2 in
+          if is_immeidate arg1 && is_immeidate arg2 then
+            let sum = extract_number arg1 - extract_number arg2 in
+            {
+              operand = Assignment;
+              arg1 = "$" ^ string_of_int sum;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+          else
+            {
+              operand = tac.operand;
+              arg1;
+              arg2;
+              result = tac.result;
+              line = tac.line;
+              static_type = tac.static_type;
+            }
+      | LessThan | LessEqual | Equal | Isvoid | Negate | Not ->
           let arg1 = get_ident tac.arg1 in
           let arg2 = get_ident tac.arg2 in
           {
@@ -38,9 +221,84 @@ let simplify_cfg (method_graph : Cfg.cfg) =
             line = tac.line;
             static_type = tac.static_type;
           }
+      | _ -> tac
+    in
+    List.map get_tac_value tacs
+  in
+  let rec simplify_cfg_elem (node : cfg_elem) =
+    match node with
+    | Normal_Node tacs -> Normal_Node (simplify_tac tacs)
+    | If_Statement (cond_stmt, then_stmt, else_stmt, join_stmt, phi) ->
+        let new_cond = simplify_cfg_elem cond_stmt in
+        let new_then = simplify_cfg_elem then_stmt in
+        let new_else = simplify_cfg_elem else_stmt in
+        let new_join = simplify_cfg_elem join_stmt in
+        If_Statement (new_cond, new_then, new_else, new_join, phi)
+    | Loop (cond_stmt, body_stmt, join_stmt) ->
+        let new_cond = simplify_cfg_elem cond_stmt in
+        let new_body = simplify_cfg_elem body_stmt in
+        let new_join = simplify_cfg_elem join_stmt in
+        Loop (new_cond, new_body, new_join)
+    | Cases (cond_stmt, case_options, join_stmt) ->
+        let new_cond = simplify_cfg_elem cond_stmt in
+        let new_options = List.map simplify_cfg_elem case_options in
+        let new_join = simplify_cfg_elem join_stmt in
+        Cases (new_cond, new_options, new_join)
+  in
+  method_graph.cfg <- List.map simplify_cfg_elem method_graph.cfg
+
+let simplify_cfg (method_graph : Cfg.cfg) =
+  let simplify_tac (tacs : Tac.tac_elem list) =
+    let value_map = Hashtbl.create 32 in
+    let get_ident str =
+      match Hashtbl.find_opt value_map str with
+      | Some v when String.contains v '$' && String.contains v 't' -> v
+      | _ -> str
+    in
+    let get_tac_value (tac : Tac.tac_elem) : Tac.tac_elem =
+      match tac.operand with
+      | Plus | Minus | Times | Divide | LessThan | LessEqual | Equal | Isvoid
+      | Negate | Not | Int_Constant | Boolean_Constant | String_Constant -> (
+          let arg1 = get_ident tac.arg1 in
+          let arg2 = get_ident tac.arg2 in
+          let rhs =
+            Tac.operand_to_string tac.operand ^ " " ^ tac.arg1 ^ " " ^ tac.arg2
+          in
+          match Hashtbl.find_opt value_map rhs with
+          | None ->
+              Hashtbl.add value_map rhs tac.result;
+              {
+                operand = tac.operand;
+                arg1;
+                arg2;
+                result = tac.result;
+                line = tac.line;
+                static_type = tac.static_type;
+              }
+          | Some v ->
+              {
+                operand = Ident_Expr v;
+                arg1 = "";
+                arg2 = "";
+                result = tac.result;
+                line = tac.line;
+                static_type = tac.static_type;
+              })
+      | Call | StaticCall _ ->
+          let arg_list = String.split_on_char ' ' tac.arg2 in
+          let new_arg_list = List.map get_ident arg_list in
+          let arg2 = String.concat " " new_arg_list in
+          {
+            operand = tac.operand;
+            arg1 = tac.arg1;
+            arg2;
+            result = tac.result;
+            line = tac.line;
+            static_type = tac.static_type;
+          }
       | Ident_Expr v ->
           (match Hashtbl.find_opt value_map tac.result with
-          | None when String.contains tac.result '$' ->
+          | None when String.contains tac.result '$' && String.contains v 't' ->
               Hashtbl.add value_map tac.result v
           | _ -> ());
           tac
