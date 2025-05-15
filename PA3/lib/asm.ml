@@ -636,7 +636,12 @@ let transform_string s =
 
 (** Method to convert a TAC element to assembly code *)
 let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
-  [ Line ("#" ^ Tac.get_tac_elem tac) ]
+  let tac_comment =
+    if tac.operand == String_Constant then
+      Printf.sprintf "# %s <- string %s" tac.result tac.arg1
+    else "#" ^ Tac.get_tac_elem tac
+  in
+  [ Line tac_comment ]
   @
   match tac.operand with
   | Assignment -> (
@@ -685,16 +690,7 @@ let tac_to_as (tac : tac_elem) cur_method class_name prev_tac =
         Line "\t#Branch True end";
       ]
   | Call ->
-      let result =
-        (*match get_attribute class_name tac.result with*)
-        (*| Some v -> Printf.sprintf "%d(%%rdi)" ((v.index + 3) * 8)*)
-        (*| None ->*)
-        (*Printf.fprintf out_file "#; %s.%s: %s is not an attribute\n"*)
-        (*class_name cur_method tac.result;*)
-        (*(*add_var_addr tac.result;*)*)
-        (*get_var_addr tac.result class_name*)
-        get_var_addr tac.result class_name
-      in
+      let result = get_var_addr tac.result class_name in
       let prev_addr = get_var_addr prev_tac.result class_name in
       let meth = tac.arg1 in
       let void_dispatch_label = get_label () in
@@ -1893,14 +1889,11 @@ let new_funcs =
         Instruction ("movq", "$8", "%rsi", "");
         Instruction ("movq", object_size, "%rdi", "");
         Instruction ("call", "calloc", "", "");
-        (* NOTE: Alot of these can be simplified to one line operations *)
         Line "\t## store class tag, object size and vtable pointer";
         Instruction ("movq", "%rax", "%rdi", "");
         Instruction ("movq", class_id, "0(%rdi)", "");
-        Instruction ("movq", object_size, "%r14", "");
-        Instruction ("movq", "%r14", "8(%rdi)", "");
-        Instruction ("movq", vtable_name, "%r14", "");
-        Instruction ("movq", "%r14", "16(%rdi)", "");
+        Instruction ("movq", object_size, "8(%rdi)", "");
+        Instruction ("movq", vtable_name, "16(%rdi)", "");
         Line "\t## return address handling";
         Line "\t## ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;";
         Line "\t## initialize attributes";

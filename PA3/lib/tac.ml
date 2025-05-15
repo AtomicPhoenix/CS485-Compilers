@@ -161,7 +161,7 @@ let get_tac_elem t =
   | Bt -> Printf.sprintf "bt %s %s" t.arg1 t.arg2
   | Assignment -> Printf.sprintf "%s <- %s" t.result t.arg1
   | LetNoInit -> Printf.sprintf "%s <- %s %s" t.result t.arg1 t.arg2
-  | String_Constant -> Printf.sprintf "%s <- string \n%s" t.result t.arg1
+  | String_Constant -> Printf.sprintf "%s <- string\n%s" t.result t.arg1
   | Case c -> Printf.sprintf "Cmp %s, %s -> jump to %s" t.arg1 t.arg2 c
   | VoidCase -> Printf.sprintf "VoidCase: %s" t.arg1
   | EmptyCase -> Printf.sprintf "EmptyCase: %s" t.arg1
@@ -180,23 +180,23 @@ let get_tac_elem t =
 let print_tac_elems_commented t =
   List.iter
     (fun elem ->
-      if elem.operand != Comment then
-        Printf.fprintf debug_file "#;%s\n" (get_tac_elem elem))
+      if elem.operand == String_Constant then
+        Printf.fprintf debug_file "#;%s\n"
+          (Printf.sprintf "%s <- string %s" elem.result elem.arg1)
+      else Printf.fprintf debug_file "#;%s\n" (get_tac_elem elem))
     t
 
 let print_tac_elems (t : tac_elem list) =
   List.iter
     (fun elem ->
-      if elem.operand != Comment then
-        Printf.fprintf out_file "%s\n" (get_tac_elem elem))
+      if elem.operand = String_Constant then
+        Printf.fprintf out_file "%s\n"
+          (Printf.sprintf "%s <- string %s" elem.result elem.arg1)
+      else Printf.fprintf out_file "%s\n" (get_tac_elem elem))
     t
 
 let print_tac_elems_file (t : tac_elem list) f =
-  List.iter
-    (fun elem ->
-      if elem.operand != Comment then
-        Printf.fprintf f "%s\n" (get_tac_elem elem))
-    t
+  List.iter (fun elem -> Printf.fprintf f "%s\n" (get_tac_elem elem)) t
 
 (* Get the different cases for a case statement according to the operational semantics of case *)
 (* Return a list of (string * string) (class_name * the case it corresponds to) *)
@@ -237,21 +237,39 @@ let rec get_cases cases cname mname =
       | _ :: tail -> get_matching_case tail
       | [] -> None
     in
-    let mtch =
-      match get_matching_case ancestors with Some v -> v | None -> "emptycase"
-    in
-    let label = snd (List.find (fun (name, _) -> name = mtch) jump_points) in
-    Printf.fprintf debug_file "#Class: %s\n" class_name;
-    Printf.fprintf debug_file "#\tAncestors: ";
-    List.iter
-      (fun ancestor -> Printf.fprintf debug_file "%s, " ancestor)
-      ancestors;
-    Printf.fprintf debug_file "\n";
-    Printf.fprintf debug_file "#\tMatching case: %s\n" mtch;
-    Printf.fprintf debug_file "#\tMatching label: %s\n" label;
-    (class_name, label)
+
+    match get_matching_case ancestors with
+    | Some mtch ->
+        let label =
+          snd (List.find (fun (name, _) -> name = mtch) jump_points)
+        in
+        Printf.fprintf debug_file "#Class: %s\n" class_name;
+        Printf.fprintf debug_file "#\tAncestors: ";
+        List.iter
+          (fun ancestor -> Printf.fprintf debug_file "%s, " ancestor)
+          ancestors;
+        Printf.fprintf debug_file "\n";
+        Printf.fprintf debug_file "#\tMatching case: %s\n" mtch;
+        Printf.fprintf debug_file "#\tMatching label: %s\n" label;
+        Some (class_name, label)
+    | None ->
+        if Hashtbl.length class_map < 5 then (
+          let mtch = "emptycase" in
+          let label =
+            snd (List.find (fun (name, _) -> name = mtch) jump_points)
+          in
+          Printf.fprintf debug_file "#Class: %s\n" class_name;
+          Printf.fprintf debug_file "#\tAncestors: ";
+          List.iter
+            (fun ancestor -> Printf.fprintf debug_file "%s, " ancestor)
+            ancestors;
+          Printf.fprintf debug_file "\n";
+          Printf.fprintf debug_file "#\tMatching case: %s\n" mtch;
+          Printf.fprintf debug_file "#\tMatching label: %s\n" label;
+          Some (class_name, label))
+        else None
   in
-  List.map get_case class_list
+  List.filter_map get_case class_list
 
 (* Converts AST to TAC *)
 and ast_to_tac (ast : annotated_ast_elem list) :
@@ -943,22 +961,29 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
           (fun ((var : identifier), (let_type : identifier), value) ->
             var_ctr := !var_ctr + 1;
             let result = get_id !var_ctr in
-            (* Printf.fprintf out_file "Adding variable %s as temp %s\n" var.name
-              result; *)
-            Hashtbl.add letTable var.name result;
             match value with
-            | Some value -> exp_to_tac value result cname mname
+            | Some value ->
+                Printf.fprintf debug_file "# Adding variable %s as temp %s\n"
+                  var.name result;
+                let exp = exp_to_tac value result cname mname in
+                Hashtbl.add letTable var.name result;
+                exp
             | None ->
-                [
-                  {
-                    operand = LetNoInit;
-                    arg1 = "default";
-                    arg2 = let_type.name;
-                    result;
-                    line = exp.id.line_num;
-                    static_type = exp.static_type;
-                  };
-                ])
+                let exp =
+                  [
+                    {
+                      operand = LetNoInit;
+                      arg1 = "default";
+                      arg2 = let_type.name;
+                      result;
+                      line = exp.id.line_num;
+                      static_type = exp.static_type;
+                    };
+                  ]
+                in
+
+                Hashtbl.add letTable var.name result;
+                exp)
           binding_list
         |> List.flatten
       in
