@@ -62,37 +62,6 @@ let is_break_point (tac : tac_elem) =
   | Bt | Jmp | Case _ | EmptyCase | VoidCase -> true
   | _ -> false
 
-(* LOGAN CODE
-let tac_to_cfg (tacs, class_name, method_name, args, temp_count) :
-    cfg * string * string * Parser.ast_formal list * int =
-  let rec create_cfg (tac_list : tac_elem list) acc cfg =
-    match tac_list with
-    | tac :: tail -> (
-        match is_break_point tac with
-        | true -> create_cfg tail [] ([ List.rev (tac :: acc) ] @ cfg)
-        | false -> create_cfg tail (tac :: acc) cfg)
-    | [] -> [ List.rev acc ] @ cfg
-  in
-  (List.rev (create_cfg tacs [] []), class_name, method_name, args, temp_count)
-
-let tac_attr_to_cfg tacs temp_count : cfg * int =
-  let rec create_cfg (tac_list : tac_elem list) acc cfg =
-    match tac_list with
-    | tac :: tail -> (
-        match is_break_point tac with
-        | true -> create_cfg tail [] ([ List.rev (tac :: acc) ] @ cfg)
-        | false -> create_cfg tail (tac :: acc) cfg)
-    | [] -> [ List.rev acc ] @ cfg
-  in
-  (List.rev (create_cfg tacs [] []), temp_count)
-
-let print_cfg bbl = List.iter (List.iter print_tac_elem_commented) bblprint_cfg
-
-
-let cfg_list : (cfg * string * string * Parser.ast_formal list * int) list =
-  List.map tac_to_cfg Tac.tacs
-*)
-
 let get_next_cfg_elem cfg_base =
   let tacs = cfg_base |> List.flatten in
   let rec get_next cfg_base =
@@ -104,66 +73,6 @@ let get_next_cfg_elem cfg_base =
     | _ :: tail -> get_next tail
   in
   get_next tacs
-
-(* let generate_graph cfg_list : cfg_elem list =
-  let rec get_cfg_elem (cfg_list : cfg) =
-    match get_next_cfg_elem cfg_list with
-    | 1 ->
-        let cond, cfg_list = get_cfg_elem cfg_list in
-        let then_stmt, cfg_list = get_cfg_elem cfg_list in
-        let else_stmt, cfg_list = get_cfg_elem cfg_list in
-        let if_join, cfg_list = get_cfg_elem cfg_list in
-        (If_Statement (cond, then_stmt, else_stmt, if_join), cfg_list)
-    | 2 ->
-        let while_pred, cfg_list = get_cfg_elem cfg_list in
-        let while_body, cfg_list = get_cfg_elem cfg_list in
-        let while_join, cfg_list = get_cfg_elem cfg_list in
-        (Loop (while_pred, while_body, while_join), cfg_list)
-    | 3 ->
-        let case_expr, cfg_list = get_cfg_elem cfg_list in
-        let cases, cfg_list = get_cfg_elem cfg_list in
-        let case_join, cfg_list = get_cfg_elem cfg_list in
-        (Cases (case_expr, [ cases ], case_join), cfg_list)
-    | _ -> (Basic_Node (cfg_list |> List.flatten), [])
-  in
-  let rec build_lst lst acc =
-    match lst with
-    | [] -> assert false
-    | _ ->
-        let elem, remaining = get_cfg_elem cfg_list in
-        build_lst remaining (elem :: acc)
-  in
-  build_lst cfg_list []
-*)
-(* let create_case_elem (cfg_base : cfg) =
-  let first_elem = List.hd cfg_base |> List.rev |> List.hd in
-  if first_elem.operand = Bt then (* Its either a while loop of a for loop *)
-    let second_elem = List.nth cfg_base 1 |> List.hd in
-    if second_elem.arg1 = "while-body" then
-      ( Loop (List.nth cfg_base 0, List.nth cfg_base 1, List.nth cfg_base 2),
-        List.filteri (fun i _ -> i > 2) cfg_base )
-    else
-      ( If_Statement
-          ( List.nth cfg_base 0,
-            List.nth cfg_base 1,
-            List.nth cfg_base 2,
-            List.nth cfg_base 3 ),
-        List.filteri (fun i _ -> i > 3) cfg_base )
-  else assert false *)
-(*
-    if (if_stmt) {
-
-    }
-    elif (case) {
-
-    }
-    elif (loop) {
-
-    }
-    else {
-
-    }
-  *)
 
 let print_cfg file (cfg_param : cfg) =
   let rec print_cfg_elem elem =
@@ -200,11 +109,6 @@ let print_cfg file (cfg_param : cfg) =
         print_cfg_elem join
     | Normal_Node elems -> print_tac_elems_commented elems
   in
-  (*let rec iter (node : cfg) =
-    print_cfg_elem node.data;
-    match node.next with Some next_node -> iter next_node | None -> ()
-  in
-  iter cfg_param.cfg *)
   List.iter print_cfg_elem cfg_param.cfg
 
 let get_label tacs =
@@ -302,14 +206,6 @@ let create_proper_cfg (labelled_blocks : labelled_basic_block list) =
     | false -> acc
   in
   build_lst []
-(* let cfg_elem_list = build_lst [] in
-  let rec convert lst acc : cfg_node =
-    match lst with
-    | hd :: [] -> { data = hd; next = None }
-    | hd :: tail -> { data = hd; next = Some (convert tail acc) }
-    | [] -> assert false
-  in
-  convert cfg_elem_list [] *)
 
 let tac_to_cfg (tacs, class_name, method_name, arguments, temp_count) =
   let create_cfg tac_list =
@@ -324,15 +220,8 @@ let tac_to_cfg (tacs, class_name, method_name, arguments, temp_count) =
     List.rev (create_cfg_inner tac_list [] [])
   in
   let cfg = tacs |> create_cfg |> label_blocks |> create_proper_cfg in
-  (* let cfg_root = create_cfg tacs |> label_blocks |> create_proper_cfg in
-  { cfg_root; class_name; method_name; arguments; temp_count } *)
   { cfg; class_name; method_name; arguments; temp_count }
 
-(* let rec get_cfg_elem_list (root : cfg_node) =
-  match root.next with
-  | None -> [ root.data ]
-  | Some next -> root.data :: get_cfg_elem_list next
-*)
 let rec block_tac (node : cfg_elem) =
   let rec parse acc (node : cfg_elem) =
     match node with
@@ -349,7 +238,6 @@ let rec block_tac (node : cfg_elem) =
   parse [] node
 
 and get_method_tac (nodes : cfg_elem list) =
-  (*get_cfg_elem_list nodes.cfg_root*)
   nodes |> List.map block_tac |> List.flatten |> List.flatten
 (* 
   (* Basic Block *)

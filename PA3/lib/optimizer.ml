@@ -9,7 +9,7 @@ let simplify_cfg (method_graph : Cfg.cfg) =
     let value_map = Hashtbl.create 32 in
     let get_ident str =
       match Hashtbl.find_opt value_map str with
-      | Some v when String.contains v '$' && String.contains v 't' -> v
+      | Some v when v.[0] = 't' && v.[0] = '$' -> v
       | _ -> str
     in
     let get_tac_value (tac : Tac.tac_elem) : Tac.tac_elem =
@@ -55,7 +55,7 @@ let simplify_cfg (method_graph : Cfg.cfg) =
           }
       | Ident_Expr v ->
           (match Hashtbl.find_opt value_map tac.result with
-          | None when String.contains tac.result '$' && String.contains v 't' ->
+          | None when (tac.result).[0] = 't' && (tac.result).[1] = '$'  && v.[0] = 't' && v.[1] = '$'->
               Hashtbl.add value_map tac.result v
           | _ -> ());
           tac
@@ -87,7 +87,6 @@ let simplify_cfg (method_graph : Cfg.cfg) =
 
 (* Dead Code Elimination *)
 let rec dead_code_elimination (method_graph : Cfg.cfg) =
-  (* Printf.fprintf debug_file "#RUNNING\n"; *)
   Hashtbl.reset living_map;
   dce_changed := false;
   let parse_dce (method_cfg : Cfg.cfg_elem list) =
@@ -115,7 +114,6 @@ let rec dead_code_elimination (method_graph : Cfg.cfg) =
   if !dce_changed then dead_code_elimination method_graph
 
 and dead_code_elimination_2_electic_boogaloo (method_graph : Cfg.cfg) =
-  (* Printf.fprintf debug_file "#RUNNING\n"; *)
   Hashtbl.reset living_map;
   dce_changed := false;
   let parse_dce (method_cfg : Cfg.cfg_elem list) =
@@ -147,42 +145,30 @@ and parse_dead (tacs : Tac.tac_elem list) : unit =
   let set_values (tac : string) =
     match Hashtbl.find_opt living_map tac with
     | Some _ ->
-        (* Printf.fprintf debug_file "#\tSetting %s to true\n" tac; *)
         Hashtbl.replace living_map tac true
-    | None -> (* Printf.printf "\tValue %s not found\n" tac*) ()
+    | None ->  ()
   in
   let modify_table (tac : Tac.tac_elem) =
     if Tac.operand_to_string tac.operand <> "comment" then (
-      (* Printf.fprintf debug_file
-        "# Parsing the following line: %s <- (%s) (%s) (%s)\n" tac.result
-        (Tac.operand_to_string tac.operand)
-        tac.arg1 tac.arg2;*)
       set_values (Tac.operand_to_string tac.operand);
       (match tac.operand with
       | Call | StaticCall _ ->
           set_values !last_result;
           List.iter set_values (String.split_on_char ' ' tac.arg2)
       | Ident_Expr v -> (
-          (* Printf.fprintf debug_file "#\t IDENT\n"; *)
           set_values v;
           match Hashtbl.find_opt living_map tac.result with
           | Some _ ->
-              (* Printf.fprintf debug_file "#\t VALUE %s already in map\n" tac.result*)
               ()
           | None ->
-              (* Printf.fprintf debug_file "#\t ADDING VALUE %s to map as false\n"
-                tac.result; *)
               Hashtbl.add living_map tac.result false)
       | _ -> (
           set_values tac.arg1;
           set_values tac.arg2;
           match Hashtbl.find_opt living_map tac.result with
           | Some _ ->
-              (* Printf.fprintf debug_file "#\t VALUE %s already in map\n" tac.result *)
               ()
           | None ->
-              (* Printf.fprintf debug_file "#\t ADDING VALUE %s to map as false\n"
-                tac.result; *)
               Hashtbl.add living_map tac.result false));
       last_result := tac.result)
     else ()
@@ -205,30 +191,16 @@ and filter_dead cfg =
   let is_alive (tac : Tac.tac_elem) : bool =
     (not (List.mem tac.result dead_code))
     || alive_operand tac.operand
-    || not (String.contains tac.result '$')
+    || not ((tac.result).[0] = 't' && (tac.result).[1] = '$')
   in
-  (* List.iter (Printf.printf "\t -%s\n") dead_code; *)
+  
   let rec get_filtered_node (node : cfg_elem) =
     match node with
     | Normal_Node tacs ->
-        (* Printf.fprintf debug_file "PRE-FILTER: ---------------\n"; 
-        Tac.print_tac_elems_file tacs debug_file; *)
         let filtered_tac =
           List.filter
-            (*
-            (fun f ->
-              let r = is_alive f in
-              if not r then
-                Printf.fprintf debug_file "REMOVING LINE %s <- %s %s %s \n"
-                  f.result
-                  (Tac.operand_to_string f.operand)
-                  f.arg1 f.arg2;
-              r) *)
             is_alive tacs
         in
-        (* Printf.fprintf debug_file "POST-FILTER: ---------------\n";  
-        Tac.print_tac_elems_file filtered_tac debug_file;
-        Printf.fprintf debug_file "\n\n"; *)
         if List.length filtered_tac != List.length tacs then dce_changed := true;
         Normal_Node filtered_tac
     | If_Statement (cond_stmt, then_stmt, else_stmt, join_stmt, phi) ->
@@ -266,47 +238,23 @@ and filter_dead_2_electric_boogaloo cfg =
   let is_alive (tac : Tac.tac_elem) : bool =
     (not (List.mem tac.result dead_code))
     || alive_operand tac.operand
-    || not (String.contains tac.result '$')
+    || not ((*String.contains tac.result '$'*)(tac.result).[0] = 't' && (tac.result).[1] = '$')
   in
   (* List.iter (Printf.printf "\t -%s\n") dead_code; *)
   let get_filtered_node (node : cfg_elem) =
     match node with
     | Normal_Node tacs ->
-        (* Printf.fprintf debug_file "PRE-FILTER: ---------------\n"; 
-        Tac.print_tac_elems_file tacs debug_file; *)
         let filtered_tac =
           List.filter
-            (*
-            (fun f ->
-              let r = is_alive f in
-              if not r then
-                Printf.fprintf debug_file "REMOVING LINE %s <- %s %s %s \n"
-                  f.result
-                  (Tac.operand_to_string f.operand)
-                  f.arg1 f.arg2;
-              r) *)
             is_alive tacs
         in
-        (* Printf.fprintf debug_file "POST-FILTER: ---------------\n";  
-        Tac.print_tac_elems_file filtered_tac debug_file;
-        Printf.fprintf debug_file "\n\n"; *)
         if List.length filtered_tac != List.length tacs then dce_changed := true;
         Normal_Node filtered_tac
     | If_Statement (cond_stmt, then_stmt, else_stmt, join_stmt, phi) ->
-        (*let cond_stmt = get_filtered_node cond_stmt in*)
-        (*let then_stmt = get_filtered_node then_stmt in*)
-        (*let else_stmt = get_filtered_node else_stmt in*)
-        (*let join_stmt = get_filtered_node join_stmt in*)
         If_Statement (cond_stmt, then_stmt, else_stmt, join_stmt, phi)
     | Loop (l_cond, loop_body, l_join) ->
-        (* let l_cond = get_filtered_node loop_cond in *)
-        (*  let l_body = get_filtered_node loop_body in *)
-        (*  let l_join = get_filtered_node join_body in *)
         Loop (l_cond, loop_body, l_join)
     | Cases (cond, case_options, case_join) ->
-        (* let cond = get_filtered_node case_cond in*)
-        (* let case_ops = List.map get_filtered_node case_options in*)
-        (* let case_join = get_filtered_node case_join in*)
         Cases (cond, case_options, case_join)
   in
   List.map get_filtered_node cfg.cfg
@@ -317,7 +265,7 @@ and filter_dead_2_electric_boogaloo cfg =
 let ssa_names = ref (Hashtbl.create 32)
 
 let revert_string s =
-  let contains_t = String.contains s 't' in
+  let contains_t = String.contains s 't' && String.contains s '$' in
   if not contains_t then s
   else
     let len = String.length s in
@@ -336,18 +284,29 @@ let undo_singe_static_assignment (method_graph : Cfg.cfg) =
       | Ident_Expr identVal -> Ident_Expr (revert_string identVal)
       | _ -> tac.operand
     in
+    let arg1 =
+      match tac.operand with
+      | Label | Comment | Jmp | Bt -> tac.arg1
+      | _ -> revert_string tac.arg1
+    in
     let arg2 =
       match tac.operand with
+      | Label | Comment | Jmp | Bt -> tac.arg2
       | Call | StaticCall _ ->
           String.concat " "
             (List.map revert_string (String.split_on_char ' ' tac.arg2))
       | _ -> revert_string tac.arg2
     in
+    let result =
+      match tac.operand with
+          | Comment | Label | Jmp | Bt -> tac.result
+          | _ -> revert_string tac.result
+    in
     {
       operand;
-      arg1 = revert_string tac.arg1;
+      arg1;
       arg2;
-      result = revert_string tac.result;
+      result;
       line = tac.line;
       static_type = tac.static_type;
     }
@@ -383,9 +342,10 @@ let singe_static_assignment (method_graph : Cfg.cfg) =
   let create_new_tac (tac : Tac.tac_elem) : Tac.tac_elem =
     let arg1 =
       match tac.operand with
+      | Label | Comment | Jmp | Bt -> tac.arg1
       | _ -> (
           match Hashtbl.find_opt !ssa_names tac.arg1 with
-          | Some v when String.contains tac.arg1 '$' ->
+          | Some v when String.contains tac.arg1 '$' && String.contains tac.arg1 't' ->
               let arg1 = string_of_int v ^ tac.arg1 in
               Printf.fprintf Print.debug_file
                 "# Retrieved SSA for value %s (%s)\n" tac.arg1 arg1;
@@ -397,17 +357,18 @@ let singe_static_assignment (method_graph : Cfg.cfg) =
     in
     let arg2 =
       match tac.operand with
+      | Label | Comment | Jmp | Bt -> tac.arg2
       | Call | StaticCall _ ->
           String.concat " "
             (List.map
                (fun arg ->
                  match Hashtbl.find_opt !ssa_names arg with
-                 | Some v when String.contains arg '$' -> string_of_int v ^ arg
+                 | Some v when String.contains arg '$' && String.contains arg 't' -> string_of_int v ^ arg
                  | _ -> arg)
                (String.split_on_char ' ' tac.arg2))
       | _ -> (
           match Hashtbl.find_opt !ssa_names tac.arg2 with
-          | Some v when String.contains tac.arg2 '$' ->
+          | Some v when (*String.contains tac.arg2 '$'*)String.length (tac.arg2) > 1 && (tac.arg2).[1] = '$' ->
               let arg2 = string_of_int v ^ tac.arg2 in
               Printf.fprintf Print.debug_file
                 "# Retrieved SSA for value %s (%s)\n" tac.arg2 arg2;
@@ -419,9 +380,10 @@ let singe_static_assignment (method_graph : Cfg.cfg) =
     in
     let (operand : Tac.tac_operand) =
       match tac.operand with
+      | Label | Comment | Jmp | Bt -> tac.operand
       | Ident_Expr identVal -> (
           match Hashtbl.find_opt !ssa_names identVal with
-          | Some v when String.contains identVal '$' ->
+          | Some v when String.contains identVal '$' && String.contains identVal 't' ->
               let newVal = string_of_int v ^ identVal in
               Printf.fprintf Print.debug_file
                 "# Retrieved SSA for value %s (%s)\n" identVal newVal;
@@ -437,11 +399,11 @@ let singe_static_assignment (method_graph : Cfg.cfg) =
           tac.operand
     in
     let result =
+      match tac.operand with
+      | Comment | Label | Jmp | Bt -> tac.result
+      | _ ->
       match Hashtbl.find_opt !ssa_names tac.result with
-      | Some v when String.contains tac.result '$' -> (
-          match tac.operand with
-          | Comment | Label | Jmp -> tac.result
-          | _ ->
+      | Some v when String.contains tac.result '$' && String.contains tac.result 't'  -> (
               Printf.fprintf Print.debug_file
                 "# UPDATED SSA: (%s) : (%d%s) FOR TAC: %s <- %s %s %s \n"
                 tac.result (v + 1) tac.result tac.result
@@ -449,7 +411,7 @@ let singe_static_assignment (method_graph : Cfg.cfg) =
                 tac.arg1 tac.arg2;
               Hashtbl.replace !ssa_names tac.result (v + 1);
               string_of_int (v + 1) ^ tac.result)
-      | None when String.contains tac.result '$' ->
+      | None when String.contains tac.result '$' && String.contains tac.result 't'->
           Printf.fprintf Print.debug_file
             "# NEW SSA: (%s) : (%d%s) FOR TAC: %s <- %s %s %s\n" tac.result 0
             tac.result tac.result
@@ -479,7 +441,8 @@ let singe_static_assignment (method_graph : Cfg.cfg) =
         | jmp_tac :: revList ->
             Normal_Node (List.rev revList @ tacs @ [ jmp_tac ])
         | [] -> Normal_Node tacs)
-    | If_Statement (_, _, _, join_stmt, _) -> insert_tac join_stmt tacs
+    | If_Statement (i, t, e, join_stmt, p) -> let ret = If_Statement(insert_tac i tacs, insert_tac t tacs, insert_tac e tacs, insert_tac join_stmt tacs, p) in ret
+        
     | Loop (_, _, join_stmt) -> insert_tac join_stmt tacs
     | Cases (_, _, join_stmt) -> insert_tac join_stmt tacs
   in
@@ -593,13 +556,8 @@ let is_true (elem : cfg_elem) =
           let second_to_last_tac = List.nth (List.rev tacs) 2 in
           match second_to_last_tac.operand with
           | Boolean_Constant ->
-              (* Printf.fprintf stdout "TRUE:\n"; *)
-              (* Printf.fprintf stdout "Arg 1: %s\n" second_to_last_tac.arg1;*)
-              (* Tac.print_tac_elems_file [ second_to_last_tac ] stdout;*)
               second_to_last_tac.arg1
           | _ ->
-              (* Printf.fprintf stdout "FALSE:\n"; *)
-              (* Tac.print_tac_elems_file [ second_to_last_tac ] stdout;*)
               "")
     | If_Statement (_, _, _, join_stmt, _) -> parse_true join_stmt
     | Loop (_, _, join_stmt) -> parse_true join_stmt
@@ -612,7 +570,8 @@ let rec remove_jump (node : cfg_elem) =
   | Normal_Node old_tacs ->
       let length = List.length old_tacs in
       Normal_Node (List.filteri (fun i _ -> i < length - 2) old_tacs)
-  | If_Statement (_, _, _, join_stmt, _) -> remove_jump join_stmt
+  | If_Statement (_, _, _, join_stmt, _) -> 
+    remove_jump join_stmt
   | Loop (_, _, join_stmt) -> remove_jump join_stmt
   | Cases (_, _, join_stmt) -> remove_jump join_stmt
 
@@ -646,7 +605,7 @@ let remove_self_assigns (method_graph : Cfg.cfg) =
             If_Statement
               (remove_jump new_cond, Normal_Node [], new_else, new_join, phi)
         | _ ->
-            (* let cond_hash = Hashtbl.copy !ssa_names in *)
+
             let new_then = clean_elem then_stmt in
             let new_else = clean_elem else_stmt in
             let new_join = clean_elem join_stmt in
@@ -659,7 +618,6 @@ let remove_self_assigns (method_graph : Cfg.cfg) =
             let new_join = clean_elem join_stmt in
             Loop (remove_jump new_cond, Normal_Node [], new_join)
         | _ ->
-            (* let cond_hash = Hashtbl.copy !ssa_names in *)
             let new_body = clean_elem body_stmt in
             let new_join = clean_elem join_stmt in
             Loop (new_cond, new_body, new_join))

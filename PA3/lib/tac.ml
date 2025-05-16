@@ -454,6 +454,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       let arg2 = String.concat " " (List.map (fun (s, _) -> s) arg_tacs) in
       (List.map (fun (_, v) -> v) arg_tacs |> List.flatten)
       @ [
+          (* The comment is a hacky (but working!) solution to do self-dispatch while treating it as a dynamic dispatch *)
           {
             operand = Comment;
             arg1 = "self";
@@ -750,6 +751,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp1 =
         match exp1 with
         | c :: [] when operand_to_string c.operand = "int" -> []
@@ -803,6 +805,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp1 =
         match exp1 with
         | c :: [] when operand_to_string c.operand = "int" -> []
@@ -824,6 +827,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       match (arg1, arg2) with
       | a, b when a.[0] = '$' && b.[0] = '$' -> (
           match b with
+          (* A special case for specifically killing the program on division by zero *)
           | b when b = "$0" ->
               [
                 {
@@ -896,6 +900,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp1 =
         match exp1 with
         | c :: [] when operand_to_string c.operand = "int" -> []
@@ -949,6 +954,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp1 =
         match exp1 with
         | c :: [] when operand_to_string c.operand = "int" -> []
@@ -1002,6 +1008,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp1 =
         match exp1 with
         | c :: []
@@ -1084,6 +1091,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp1 =
         match exp1 with
         | c :: []
@@ -1167,6 +1175,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let arg2 = get_id !var_ctr in
       let exp2 = exp_to_tac exp2 arg2 cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp1 =
         match exp1 with
         | c :: []
@@ -1247,6 +1256,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       var_ctr := !var_ctr + 1;
       let vc = get_id !var_ctr in
       let exp_list = exp_to_tac exp (get_id !var_ctr) cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp =
         match exp_list with
         | c :: [] when operand_to_string c.operand = "bool" -> []
@@ -1282,6 +1292,7 @@ and exp_to_tac (exp : expr) result cname mname : tac_elem list =
       (*var_ctr := !var_ctr + 1;*)
       let vc = get_id !var_ctr in
       let exp_list = exp_to_tac exp (get_id !var_ctr) cname mname in
+      (* All of the following madness is to allow constant folding on the first run of the AST *)
       let real_exp =
         match exp_list with
         | c :: [] when operand_to_string c.operand = "int" -> []
